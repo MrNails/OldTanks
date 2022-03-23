@@ -22,7 +22,7 @@ public partial class MainWindow : GameWindow
     private World m_world;
 
     private double m_fps;
-    private bool m_condition;
+    private bool m_debugView;
 
     private Vector2 m_lastMousePos;
     private bool m_firstMouseMove;
@@ -69,9 +69,7 @@ public partial class MainWindow : GameWindow
         {
             var cube = new Cube()
             {
-                Height = 1,
-                Width = 1,
-                Length = 1,
+                Size = new Vector3(rand.Next(1, 4), rand.Next(1, 6), rand.Next(1, 3)),
                 Position = new Vector3(rand.Next(3, 5), rand.Next(1, 3), rand.Next(1, 7))
             };
 
@@ -175,6 +173,7 @@ public partial class MainWindow : GameWindow
 
             foreach (var worldObject in m_world.WorldObjects)
             {
+                worldObject.Collision = new Collision(worldObject, GlobalCache<Scene>.GetItemOrDefault("CubeCollision"));
                 var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 8) % 2]);
                 Console.WriteLine(texture.Handle);
 
@@ -209,8 +208,17 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyUp(KeyboardKeyEventArgs e)
     {
-        if (e.Key == Keys.B)
-            m_condition = !m_condition;
+        if (e.Key == Keys.D0)
+            m_debugView = !m_debugView;
+
+        if (e.Key == Keys.R)
+        {
+            m_rotation = new Vector3();
+            // m_world.Camera.Position = new Vector3();
+            // m_world.Camera.Roll = 0;
+            // m_world.Camera.Yaw = 0;
+            // m_world.Camera.Pitch = 0;
+        }
 
         if (e.Alt == true && e.Key == Keys.Enter)
             if (WindowState == WindowState.Normal)
@@ -230,7 +238,10 @@ public partial class MainWindow : GameWindow
 
         GL.Enable(EnableCap.CullFace);
 
-        DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
+        if (!m_debugView)
+            DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
+        else
+            DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
 
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);
@@ -279,13 +290,13 @@ public partial class MainWindow : GameWindow
             m_rotation.Y -= 1;
 
         if (KeyboardState.IsKeyDown(Keys.Left))
-            m_rotation.X += 1;
-        else if (KeyboardState.IsKeyDown(Keys.Right))
             m_rotation.X -= 1;
+        else if (KeyboardState.IsKeyDown(Keys.Right))
+            m_rotation.X += 1;
 
         if (KeyboardState.IsKeyDown(Keys.KeyPad7))
             m_rotation.Z += 1;
-        else if (KeyboardState.IsKeyDown(Keys.KeyPad8))
+        else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
             m_rotation.Z -= 1;
 
         if (m_firstMouseMove)
@@ -306,11 +317,14 @@ public partial class MainWindow : GameWindow
                     .Sensitivity; // Reversed since y-coordinates range from bottom to top
         }
 
+        m_world.WorldObjects[0].Direction = m_rotation;
+
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbCamRotation.Text = m_world.Camera.Direction.ToString();
         m_tbX.Text = m_world.Camera.Position.X.ToString();
         m_tbY.Text = m_world.Camera.Position.Y.ToString();
         m_tbZ.Text = m_world.Camera.Position.Z.ToString();
+        m_tbRotation.Text = m_rotation.ToString();
 
         base.OnUpdateFrame(args);
     }
