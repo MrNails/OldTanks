@@ -4,13 +4,15 @@ namespace GraphicalEngine.Services.Interfaces;
 
 public interface ITransformable : IMovable
 {
-    public Vector3 Size { get; set; }
+    bool HaveChanged { get; }
+    
+    Vector3 Size { get; set; }
 
-    public float Width { get; set; }
-    public float Height { get; set; }
-    public float Length { get; set; }
+    float Width { get; set; }
+    float Height { get; set; }
+    float Length { get; set; }
 
-    public Matrix4 Transform { get; }
+    Matrix4 Transform { get; }
 
-    public void AcceptTransform();
+    void AcceptTransform();
 }

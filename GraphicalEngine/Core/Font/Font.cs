@@ -82,6 +82,8 @@ public class Font
 
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 
+            var fontName = Path.GetFileNameWithoutExtension(path);
+            // Console.WriteLine($"Font {fontName}");
             foreach (var charRange in chars)
             {
                 for (uint i = charRange.Key; i < charRange.Value; i++)
@@ -96,14 +98,15 @@ public class Font
                         new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
                         new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop));
 
+                    // Console.WriteLine($"Char: {(char)i}, Advance: {character.Advance}, Size: {character.Size}, Bearing: {character.Bearing}");
+                    
                     charsResult.Add((char)i, character);
                 }
             }
 
-            var fontName = Path.GetFileNameWithoutExtension(path);
-
             var fontInfo = new FontInformation(32, fontName, charsResult);
 
+            // Console.WriteLine("");
             GlobalCache<FontInformation>.AddOrUpdateItem(fontName, fontInfo);
 
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
