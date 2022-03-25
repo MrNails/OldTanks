@@ -18,6 +18,12 @@ namespace OldTanks.Windows;
 public partial class MainWindow : GameWindow
 {
     private readonly List<Control> m_controls;
+    private readonly List<Vector3> m_objSLots;
+
+    private readonly int m_renderRadius;
+    private bool exit;
+
+    private readonly Thread m_generateObjectThread;
 
     private World m_world;
 
@@ -50,31 +56,59 @@ public partial class MainWindow : GameWindow
         m_world = new World();
         m_controls = new List<Control>();
 
+        m_renderRadius = 20;
+
         GlobalSettings.UserSettings.Sensitivity = 0.1f;
 
-        m_rotation = new Vector3(180, 90, 0);
+        m_objSLots = new List<Vector3>(m_renderRadius * m_renderRadius * m_renderRadius);
 
-        GenerateObjects();
+        m_generateObjectThread = new Thread(GenerateObjects);
+
+        m_rotation = new Vector3(180, 90, 0);
     }
 
     private void GenerateObjects()
     {
         var rand = new Random();
-        var objAmount = rand.Next(3, 5);
 
-        var defCube = new Cube() { Size = new Vector3(1, 1, 1) };
-        m_world.WorldObjects.Add(defCube);
+        GEGlobalSettings.s_globalLock.EnterWriteLock();
 
-        for (int i = 0; i < objAmount; i++)
+        var textures = new string[] { "Container", "Brick" };
+        for (int i = 0; i < m_renderRadius; i++)
+        for (int j = 0; j < m_renderRadius; j++)
+        for (int k = 0; k < m_renderRadius; k += 2)
+            m_objSLots.Add(new Vector3(i - m_renderRadius / 2, j - m_renderRadius / 2, k - m_renderRadius / 2));
+
+        GEGlobalSettings.s_globalLock.ExitWriteLock();
+
+        while (m_objSLots.Count != 0 && !exit)
         {
+            var index = rand.Next(0, m_objSLots.Count);
+
             var cube = new Cube()
             {
-                Size = new Vector3(rand.Next(1, 4), rand.Next(1, 6), rand.Next(1, 3)),
-                Position = new Vector3(rand.Next(3, 5), rand.Next(1, 3), rand.Next(1, 7))
+                // Size = new Vector3(rand.Next(1, 4), rand.Next(1, 6), rand.Next(1, 3)),
+                Size = new Vector3(1),
+                Position = m_objSLots[index]
             };
 
+            cube.Collision =
+                new Collision(cube, GlobalCache<Scene>.GetItemOrDefault("CubeCollision"));
+            var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
+
+            foreach (var mesh in cube.Scene.Meshes)
+                mesh.Texture = texture;
+
+            GEGlobalSettings.s_globalLock.EnterWriteLock();
             m_world.WorldObjects.Add(cube);
+
+            m_objSLots.RemoveAt(index);
+            GEGlobalSettings.s_globalLock.ExitWriteLock();
+
+            // Thread.Sleep(100);
         }
+
+        Console.WriteLine("Done!");
     }
 
     private void LoadShaders()
@@ -94,11 +128,24 @@ public partial class MainWindow : GameWindow
     private void LoadTextures()
     {
         var shaderDirPath = Path.Combine(Environment.CurrentDirectory, @"Assets\Textures");
+        var skyBoxesDir = Path.Combine(shaderDirPath, "SkyBoxes");
 
         foreach (var textureFile in Directory.GetFiles(shaderDirPath))
         {
             GlobalCache<Texture>.AddOrUpdateItem(Path.GetFileNameWithoutExtension(textureFile),
                 Texture.CreateTexture(textureFile));
+        }
+        
+        // foreach (var textureFile in Directory.GetFiles(skyBoxesDir))
+        // {
+        //     GlobalCache<Texture>.AddOrUpdateItem(Path.GetFileNameWithoutExtension(textureFile),
+        //         Texture.CreateSkyBoxTextureFromOneImg(textureFile));
+        // }
+        
+        foreach (var skyboxDir in new DirectoryInfo(skyBoxesDir).GetDirectories())
+        {
+            GlobalCache<Texture>.AddOrUpdateItem(skyboxDir.Name,
+                Texture.CreateSkyBoxTexture(skyboxDir.FullName));
         }
     }
 
@@ -136,10 +183,12 @@ public partial class MainWindow : GameWindow
 
         foreach (var fontPath in Directory.GetFiles(fontsDirPath))
         {
-            var font = Font.RegisterFont(fontPath);
+            var font = Font.CreateFont(fontPath);
 
-            if (!font)
+            if (font == null)
                 Console.WriteLine($"Error loading font: {Path.GetFileNameWithoutExtension(fontPath)}");
+            else
+                GlobalCache<FontInformation>.AddOrUpdateItem(font.FontName, font);
         }
     }
 
@@ -156,8 +205,8 @@ public partial class MainWindow : GameWindow
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-        try
-        {
+        // try
+        // {
             LoadShaders();
             LoadTextures();
             LoadFonts();
@@ -168,28 +217,43 @@ public partial class MainWindow : GameWindow
 
             DrawManager.RegisterScene(typeof(string),
                 GlobalCache<Shader>.GetItemOrDefault("FontShader"));
+            
+            DrawManager.RegisterScene(typeof(SkyBox),
+                GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
 
-            var textures = new string[] { "Container", "Brick" };
+            var defCube = new Cube { Size = new Vector3(1, 1, 1) };
+            m_world.WorldObjects.Add(defCube);
 
-            foreach (var worldObject in m_world.WorldObjects)
-            {
-                worldObject.Collision = new Collision(worldObject, GlobalCache<Scene>.GetItemOrDefault("CubeCollision"));
-                var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 8) % 2]);
-                Console.WriteLine(texture.Handle);
+            m_world.SkyBox.Size = new Vector3(1);
+            m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
 
-                foreach (var mesh in worldObject.Scene.Meshes)
-                    mesh.Texture = texture;
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
+            defCube.Collision =
+                new Collision(defCube, GlobalCache<Scene>.GetItemOrDefault("CubeCollision"));
+            var texture = GlobalCache<Texture>.GetItemOrDefault("Container");
+
+            foreach (var mesh in defCube.Scene.Meshes)
+                mesh.Texture = texture;
+
+            // m_generateObjectThread.Start();
+            // var textures = new string[] { "Container", "Brick" };
+
+            // foreach (var worldObject in m_world.WorldObjects)
+            // {
+            //
+            // }
+        // }
+        // catch (Exception e)
+        // {
+        //     Console.WriteLine(e);
+        // }
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
-            (float)Size.X / Size.Y, 0.1f, 1000.0f);
+            (float)Size.X / Size.Y, 0.1f, GlobalSettings.MaxDepthLength);
 
+        
+        m_world.Camera.Speed = 7;
+        
         base.OnLoad();
     }
 
@@ -203,7 +267,7 @@ public partial class MainWindow : GameWindow
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
-            aspect >= 1 ? aspect : 1, 0.1f, 1000.0f);
+            aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
     }
 
     protected override void OnKeyUp(KeyboardKeyEventArgs e)
@@ -238,16 +302,24 @@ public partial class MainWindow : GameWindow
 
         GL.Enable(EnableCap.CullFace);
 
+        GEGlobalSettings.s_globalLock.EnterReadLock();
+
         if (!m_debugView)
             DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
         else
             DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
 
+        GL.DepthFunc(DepthFunction.Lequal);
+        DrawManager.DrawSkyBox(m_world.SkyBox, m_world.Camera);
+        GL.DepthFunc(DepthFunction.Less);
+        
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);
 
         foreach (var control in m_controls)
             control.Draw();
+
+        GEGlobalSettings.s_globalLock.ExitReadLock();
 
         Context.SwapBuffers();
 
@@ -348,6 +420,15 @@ public partial class MainWindow : GameWindow
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
-            aspect >= 1 ? aspect : 1, 0.1f, 1000.0f);
+            aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        exit = true;
+        if (m_generateObjectThread.IsAlive)
+            m_generateObjectThread.Join();
+        
+        base.Dispose(disposing);
     }
 }

@@ -49,6 +49,12 @@ public class Shader : IDisposable
         GL.UniformMatrix4(GetUniformLocation(name), false, ref matrix);
     }
     
+    public void SetMatrix3(string name, Matrix3 matrix)
+    {
+        GL.UseProgram(Handle);
+        GL.UniformMatrix3(GetUniformLocation(name), false, ref matrix);
+    }
+    
     public void SetVector3(string name, Vector3 vector)
     {
         GL.UseProgram(Handle);

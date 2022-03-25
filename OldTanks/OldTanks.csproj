@@ -18,7 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Assets\Textures" />
+      <Folder Include="Assets\Textures\SkyBoxes" />
       <Folder Include="Services\Extensions" />
     </ItemGroup>
 

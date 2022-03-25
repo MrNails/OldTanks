@@ -73,14 +73,10 @@ public static class DrawManager
 
                 DrawFaceNumber(mesh, element, camera);
 
-                // Console.WriteLine($"Index: {i} Pos: {pos}; Rotation: {rotation}; Norm: {norm}");
-
                 drawSceneInfo.Shader.Use();
                 drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
                 drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
             }
-
-            // Console.WriteLine("\n\n");
         }
     }
 
@@ -96,7 +92,7 @@ public static class DrawManager
             Console.WriteLine("Cannot find collision shader for drawing collision.");
             return false;
         }
-        
+
         foreach (var element in elements)
         {
             var collisionScene = element.Collision;
@@ -140,23 +136,55 @@ public static class DrawManager
                 DrawFaceNumber(mesh, collisionScene.CurrentObject, camera);
 
                 GL.Disable(EnableCap.CullFace);
-                
+
                 for (int j = 0; j < mesh.Vertices.Length; j += 3)
                 {
                     var pos = new Vector3(mesh.Vertices[j], mesh.Vertices[j + 1], mesh.Vertices[j + 2]);
-                    
-                    DrawText3D(DefaultFont, pos.ToString(), pos, Colors.Orange, new Vector3(180, 0, 0), 
+
+                    DrawText3D(DefaultFont, pos.ToString(), pos, Colors.Orange, new Vector3(180, 0, 0),
                         0.005f, camera, true);
                 }
-                
+
                 GL.Enable(EnableCap.CullFace);
 
                 collisionShader.Use();
             }
-            
         }
 
         return true;
+    }
+
+    public static void DrawSkyBox(SkyBox skyBox, Camera camera)
+    {
+        var scene = GlobalCache<Scene>.GetItemOrDefault("SkyBoxScene");
+        var elemType = typeof(SkyBox);
+        DrawSceneInfo drawSceneInfo;
+
+        if (!m_sceneBuffers.TryGetValue(elemType, out drawSceneInfo))
+            throw new DrawException($"Cannot draw object {elemType.FullName}");
+        
+        drawSceneInfo.Shader.Use();
+        drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
+        drawSceneInfo.Shader.SetMatrix3("view", new Matrix3(camera.LookAt));
+
+        for (int i = 0; i < scene.Meshes.Count; i++)
+        {
+            var mesh = scene.Meshes[i];
+            DrawObjectInfo drawObjectInfo;
+
+            //Find existing draw mesh info and if it don't exists - create it
+            if (!drawSceneInfo.Buffers.TryGetValue(mesh.MeshId, out drawObjectInfo))
+            {
+                drawObjectInfo = CreateSkyBoxDrawMeshInfo(mesh, drawSceneInfo.Shader);
+                drawSceneInfo.Buffers.Add(mesh.MeshId, drawObjectInfo);
+            }
+
+            GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
+            
+            skyBox.Texture.Use(TextureUnit.Texture0, TextureTarget.TextureCubeMap);
+
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+        }
     }
 
     public static void DrawText2D(Font font, string text, Vector2 position)
@@ -194,9 +222,10 @@ public static class DrawManager
             drawObjInfo = CreateFontDrawMeshInfo(mesh, drawSceneInfo.Shader);
             drawSceneInfo.Buffers.Add(mesh.MeshId, drawObjInfo);
         }
+        
+        font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
         float x = position.X, y = position.Y;
-        // float x = 0, y = 0;
         for (int i = 0; i < text.Length; i++)
         {
             var _char = text[i];
@@ -206,7 +235,6 @@ public static class DrawManager
             {
                 x = position.X;
                 y -= font.FontSize;
-                // y += font.FontSize * 2f;
                 continue;
             }
 
@@ -224,25 +252,24 @@ public static class DrawManager
             var xTransPos = x + characterInfo.Bearing.X * sizeMultiplier;
             var yTransPos = y - (characterInfo.Size.Y - characterInfo.Bearing.Y) * sizeMultiplier;
 
+            x += characterInfo.Advance * sizeMultiplier;
+            
+            if (_char == ' ')
+                continue;
+
             GL.BindVertexArray(drawObjInfo.VertexArrayObject);
 
             var vertices = ArrayPool<float>.Shared.Rent(20);
 
-            FontVertices(vertices, xTransPos, yTransPos, cWidth, cHeight);
+            FontVertices(vertices, xTransPos, yTransPos, cWidth, cHeight, 
+                characterInfo, font.FontInformation.Texture);
 
             drawSceneInfo.Shader.SetMatrix4("model", Matrix4.Identity);
-
-            characterInfo.Texture.Use(TextureUnit.Texture0);
 
             PrepareFontToDraw(vertices, drawObjInfo, drawSceneInfo.Shader);
 
             GL.DrawArrays(PrimitiveType.Triangles, 0, 6);
-
-            x += characterInfo.Advance * sizeMultiplier;
         }
-
-        // GL.BindVertexArray(0);
-        // GL.BindTexture(TextureTarget.Texture2D, 0);
     }
 
     public static void DrawText3D(Font font, string text, Vector3 position, Vector3 color,
@@ -274,7 +301,7 @@ public static class DrawManager
         var mRotationX = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(rotation.X));
         var mRotationY = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y));
         var mRotationZ = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(rotation.Z));
-        
+
         var mOutRotationX = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(outerRotation.X));
         var mOutRotationY = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(outerRotation.Y));
         var mOutRotationZ = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(outerRotation.Z));
@@ -296,6 +323,8 @@ public static class DrawManager
         else
             mTransOrigin = Matrix4.CreateTranslation(position);
 
+        font.FontInformation.Texture.Use(TextureUnit.Texture0);
+        
         float x = 0, y = 0;
         for (int i = 0; i < text.Length; i++)
         {
@@ -318,16 +347,17 @@ public static class DrawManager
             var yTransPos = y + (characterInfo.Size.Y - characterInfo.Bearing.Y) * sizeMultiplier * scale;
 
             x += characterInfo.Advance * 2f * sizeMultiplier * scale;
-
+            
+            if (_char == ' ')
+                continue;
+            
             var mScale = Matrix4.CreateScale(cWidth, cHeight, 1.0f);
             var mTranslate = Matrix4.CreateTranslation(xTransPos, yTransPos, 0);
 
-            var mModel = mScale * mTranslate * mRotationX * mRotationY * mRotationZ * 
+            var mModel = mScale * mTranslate * mRotationX * mRotationY * mRotationZ *
                          mTransOrigin * mOutRotationX * mOutRotationY * mOutRotationZ;
 
             drawSceneInfo.Shader.SetMatrix4("model", mModel);
-
-            characterInfo.Texture.Use(TextureUnit.Texture0);
 
             GL.BindVertexArray(drawObjInfo.VertexArrayObject);
             GL.DrawElements(BeginMode.Triangles, mesh.Indices.Length, DrawElementsType.UnsignedInt, 0);
@@ -415,6 +445,25 @@ public static class DrawManager
 
         return new DrawObjectInfo(vao, vbo, ebo);
     }
+    
+    private static DrawObjectInfo CreateSkyBoxDrawMeshInfo(Mesh mesh, Shader shader)
+    {
+        int vao = 0, vbo = 0, ebo = 0;
+
+        vbo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+        GL.BufferData(BufferTarget.ArrayBuffer, mesh.Vertices.Length * sizeof(float), mesh.Vertices,
+            BufferUsageHint.StaticDraw);
+
+        vao = GL.GenVertexArray();
+        GL.BindVertexArray(vao);
+
+        var posIndex = shader.GetAttribLocation("iPos");
+        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+        GL.EnableVertexAttribArray(posIndex);
+
+        return new DrawObjectInfo(vao, vbo, ebo);
+    }
 
     private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera)
     {
@@ -457,15 +506,45 @@ public static class DrawManager
         GL.EnableVertexAttribArray(posIndex);
     }
 
-    private static void FontVertices(float[] vertices, float xTransPos, float yTransPos, float cWidth, float cHeight)
+    private static void FontVertices(float[] vertices, float xTransPos, float yTransPos, float cWidth, 
+        float cHeight, CharacterInfo characterInfo, Texture texture)
     {
+        var texXStart = characterInfo.Position / texture.Width;
+        var texXEnd = (characterInfo.Position + characterInfo.Size.X) / texture.Width;
+        
+        var texYEnd = characterInfo.Size.Y / texture.Height;
+        
         // update VBO for each character
-        vertices[0] = xTransPos;           vertices[1] = yTransPos + cHeight; vertices[2] = 0.0f;  vertices[3] = 0.0f;  vertices[4] = 0.0f;
-        vertices[5] = xTransPos;           vertices[6] = yTransPos;           vertices[7] = 0.0f;  vertices[8] = 0.0f;  vertices[9] = 1.0f;
-        vertices[10] = xTransPos + cWidth; vertices[11] = yTransPos;          vertices[12] = 0.0f; vertices[13] = 1.0f; vertices[14] = 1.0f;
+        vertices[0] = xTransPos;
+        vertices[1] = yTransPos + cHeight;
+        vertices[2] = 0.0f;
+        vertices[3] = texXStart;
+        vertices[4] = 0.0f;
+        vertices[5] = xTransPos;
+        vertices[6] = yTransPos;
+        vertices[7] = 0.0f;
+        vertices[8] = texXStart;
+        vertices[9] = texYEnd;
+        vertices[10] = xTransPos + cWidth;
+        vertices[11] = yTransPos;
+        vertices[12] = 0.0f;
+        vertices[13] = texXEnd;
+        vertices[14] = texYEnd;
 
-        vertices[15] = xTransPos;          vertices[16] = yTransPos + cHeight; vertices[17] = 0.0f; vertices[18] = 0.0f; vertices[19] = 0.0f;
-        vertices[20] = xTransPos + cWidth; vertices[21] = yTransPos;           vertices[22] = 0.0f; vertices[23] = 1.0f; vertices[24] = 1.0f;
-        vertices[25] = xTransPos + cWidth; vertices[26] = yTransPos + cHeight; vertices[27] = 0.0f; vertices[28] = 1.0f; vertices[29] = 0.0f;
+        vertices[15] = xTransPos;
+        vertices[16] = yTransPos + cHeight;
+        vertices[17] = 0.0f;
+        vertices[18] = texXStart;
+        vertices[19] = 0.0f;
+        vertices[20] = xTransPos + cWidth;
+        vertices[21] = yTransPos;
+        vertices[22] = 0.0f;
+        vertices[23] = texXEnd;
+        vertices[24] = texYEnd;
+        vertices[25] = xTransPos + cWidth;
+        vertices[26] = yTransPos + cHeight;
+        vertices[27] = 0.0f;
+        vertices[28] = texXEnd;
+        vertices[29] = 0.0f;
     }
 }
