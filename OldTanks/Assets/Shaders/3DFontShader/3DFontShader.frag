@@ -2,7 +2,6 @@
 in vec2 texture;
 
 uniform sampler2D texture0;
-
 uniform vec3 color;
 uniform int boldMultiplier;
 

@@ -1,7 +1,9 @@
 ﻿using System.Drawing;
-using GraphicalEngine.Core;
-using GraphicalEngine.Core.Font;
-using GraphicalEngine.Services;
+using CoolEngine.Core;
+using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.PhysicEngine.Core;
+using CoolEngine.Services;
 using OldTanks.Controls;
 using OldTanks.Models;
 using OldTanks.Services;
@@ -11,7 +13,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using GlobalSettings = OldTanks.Services.GlobalSettings;
-using GEGlobalSettings = GraphicalEngine.Services.GlobalSettings;
+using GEGlobalSettings = CoolEngine.Services.GlobalSettings;
 
 namespace OldTanks.Windows;
 
@@ -64,7 +66,7 @@ public partial class MainWindow : GameWindow
 
         m_generateObjectThread = new Thread(GenerateObjects);
 
-        m_rotation = new Vector3(180, 90, 0);
+        m_rotation = new Vector3(0, 0, 0);
     }
 
     private void GenerateObjects()
@@ -173,13 +175,10 @@ public partial class MainWindow : GameWindow
         scene.Meshes.Add(new Mesh(0, characterVert, characterVertIndices));
 
         var dynamicFontScene = new Scene();
-        dynamicFontScene.Meshes.Add(new Mesh(1));
+        dynamicFontScene.Meshes.Add(new Mesh(1, Array.Empty<float>(), characterVertIndices));
 
         GlobalCache<Scene>.AddOrUpdateItem("FontScene", scene);
         GlobalCache<Scene>.AddOrUpdateItem("DynamicFontScene", dynamicFontScene);
-
-        // for (int i = ' '; i < '~'; i++)
-        //     chars.Add((char)i);
 
         foreach (var fontPath in Directory.GetFiles(fontsDirPath))
         {
@@ -205,8 +204,8 @@ public partial class MainWindow : GameWindow
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-        // try
-        // {
+        try
+        {
             LoadShaders();
             LoadTextures();
             LoadFonts();
@@ -221,10 +220,13 @@ public partial class MainWindow : GameWindow
             DrawManager.RegisterScene(typeof(SkyBox),
                 GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
 
-            var defCube = new Cube { Size = new Vector3(1, 1, 1) };
+            TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
+            TextRenderer.OriginalScene = GlobalCache<Scene>.GetItemOrDefault("FontScene");
+            
+            var defCube = new Cube { Size = new Vector3(2) };
             m_world.WorldObjects.Add(defCube);
 
-            m_world.SkyBox.Size = new Vector3(1);
+            m_world.SkyBox.Size = new Vector3(5);
             m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
 
             defCube.Collision =
@@ -235,17 +237,11 @@ public partial class MainWindow : GameWindow
                 mesh.Texture = texture;
 
             // m_generateObjectThread.Start();
-            // var textures = new string[] { "Container", "Brick" };
-
-            // foreach (var worldObject in m_world.WorldObjects)
-            // {
-            //
-            // }
-        // }
-        // catch (Exception e)
-        // {
-        //     Console.WriteLine(e);
-        // }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
@@ -290,6 +286,7 @@ public partial class MainWindow : GameWindow
             else
                 WindowState = WindowState.Normal;
 
+
         base.OnKeyUp(e);
     }
 
@@ -302,17 +299,18 @@ public partial class MainWindow : GameWindow
 
         GL.Enable(EnableCap.CullFace);
 
-        GEGlobalSettings.s_globalLock.EnterReadLock();
-
-        if (!m_debugView)
-            DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
-        else
-            DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
-
         GL.DepthFunc(DepthFunction.Lequal);
         DrawManager.DrawSkyBox(m_world.SkyBox, m_world.Camera);
         GL.DepthFunc(DepthFunction.Less);
         
+        GEGlobalSettings.s_globalLock.EnterReadLock();
+
+        if (!m_debugView)
+        // if (true)
+            DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
+        else
+            DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
+
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);
 
@@ -421,6 +419,8 @@ public partial class MainWindow : GameWindow
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
+
+        VSync = VSyncMode.On;
     }
 
     protected override void Dispose(bool disposing)

@@ -23,7 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\GraphicalEngine\GraphicalEngine.csproj" />
+      <ProjectReference Include="..\CoolEngine\CoolEngine.csproj" />
     </ItemGroup>
 
 </Project>

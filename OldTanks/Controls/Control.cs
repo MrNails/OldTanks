@@ -15,6 +15,8 @@ public abstract class Control
     public Vector2 Position { get; set; }
     public Vector2 Size { get; set; }
     
+    public Vector2 Rotation { get; set; }
+    
     public string Name
     {
         get => m_name;

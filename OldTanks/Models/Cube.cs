@@ -1,5 +1,6 @@
-﻿using GraphicalEngine.Core;
-using GraphicalEngine.Services;
+﻿using CoolEngine.Core;
+using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.Services;
 using OldTanks.Services;
 using OpenTK.Mathematics;
 

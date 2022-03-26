@@ -47,7 +47,7 @@ public partial class MainWindow
         var textBlock6 = new TextBlock("TextBlock6")
         {
             Position = new Vector2(0, textBlock5.Position.Y + textBlock5.Font.FontSize),
-            Text = "Camera rotation: ",
+            Text = "Default cube rotation: ",
         };
         
         m_tbFPS = new TextBlock("TB_FPS")
@@ -79,8 +79,9 @@ public partial class MainWindow
         m_tbRotation = new TextBlock("TB_Rotation")
         {
             Position = new Vector2(textBlock6.Position.X + textBlock6.Size.X + 5, textBlock6.Position.Y),
+            Rotation = new Vector2(0, 0)
         };
-        
+
         m_controls.Add(textBlock1);
         m_controls.Add(textBlock2);
         m_controls.Add(textBlock3);

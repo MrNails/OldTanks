@@ -1,4 +1,4 @@
-﻿using GraphicalEngine.Core;
+﻿using CoolEngine.Core;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Services;

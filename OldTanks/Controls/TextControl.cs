@@ -1,7 +1,7 @@
 ﻿using System.Drawing;
-using GraphicalEngine.Core;
-using GraphicalEngine.Core.Font;
-using GraphicalEngine.Services;
+using CoolEngine.Core;
+using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.Services;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Controls;
@@ -27,7 +27,7 @@ public abstract class TextControl : Control
 
     protected TextControl(string name) : base(name)
     {
-        Color = Color.White;
+        Color = Colors.White;
         Font = new Font("Arial", 14);
         Text = string.Empty;
     }
@@ -35,7 +35,7 @@ public abstract class TextControl : Control
     public VerticalTextAlignment VerticalTextAlignment { get; set; }
     public HorizontalTextAlignment HorizontalTextAlignment { get; set; }
 
-    public Color Color { get; set; }
+    public Vector3 Color { get; set; }
     
     public Font Font
     {

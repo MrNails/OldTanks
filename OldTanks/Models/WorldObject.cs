@@ -1,6 +1,8 @@
-﻿using GraphicalEngine.Core;
-using GraphicalEngine.Services.Exceptions;
-using GraphicalEngine.Services.Interfaces;
+﻿using CoolEngine.Core;
+using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.PhysicEngine.Core;
+using CoolEngine.Services.Exceptions;
+using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Models;

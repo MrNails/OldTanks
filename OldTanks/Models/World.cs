@@ -1,4 +1,5 @@
-﻿using GraphicalEngine.Core;
+﻿using CoolEngine.Core;
+using CoolEngine.GraphicalEngine.Core;
 using OldTanks.Services;
 
 namespace OldTanks.Models;

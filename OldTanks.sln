@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks", "OldTanks\OldTanks.csproj", "{8EFBB5C2-4874-4288-A6A6-0AFF352D0798}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GraphicalEngine", "GraphicalEngine\GraphicalEngine.csproj", "{04C2EE22-BF44-46BC-B25E-9BD7FE4FAD48}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoolEngine", "CoolEngine\CoolEngine.csproj", "{04C2EE22-BF44-46BC-B25E-9BD7FE4FAD48}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
