@@ -1,9 +1,10 @@
-﻿using CoolEngine.Services.Interfaces;
+﻿using CoolEngine.PhysicEngine.Core.Collision;
+using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class Camera : IMovable
+public class Camera : IPhysicObject
 {
     private bool m_isLookAtChanged;
 
@@ -16,6 +17,11 @@ public class Camera : IMovable
     private float m_fov;
 
     private Matrix4 m_lookAt;
+    private Collision m_collision;
+    private Vector3 m_size;
+    private Matrix4 m_transform;
+
+    private bool m_haveTransformation;
 
     public Camera() : this(new Vector3(0, 0, 0))
     {
@@ -40,12 +46,22 @@ public class Camera : IMovable
     public Vector3 Position
     {
         get => m_position;
-        set => m_position = value;
+        set
+        {
+            m_position = value;
+            m_haveTransformation = true;
+        }
     }
 
     public Vector3 CameraUp => m_cameraUp;
 
+    public bool HaveChanged => m_haveTransformation;
+    
+    public Matrix4 Transform => m_transform;
+    
     public float Speed { get; set; }
+    
+    public RigidBody RigidBody { get; set; }
 
     public Matrix4 LookAt
     {
@@ -65,6 +81,7 @@ public class Camera : IMovable
         {
             m_position.X = value;
             m_isLookAtChanged = true;
+            m_haveTransformation = true;
         }
     }
 
@@ -75,6 +92,7 @@ public class Camera : IMovable
         {
             m_position.Y = value;
             m_isLookAtChanged = true;
+            m_haveTransformation = true;
         }
     }
 
@@ -85,6 +103,7 @@ public class Camera : IMovable
         {
             m_position.Z = value;
             m_isLookAtChanged = true;
+            m_haveTransformation = true;
         }
     }
 
@@ -102,13 +121,18 @@ public class Camera : IMovable
             m_direction = Vector3.Normalize(m_direction);
 
             m_isLookAtChanged = true;
+            m_haveTransformation = true;
         }
     }
 
     public float Roll
     {
         get => m_roll;
-        set => m_roll = value;
+        set
+        {
+            m_roll = value;
+            m_haveTransformation = true;
+        }
     }
 
     public float Pitch
@@ -126,6 +150,7 @@ public class Camera : IMovable
             m_direction = Vector3.Normalize(m_direction);
 
             m_isLookAtChanged = true;
+            m_haveTransformation = true;
         }
     }
 
@@ -135,6 +160,72 @@ public class Camera : IMovable
         set => m_fov = MathHelper.Clamp(value, 20, 90);
     }
 
+    public Collision Collision
+    {
+        get => m_collision;
+        set
+        {
+            if (value == null)
+                throw new ArgumentNullException(nameof(value));
+            
+            m_collision = value;
+        }
+    }
+
+    public Vector3 Size
+    {
+        get => m_size;
+        set
+        {
+            m_size = value;
+            m_haveTransformation = true;
+        }
+    }
+
+    public float Width
+    {
+        get => m_size.X;
+        set
+        {
+            m_size.X = value;
+            m_haveTransformation = true;
+        }
+    }
+
+    public float Height
+    {
+        get => m_size.Y;
+        set
+        {
+            m_size.Y = value;
+            m_haveTransformation = true;
+        }
+    }
+
+    public float Length
+    {
+        get => m_size.Z;
+        set
+        {
+            m_size.Z = value; 
+            m_haveTransformation = true;
+        }
+    }
+
+    public void AcceptTransform()
+    {
+        if (!m_haveTransformation)
+            return;
+
+        m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
+                      Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Direction.X)) *
+                      Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) *
+                      Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Direction.Z)) *
+                      Matrix4.CreateTranslation(Position);
+        
+        m_haveTransformation = false;
+    }
+    
     private void ChangedLookAt()
     {
         m_lookAt = Matrix4.LookAt(Position, Position + m_direction, m_cameraUp);

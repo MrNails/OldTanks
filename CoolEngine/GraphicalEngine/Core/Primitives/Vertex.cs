@@ -7,6 +7,10 @@ public struct Vertex
     private Vector3 m_position;
     private Vector2 m_texturePosition;
 
+    public Vertex(float x, float y, float z, float u, float v, float textureIndex) 
+        : this(new Vector3(x, y, z), new Vector2(u, v), textureIndex)
+    { }
+    
     public Vertex(Vector3 position, Vector2 texturePosition, float textureIndex)
     {
         m_position = position;

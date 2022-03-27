@@ -1,29 +1,21 @@
-﻿using CoolEngine.Core.Primitives;
-using OpenTK.Mathematics;
+﻿using OpenTK.Mathematics;
 
-namespace CoolEngine.GraphicalEngine.Core;
+namespace CoolEngine.PhysicEngine.Core;
 
 public class Mesh
 {
-    private int m_meshId;
-    private Vertex[] m_vertices;
+    private Vector3[] m_vertices;
     private uint[] m_indices;
 
-    public Mesh(int meshId) : this(meshId, Array.Empty<Vertex>(), Array.Empty<uint>()) { }
+    public Mesh() : this( Array.Empty<Vector3>(), Array.Empty<uint>()) { }
     
-    public Mesh(int meshId, Vertex[] vertices, uint[] indices)
+    public Mesh( Vector3[] vertices, uint[] indices)
     {
         Vertices = vertices;
         Indices = indices;
-        m_meshId = meshId;
     }
 
-    /// <summary>
-    /// Represent mesh id related to specified scene.
-    /// </summary>
-    public int MeshId => m_meshId;
-    
-    public Vertex[] Vertices
+    public Vector3[] Vertices
     {
         get => m_vertices;
         set
@@ -49,15 +41,12 @@ public class Mesh
 
     public Vector3 Normal { get; set; }
 
-    public Texture Texture { get; set; }
-
     public Mesh Copy()
     {
-        return new Mesh(MeshId)
+        return new Mesh
         {
             Vertices = m_vertices,
             Indices = m_indices,
-            Texture = Texture,
             Normal = Normal
         };
     }

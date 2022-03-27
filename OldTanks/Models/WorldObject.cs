@@ -1,13 +1,14 @@
 ﻿using CoolEngine.Core;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core;
+using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services.Exceptions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Models;
 
-public abstract class WorldObject : IDrawable, ICollisionable, IPhysicObject
+public abstract class WorldObject : IDrawable, IPhysicObject
 {
     private Scene m_scene;
     private Vector3 m_size;
@@ -118,7 +119,7 @@ public abstract class WorldObject : IDrawable, ICollisionable, IPhysicObject
         get => m_size.Z;
         set
         {
-            m_size.Z = value; 
+            m_size.Z = value;
             m_haveTransformation = true;
         }
     }
@@ -163,9 +164,8 @@ public abstract class WorldObject : IDrawable, ICollisionable, IPhysicObject
         m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
                       Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Pitch)) *
                       Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Yaw)) *
-                      Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
-                      Matrix4.CreateTranslation(Position);
-        
+                      Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll));
+
         m_haveTransformation = false;
     }
 }

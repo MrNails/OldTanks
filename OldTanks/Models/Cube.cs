@@ -1,8 +1,8 @@
-﻿using CoolEngine.Core;
+﻿using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.Services;
-using OldTanks.Services;
 using OpenTK.Mathematics;
+using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
 
 namespace OldTanks.Models;
 
@@ -21,55 +21,55 @@ public class Cube : WorldObject
     private static void CreateCubeScene()
     {
         var scene = new Scene();
-        var collisionScene = new Scene();
+        var collisionScene = new List<CollisionMesh>();
 
         //x, y, z, u, v
-        float[] topSide =
+        Vertex[] topSide =
         {
-             1.0f,    1.0f,    1.0f,    1.0f,    1.0f,
-             1.0f,    1.0f,   -1.0f,    1.0f,    0.0f,
-            -1.0f,    1.0f,   -1.0f,    0.0f,    0.0f,
-            -1.0f,    1.0f,    1.0f,    0.0f,    1.0f,
+            new Vertex(1.0f,    1.0f,    1.0f,    1.0f,    1.0f, 0),
+            new Vertex(1.0f,    1.0f,   -1.0f,    1.0f,    0.0f, 0),
+            new Vertex(-1.0f,    1.0f,   -1.0f,    0.0f,    0.0f, 0),
+            new Vertex(-1.0f,    1.0f,    1.0f,    0.0f,    1.0f, 0)
         };
         
-        float[] downSide =
+        Vertex[] downSide =
         {
-            -1.0f,   -1.0f,   -1.0f,    1.0f,    0.0f,
-             1.0f,   -1.0f,   -1.0f,    0.0f,    0.0f,
-             1.0f,   -1.0f,    1.0f,    0.0f,    1.0f,
-            -1.0f,   -1.0f,    1.0f,    1.0f,    1.0f,
+            new Vertex(-1.0f,   -1.0f,   -1.0f,    1.0f,    0.0f, 0),
+            new Vertex(1.0f,   -1.0f,   -1.0f,    0.0f,    0.0f, 0),
+            new Vertex(1.0f,   -1.0f,    1.0f,    0.0f,    1.0f, 0),
+            new Vertex(-1.0f,   -1.0f,    1.0f,    1.0f,    1.0f, 0)
         };
         
-        float[] backSide =
+        Vertex[] backSide =
         {
-            -1.0f,   -1.0f,    1.0f,    1.0f,    0.0f,
-             1.0f,   -1.0f,    1.0f,    0.0f,    0.0f,
-             1.0f,    1.0f,    1.0f,    0.0f,    1.0f,
-            -1.0f,    1.0f,    1.0f,    1.0f,    1.0f,
+            new Vertex(-1.0f,   -1.0f,    1.0f,    1.0f,    0.0f, 0),
+            new Vertex(1.0f,   -1.0f,    1.0f,    0.0f,    0.0f, 0),
+            new Vertex(1.0f,    1.0f,    1.0f,    0.0f,    1.0f, 0),
+            new Vertex(-1.0f,    1.0f,    1.0f,    1.0f,    1.0f, 0)
         };
         
-        float[] frontSide =
-        {
-            1.0f,    1.0f,   -1.0f,    1.0f,    1.0f,
-            1.0f,   -1.0f,   -1.0f,    1.0f,    0.0f,
-           -1.0f,   -1.0f,   -1.0f,    0.0f,    0.0f,
-           -1.0f,    1.0f,   -1.0f,    0.0f,    1.0f,
+        Vertex[] frontSide =
+        { 
+           new Vertex(1.0f,    1.0f,   -1.0f,    1.0f,    1.0f, 0), 
+           new Vertex(1.0f,   -1.0f,   -1.0f,    1.0f,    0.0f, 0),
+           new Vertex(-1.0f,   -1.0f,   -1.0f,    0.0f,    0.0f, 0),
+           new Vertex(-1.0f,    1.0f,   -1.0f,    0.0f,    1.0f, 0),
         };
 
-        float[] rightSide =
+        Vertex[] rightSide =
         {
-            1.0f,    1.0f,    1.0f,    1.0f,    1.0f,
-            1.0f,   -1.0f,    1.0f,    1.0f,    0.0f,
-            1.0f,   -1.0f,   -1.0f,    0.0f,    0.0f,
-            1.0f,    1.0f,   -1.0f,    0.0f,    1.0f,
+            new Vertex(1.0f,    1.0f,    1.0f,    1.0f,    1.0f, 0),
+            new Vertex(1.0f,   -1.0f,    1.0f,    1.0f,    0.0f, 0),
+            new Vertex(1.0f,   -1.0f,   -1.0f,    0.0f,    0.0f, 0),
+            new Vertex(1.0f,    1.0f,   -1.0f,    0.0f,    1.0f, 0)
         };
         
-        float[] leftSide =
+        Vertex[] leftSide =
         { 
-           -1.0f,    1.0f,    1.0f,    1.0f,    0.0f,
-           -1.0f,    1.0f,   -1.0f,    0.0f,    0.0f,
-           -1.0f,   -1.0f,   -1.0f,    0.0f,    1.0f,
-           -1.0f,   -1.0f,    1.0f,    1.0f,    1.0f,
+           new Vertex(-1.0f,    1.0f,    1.0f,    1.0f,    0.0f, 0),
+           new Vertex(-1.0f,    1.0f,   -1.0f,    0.0f,    0.0f, 0),
+           new Vertex(-1.0f,   -1.0f,   -1.0f,    0.0f,    1.0f, 0),
+           new Vertex(-1.0f,   -1.0f,    1.0f,    1.0f,    1.0f, 0)
         };
 
         uint[] upDownSideIndices =
@@ -93,15 +93,14 @@ public class Cube : WorldObject
         scene.Meshes.Add(new Mesh(4, rightSide, upDownSideIndices) { Normal = new Vector3(1, 0, 0)});
         scene.Meshes.Add(new Mesh(5, leftSide, upDownSideIndices) { Normal = new Vector3(-1, 0, 0)});
         
-        collisionScene.Meshes.Add(new Mesh(6, backSide, collisionSceneIndices) { Normal = new Vector3(0, 0, 1)});
-        collisionScene.Meshes.Add(new Mesh(7, frontSide, collisionSceneIndices) { Normal = new Vector3(0, 0, -1)});
-        collisionScene.Meshes.Add(new Mesh(8, topSide, collisionSceneIndices) { Normal = new Vector3(0, 1, 0)});
-        collisionScene.Meshes.Add(new Mesh(9, downSide, collisionSceneIndices) { Normal = new Vector3(0, -1, 0)});
-        collisionScene.Meshes.Add(new Mesh(10, rightSide, collisionSceneIndices) { Normal = new Vector3(1, 0, 0)});
-        collisionScene.Meshes.Add(new Mesh(11, leftSide, collisionSceneIndices) { Normal = new Vector3(-1, 0, 0)});
+        collisionScene.Add(new CollisionMesh(backSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(0, 0, 1)});
+        collisionScene.Add(new CollisionMesh(frontSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(0, 0, -1)});
+        collisionScene.Add(new CollisionMesh(topSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(0, 1, 0)});
+        collisionScene.Add(new CollisionMesh(rightSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(1, 0, 0)});
+        collisionScene.Add(new CollisionMesh(leftSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(-1, 0, 0)});
 
 
         GlobalCache<Scene>.AddOrUpdateItem("CubeScene", scene);
-        GlobalCache<Scene>.AddOrUpdateItem("CubeCollision", collisionScene);
+        GlobalCache<List<CollisionMesh>>.AddOrUpdateItem("CubeCollision", collisionScene);
     }
 }

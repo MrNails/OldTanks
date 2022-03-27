@@ -1,12 +1,11 @@
-﻿using System.Drawing;
-using CoolEngine.Core;
+﻿using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
-using CoolEngine.PhysicEngine.Core;
+using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
+using CoolEngine.Services.Interfaces;
 using OldTanks.Controls;
 using OldTanks.Models;
-using OldTanks.Services;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -15,6 +14,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using GlobalSettings = OldTanks.Services.GlobalSettings;
 using GEGlobalSettings = CoolEngine.Services.GlobalSettings;
 
+using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
+using Mesh = CoolEngine.GraphicalEngine.Core.Mesh;
+
 namespace OldTanks.Windows;
 
 public partial class MainWindow : GameWindow
@@ -22,8 +24,11 @@ public partial class MainWindow : GameWindow
     private readonly List<Control> m_controls;
     private readonly List<Vector3> m_objSLots;
 
+    private readonly List<ICollisionable> m_collisionables = new List<ICollisionable>();
+    
     private readonly int m_renderRadius;
-    private bool exit;
+    private bool m_exit;
+    private bool m_haveCollision;
 
     private readonly Thread m_generateObjectThread;
 
@@ -83,7 +88,7 @@ public partial class MainWindow : GameWindow
 
         GEGlobalSettings.s_globalLock.ExitWriteLock();
 
-        while (m_objSLots.Count != 0 && !exit)
+        while (m_objSLots.Count != 0 && !m_exit)
         {
             var index = rand.Next(0, m_objSLots.Count);
 
@@ -95,7 +100,7 @@ public partial class MainWindow : GameWindow
             };
 
             cube.Collision =
-                new Collision(cube, GlobalCache<Scene>.GetItemOrDefault("CubeCollision"));
+                new CubeCollision(cube, GlobalCache<List<CoolEngine.PhysicEngine.Core.Mesh>>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
 
             foreach (var mesh in cube.Scene.Meshes)
@@ -156,13 +161,13 @@ public partial class MainWindow : GameWindow
         var fontsDirPath = Path.Combine(Environment.CurrentDirectory, @"Assets\Fonts");
         // var chars = new List<char>('~' - ' ');
 
-        float[] characterVert =
+        Vertex[] characterVert =
         {
             //x     y         z        tX(u)        tY(v)
-            1.0f, 1.0f, 0.0f, 1.0f, 1.0f, //top right
-            1.0f, -1.0f, 0.0f, 1.0f, 0.0f, //bottom right
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, //bottom left
-            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f, //top left
+            new Vertex(1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0), //top right
+            new Vertex(1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0), //bottom right
+            new Vertex(-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0), //bottom left
+            new Vertex(-1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0) //top left
         };
 
         uint[] characterVertIndices =
@@ -175,7 +180,7 @@ public partial class MainWindow : GameWindow
         scene.Meshes.Add(new Mesh(0, characterVert, characterVertIndices));
 
         var dynamicFontScene = new Scene();
-        dynamicFontScene.Meshes.Add(new Mesh(1, Array.Empty<float>(), characterVertIndices));
+        dynamicFontScene.Meshes.Add(new Mesh(1, Array.Empty<Vertex>(), characterVertIndices));
 
         GlobalCache<Scene>.AddOrUpdateItem("FontScene", scene);
         GlobalCache<Scene>.AddOrUpdateItem("DynamicFontScene", dynamicFontScene);
@@ -213,10 +218,13 @@ public partial class MainWindow : GameWindow
 
             DrawManager.RegisterScene(typeof(Cube),
                 GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
-
-            DrawManager.RegisterScene(typeof(string),
-                GlobalCache<Shader>.GetItemOrDefault("FontShader"));
             
+            DrawManager.RegisterCollisionScene(typeof(Cube),
+                GlobalCache<Shader>.GetItemOrDefault("CollisionShader"));
+            
+            DrawManager.RegisterCollisionScene(typeof(Camera),
+                GlobalCache<Shader>.GetItemOrDefault("CollisionShader"));
+
             DrawManager.RegisterScene(typeof(SkyBox),
                 GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
 
@@ -225,12 +233,16 @@ public partial class MainWindow : GameWindow
             
             var defCube = new Cube { Size = new Vector3(2) };
             m_world.WorldObjects.Add(defCube);
-
-            m_world.SkyBox.Size = new Vector3(5);
+            
             m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
 
+            m_world.Camera.Collision = new CubeCollision(m_world.Camera, GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
+            m_world.Camera.Size = new Vector3(0.5f);
+            
+            m_collisionables.Add(m_world.Camera);
+            
             defCube.Collision =
-                new Collision(defCube, GlobalCache<Scene>.GetItemOrDefault("CubeCollision"));
+                new CubeCollision(defCube, GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault("Container");
 
             foreach (var mesh in defCube.Scene.Meshes)
@@ -306,10 +318,11 @@ public partial class MainWindow : GameWindow
         GEGlobalSettings.s_globalLock.EnterReadLock();
 
         if (!m_debugView)
-        // if (true)
             DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
         else
             DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
+        
+        // DrawManager.DrawElementsCollision(m_collisionables, m_world.Camera, false);
 
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);
@@ -369,6 +382,14 @@ public partial class MainWindow : GameWindow
         else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
             m_rotation.Z -= 1;
 
+        foreach (var worldObject in m_world.WorldObjects)
+        {
+            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
+            
+            if (m_haveCollision)
+                break;
+        }
+
         if (m_firstMouseMove)
         {
             m_lastMousePos = MousePosition;
@@ -395,6 +416,7 @@ public partial class MainWindow : GameWindow
         m_tbY.Text = m_world.Camera.Position.Y.ToString();
         m_tbZ.Text = m_world.Camera.Position.Z.ToString();
         m_tbRotation.Text = m_rotation.ToString();
+        m_tbHaveCollision.Text = m_haveCollision.ToString();
 
         base.OnUpdateFrame(args);
     }
@@ -425,7 +447,7 @@ public partial class MainWindow : GameWindow
 
     protected override void Dispose(bool disposing)
     {
-        exit = true;
+        m_exit = true;
         if (m_generateObjectThread.IsAlive)
             m_generateObjectThread.Join();
         
