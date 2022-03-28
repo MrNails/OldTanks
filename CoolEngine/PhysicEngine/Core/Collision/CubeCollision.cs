@@ -1,5 +1,6 @@
 ﻿using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.Services.Interfaces;
+using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core.Collision;
 
@@ -22,6 +23,10 @@ public class CubeCollision : Collision
         UpdateCollision();
         t2.Collision.UpdateCollision();
 
+        var objDiagonal = MathHelper.Sqrt(CurrentObject.Height * CurrentObject.Height +
+                          CurrentObject.Width * CurrentObject.Width +
+                          CurrentObject.Length * CurrentObject.Length) / 2;
+        
         for (int oI = 0; oI < t2.Collision.Meshes.Count; oI++)
         {
             var outerVertices = t2.Collision.Meshes[oI].Vertices;
@@ -33,7 +38,8 @@ public class CubeCollision : Collision
 
                 if (centerToVertexLength <= CurrentObject.Height / 2 ||
                     centerToVertexLength <= CurrentObject.Width / 2 ||
-                    centerToVertexLength <= CurrentObject.Length / 2 )
+                    centerToVertexLength <= CurrentObject.Length / 2 ||
+                    centerToVertexLength <= objDiagonal)
                     return true;
 
                 // for (int i = 0; i < Meshes.Count; i++)
