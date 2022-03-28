@@ -12,6 +12,7 @@ public partial class MainWindow
     private TextBlock m_tbCamRotation;
     private TextBlock m_tbRotation;
     private TextBlock m_tbHaveCollision;
+    private TextBlock m_tbCurrentSpeed;
     
     private void InitControls()
     {
@@ -57,6 +58,13 @@ public partial class MainWindow
             Text = "Have collision: ",
         };
         
+        var textBlock8 = new TextBlock("TextBlock8")
+        {
+            Position = new Vector2(0, textBlock7.Position.Y + textBlock7.Font.FontSize),
+            Text = "Speed: ",
+        };
+
+        
         m_tbFPS = new TextBlock("TB_FPS")
         {
             Position = new Vector2(textBlock1.Position.X + textBlock1.Size.X, textBlock1.Position.Y),
@@ -75,7 +83,7 @@ public partial class MainWindow
 
         m_tbZ = new TextBlock("TB_Z")
         {
-            Position = new Vector2(textBlock4.Position.X + textBlock4.Size.X + 5, textBlock4.Position.Y),
+            Position = new Vector2(textBlock4.Position.X + textBlock4.Size.X, textBlock4.Position.Y),
         };
         
         m_tbCamRotation = new TextBlock("TB_CamRotation")
@@ -94,6 +102,10 @@ public partial class MainWindow
             Position = new Vector2(textBlock7.Position.X + textBlock7.Size.X, textBlock7.Position.Y),
         };
             
+        m_tbCurrentSpeed = new TextBlock("TB_CurrentSpeed")
+        {
+            Position = new Vector2(textBlock8.Position.X + textBlock8.Size.X + 3, textBlock8.Position.Y),
+        };
         
         m_controls.Add(textBlock1);
         m_controls.Add(textBlock2);
@@ -102,6 +114,7 @@ public partial class MainWindow
         m_controls.Add(textBlock5);
         m_controls.Add(textBlock6);
         m_controls.Add(textBlock7);
+        m_controls.Add(textBlock8);
         m_controls.Add(m_tbFPS);
         m_controls.Add(m_tbX);
         m_controls.Add(m_tbY);
@@ -109,5 +122,6 @@ public partial class MainWindow
         m_controls.Add(m_tbCamRotation);
         m_controls.Add(m_tbRotation);
         m_controls.Add(m_tbHaveCollision);
+        m_controls.Add(m_tbCurrentSpeed);
     }
 }

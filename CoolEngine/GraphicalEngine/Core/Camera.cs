@@ -29,8 +29,6 @@ public class Camera : IPhysicObject
 
     public Camera(Vector3 position)
     {
-        Speed = 5;
-
         m_position = position;
         m_direction = new Vector3(0, 0, 0);
         m_cameraUp = new Vector3(0, 1, 0);
@@ -58,9 +56,7 @@ public class Camera : IPhysicObject
     public bool HaveChanged => m_haveTransformation;
     
     public Matrix4 Transform => m_transform;
-    
-    public float Speed { get; set; }
-    
+
     public RigidBody RigidBody { get; set; }
 
     public Matrix4 LookAt

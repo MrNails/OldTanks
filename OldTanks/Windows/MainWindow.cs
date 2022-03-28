@@ -13,7 +13,6 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using GlobalSettings = OldTanks.Services.GlobalSettings;
 using GEGlobalSettings = CoolEngine.Services.GlobalSettings;
-
 using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
 using Mesh = CoolEngine.GraphicalEngine.Core.Mesh;
 
@@ -25,7 +24,7 @@ public partial class MainWindow : GameWindow
     private readonly List<Vector3> m_objSLots;
 
     private readonly List<ICollisionable> m_collisionables = new List<ICollisionable>();
-    
+
     private readonly int m_renderRadius;
     private bool m_exit;
     private bool m_haveCollision;
@@ -36,6 +35,8 @@ public partial class MainWindow : GameWindow
 
     private double m_fps;
     private bool m_debugView;
+
+    private Vector3 m_camPosDelta;
 
     private Vector2 m_lastMousePos;
     private bool m_firstMouseMove;
@@ -74,6 +75,18 @@ public partial class MainWindow : GameWindow
         m_rotation = new Vector3(0, 0, 0);
     }
 
+    private void InitCameraPhysics()
+    {
+        var rBody = new RigidBody();
+
+        rBody.MaxSpeed = 50;
+        rBody.MaxSpeedMultiplier = 1;
+        rBody.Acceleration = 0.3f;
+        rBody.AccelerationTime = 3;
+
+        m_world.Camera.RigidBody = rBody;
+    }
+
     private void GenerateObjects()
     {
         var rand = new Random();
@@ -100,7 +113,8 @@ public partial class MainWindow : GameWindow
             };
 
             cube.Collision =
-                new CubeCollision(cube, GlobalCache<List<CoolEngine.PhysicEngine.Core.Mesh>>.GetItemOrDefault("CubeCollision"));
+                new CubeCollision(cube,
+                    GlobalCache<List<CoolEngine.PhysicEngine.Core.Mesh>>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
 
             foreach (var mesh in cube.Scene.Meshes)
@@ -142,13 +156,13 @@ public partial class MainWindow : GameWindow
             GlobalCache<Texture>.AddOrUpdateItem(Path.GetFileNameWithoutExtension(textureFile),
                 Texture.CreateTexture(textureFile));
         }
-        
+
         // foreach (var textureFile in Directory.GetFiles(skyBoxesDir))
         // {
         //     GlobalCache<Texture>.AddOrUpdateItem(Path.GetFileNameWithoutExtension(textureFile),
         //         Texture.CreateSkyBoxTextureFromOneImg(textureFile));
         // }
-        
+
         foreach (var skyboxDir in new DirectoryInfo(skyBoxesDir).GetDirectories())
         {
             GlobalCache<Texture>.AddOrUpdateItem(skyboxDir.Name,
@@ -196,6 +210,108 @@ public partial class MainWindow : GameWindow
         }
     }
 
+    private void HandleMove(in FrameEventArgs args)
+    {
+        var timeDelta = (float)args.Time;
+
+        var camPos = m_world.Camera.Position;
+        var camRBody = m_world.Camera.RigidBody;
+        var camMoved = false;
+        
+        if (KeyboardState.IsKeyDown(Keys.D))
+        {
+            camPos += Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
+                      camRBody.Speed * timeDelta;
+            camMoved = true;
+        }
+        else if (KeyboardState.IsKeyDown(Keys.A))
+        {
+            camPos -= Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
+                      camRBody.Speed * timeDelta;
+            camMoved = true;
+        }
+
+        if (KeyboardState.IsKeyDown(Keys.W))
+        {
+            camPos += m_world.Camera.Direction * camRBody.Speed * timeDelta;
+            camMoved = true;
+        }
+        else if (KeyboardState.IsKeyDown(Keys.S))
+        {
+            camPos -= m_world.Camera.Direction * camRBody.Speed * timeDelta;
+            camMoved = true;
+        }
+
+        if (KeyboardState.IsKeyDown(Keys.Space))
+        {
+            camPos += m_world.Camera.CameraUp * camRBody.Speed * timeDelta;
+            camMoved = true;
+        }
+        else if (KeyboardState.IsKeyDown(Keys.LeftShift))
+        {
+            camPos -= m_world.Camera.CameraUp * camRBody.Speed * timeDelta;
+            camMoved = true;
+        }
+
+        if (camRBody.Speed > 0 && !camMoved)
+            camPos += Vector3.Normalize(m_camPosDelta) * camRBody.Speed * timeDelta;
+
+        if (camMoved)
+            camRBody.Speed += camRBody.Acceleration * camRBody.AccelerationTime;
+        else if (camRBody.Speed > 0)
+            camRBody.Speed -= camRBody.Acceleration * camRBody.AccelerationTime;
+
+        if (KeyboardState.IsKeyDown(Keys.Up))
+            m_rotation.Y += 1;
+        else if (KeyboardState.IsKeyDown(Keys.Down))
+            m_rotation.Y -= 1;
+
+        if (KeyboardState.IsKeyDown(Keys.Left))
+            m_rotation.X -= 1;
+        else if (KeyboardState.IsKeyDown(Keys.Right))
+            m_rotation.X += 1;
+
+        if (KeyboardState.IsKeyDown(Keys.KeyPad7))
+            m_rotation.Z += 1;
+        else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
+            m_rotation.Z -= 1;
+
+        foreach (var worldObject in m_world.WorldObjects)
+        {
+            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
+
+            if (m_haveCollision)
+                break;
+        }
+
+        // if (!m_haveCollision)
+        m_camPosDelta = camPos - m_world.Camera.Position;
+        m_world.Camera.Position = camPos;
+        // else 
+        //     m_world.Camera.Position +=  * m_world.Camera.RigidBody.Speed * timeDelta * speedMultiplier;;
+    }
+
+    private void HandleMouseMove()
+    {
+        if (m_firstMouseMove)
+        {
+            m_lastMousePos = MousePosition;
+            m_firstMouseMove = false;
+        }
+        else
+        {
+            var deltaX = MousePosition.X - m_lastMousePos.X;
+            var deltaY = MousePosition.Y - m_lastMousePos.Y;
+            m_lastMousePos = new Vector2(MousePosition.X, MousePosition.Y);
+
+            // Apply the camera pitch and yaw (we clamp the pitch in the camera class)
+            m_world.Camera.Yaw += deltaX * GlobalSettings.UserSettings.Sensitivity;
+            m_world.Camera.Pitch +=
+                -deltaY * GlobalSettings.UserSettings
+                    .Sensitivity; // Reversed since y-coordinates range from bottom to top
+        }
+    }
+
     protected override void OnLoad()
     {
         VSync = VSyncMode.On;
@@ -218,10 +334,10 @@ public partial class MainWindow : GameWindow
 
             DrawManager.RegisterScene(typeof(Cube),
                 GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
-            
+
             DrawManager.RegisterCollisionScene(typeof(Cube),
                 GlobalCache<Shader>.GetItemOrDefault("CollisionShader"));
-            
+
             DrawManager.RegisterCollisionScene(typeof(Camera),
                 GlobalCache<Shader>.GetItemOrDefault("CollisionShader"));
 
@@ -230,23 +346,27 @@ public partial class MainWindow : GameWindow
 
             TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
             TextRenderer.OriginalScene = GlobalCache<Scene>.GetItemOrDefault("FontScene");
-            
-            var defCube = new Cube { Size = new Vector3(2) };
+
+            var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10) };
             m_world.WorldObjects.Add(defCube);
-            
+
             m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
 
-            m_world.Camera.Collision = new CubeCollision(m_world.Camera, GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
+            m_world.Camera.Collision = new CubeCollision(m_world.Camera,
+                GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
             m_world.Camera.Size = new Vector3(0.5f);
-            
+            m_world.Camera.Yaw = 45;
+
             m_collisionables.Add(m_world.Camera);
-            
+
             defCube.Collision =
                 new CubeCollision(defCube, GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault("Container");
 
             foreach (var mesh in defCube.Scene.Meshes)
                 mesh.Texture = texture;
+
+            InitCameraPhysics();
 
             // m_generateObjectThread.Start();
         }
@@ -259,9 +379,6 @@ public partial class MainWindow : GameWindow
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
             (float)Size.X / Size.Y, 0.1f, GlobalSettings.MaxDepthLength);
 
-        
-        m_world.Camera.Speed = 7;
-        
         base.OnLoad();
     }
 
@@ -278,10 +395,21 @@ public partial class MainWindow : GameWindow
             aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
     }
 
+    protected override void OnKeyDown(KeyboardKeyEventArgs e)
+    {
+        if (e.Key == Keys.LeftControl)
+            m_world.Camera.RigidBody.MaxSpeedMultiplier = 3;
+
+        base.OnKeyDown(e);
+    }
+
     protected override void OnKeyUp(KeyboardKeyEventArgs e)
     {
         if (e.Key == Keys.D0)
             m_debugView = !m_debugView;
+
+        if (e.Key == Keys.LeftControl)
+            m_world.Camera.RigidBody.MaxSpeedMultiplier = 1;
 
         if (e.Key == Keys.R)
         {
@@ -314,14 +442,14 @@ public partial class MainWindow : GameWindow
         GL.DepthFunc(DepthFunction.Lequal);
         DrawManager.DrawSkyBox(m_world.SkyBox, m_world.Camera);
         GL.DepthFunc(DepthFunction.Less);
-        
+
         GEGlobalSettings.s_globalLock.EnterReadLock();
 
         if (!m_debugView)
             DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
         else
             DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
-        
+
         // DrawManager.DrawElementsCollision(m_collisionables, m_world.Camera, false);
 
         GL.Disable(EnableCap.CullFace);
@@ -342,71 +470,9 @@ public partial class MainWindow : GameWindow
         if (KeyboardState.IsKeyDown(Keys.Escape))
             Close();
 
-        var speedMultiplier = 1.0f;
-        var timeDelta = (float)args.Time;
+        HandleMove(args);
 
-        if (KeyboardState.IsKeyDown(Keys.LeftControl))
-            speedMultiplier = 3f;
-
-        if (KeyboardState.IsKeyDown(Keys.D))
-            m_world.Camera.Position +=
-                Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
-                m_world.Camera.Speed * timeDelta * speedMultiplier;
-        else if (KeyboardState.IsKeyDown(Keys.A))
-            m_world.Camera.Position -=
-                Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
-                m_world.Camera.Speed * timeDelta * speedMultiplier;
-
-        if (KeyboardState.IsKeyDown(Keys.W))
-            m_world.Camera.Position += m_world.Camera.Direction * m_world.Camera.Speed * timeDelta * speedMultiplier;
-        else if (KeyboardState.IsKeyDown(Keys.S))
-            m_world.Camera.Position -= m_world.Camera.Direction * m_world.Camera.Speed * timeDelta * speedMultiplier;
-
-        if (KeyboardState.IsKeyDown(Keys.Space))
-            m_world.Camera.Position += m_world.Camera.CameraUp * m_world.Camera.Speed * timeDelta * speedMultiplier;
-        else if (KeyboardState.IsKeyDown(Keys.LeftShift))
-            m_world.Camera.Position -= m_world.Camera.CameraUp * m_world.Camera.Speed * timeDelta * speedMultiplier;
-
-        if (KeyboardState.IsKeyDown(Keys.Up))
-            m_rotation.Y += 1;
-        else if (KeyboardState.IsKeyDown(Keys.Down))
-            m_rotation.Y -= 1;
-
-        if (KeyboardState.IsKeyDown(Keys.Left))
-            m_rotation.X -= 1;
-        else if (KeyboardState.IsKeyDown(Keys.Right))
-            m_rotation.X += 1;
-
-        if (KeyboardState.IsKeyDown(Keys.KeyPad7))
-            m_rotation.Z += 1;
-        else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
-            m_rotation.Z -= 1;
-
-        foreach (var worldObject in m_world.WorldObjects)
-        {
-            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
-            
-            if (m_haveCollision)
-                break;
-        }
-
-        if (m_firstMouseMove)
-        {
-            m_lastMousePos = MousePosition;
-            m_firstMouseMove = false;
-        }
-        else
-        {
-            var deltaX = MousePosition.X - m_lastMousePos.X;
-            var deltaY = MousePosition.Y - m_lastMousePos.Y;
-            m_lastMousePos = new Vector2(MousePosition.X, MousePosition.Y);
-
-            // Apply the camera pitch and yaw (we clamp the pitch in the camera class)
-            m_world.Camera.Yaw += deltaX * GlobalSettings.UserSettings.Sensitivity;
-            m_world.Camera.Pitch +=
-                -deltaY * GlobalSettings.UserSettings
-                    .Sensitivity; // Reversed since y-coordinates range from bottom to top
-        }
+        HandleMouseMove();
 
         m_world.WorldObjects[0].Direction = m_rotation;
 
@@ -417,6 +483,7 @@ public partial class MainWindow : GameWindow
         m_tbZ.Text = m_world.Camera.Position.Z.ToString();
         m_tbRotation.Text = m_rotation.ToString();
         m_tbHaveCollision.Text = m_haveCollision.ToString();
+        m_tbCurrentSpeed.Text = m_world.Camera.RigidBody.Speed.ToString();
 
         base.OnUpdateFrame(args);
     }
@@ -450,7 +517,7 @@ public partial class MainWindow : GameWindow
         m_exit = true;
         if (m_generateObjectThread.IsAlive)
             m_generateObjectThread.Join();
-        
+
         base.Dispose(disposing);
     }
 }

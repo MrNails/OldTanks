@@ -164,7 +164,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject
         m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
                       Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Pitch)) *
                       Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Yaw)) *
-                      Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll));
+                      Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
+                      Matrix4.CreateTranslation(Position);
 
         m_haveTransformation = false;
     }
