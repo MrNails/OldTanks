@@ -1,6 +1,8 @@
 ﻿using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.PhysicEngine;
+using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
@@ -35,6 +37,7 @@ public partial class MainWindow : GameWindow
 
     private double m_fps;
     private bool m_debugView;
+    private bool m_activePhysic;
 
     private Vector3 m_camPosDelta;
 
@@ -79,10 +82,12 @@ public partial class MainWindow : GameWindow
     {
         var rBody = new RigidBody();
 
-        rBody.MaxSpeed = 50;
+        rBody.MaxSpeed = 2;
+        rBody.MaxBackSpeed = 2;
         rBody.MaxSpeedMultiplier = 1;
-        rBody.Acceleration = 0.3f;
-        rBody.AccelerationTime = 3;
+        rBody.Rotation = MathHelper.DegreesToRadians(30);
+        rBody.Acceleration = 0.5f;
+        rBody.DefaultJumpForce = 1;
 
         m_world.Camera.RigidBody = rBody;
     }
@@ -216,50 +221,80 @@ public partial class MainWindow : GameWindow
 
         var camPos = m_world.Camera.Position;
         var camRBody = m_world.Camera.RigidBody;
-        var camMoved = false;
-        
+        var moveDirection = new Vector3();
+
         if (KeyboardState.IsKeyDown(Keys.D))
         {
-            camPos += Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
-                      camRBody.Speed * timeDelta;
-            camMoved = true;
+            moveDirection.X = 1;
         }
         else if (KeyboardState.IsKeyDown(Keys.A))
         {
-            camPos -= Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
-                      camRBody.Speed * timeDelta;
-            camMoved = true;
+            moveDirection.X = -1;
         }
 
         if (KeyboardState.IsKeyDown(Keys.W))
         {
-            camPos += m_world.Camera.Direction * camRBody.Speed * timeDelta;
-            camMoved = true;
+            moveDirection.Z = 1;
         }
         else if (KeyboardState.IsKeyDown(Keys.S))
         {
-            camPos -= m_world.Camera.Direction * camRBody.Speed * timeDelta;
-            camMoved = true;
+            moveDirection.Z = -1;
         }
 
         if (KeyboardState.IsKeyDown(Keys.Space))
-        {
-            camPos += m_world.Camera.CameraUp * camRBody.Speed * timeDelta;
-            camMoved = true;
-        }
-        else if (KeyboardState.IsKeyDown(Keys.LeftShift))
-        {
-            camPos -= m_world.Camera.CameraUp * camRBody.Speed * timeDelta;
-            camMoved = true;
-        }
+            // {
+            camRBody.JumpForce = camRBody.DefaultJumpForce;
+        // }
+        // else if (KeyboardState.IsKeyDown(Keys.LeftShift))
+        // {
+        //     moveDirection.Y = -1;
+        // }
 
-        if (camRBody.Speed > 0 && !camMoved)
-            camPos += Vector3.Normalize(m_camPosDelta) * camRBody.Speed * timeDelta;
+        if (m_activePhysic)
+            moveDirection.Y = -1;
 
-        if (camMoved)
-            camRBody.Speed += camRBody.Acceleration * camRBody.AccelerationTime;
+        camPos +=
+            (Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) * moveDirection.X +
+             m_world.Camera.Direction * moveDirection.Z) * camRBody.Speed
+            + m_world.Camera.CameraUp * camRBody.JumpForce;
+        
+        var camMoved = moveDirection != Vector3.Zero;
+
+        // if (!m_activePhysic && camRBody.Speed > 0 && !camMoved)
+        //     camPos += Vector3.Normalize(m_camPosDelta) * camRBody.Speed;
+
+        if (m_activePhysic)
+            camRBody.Speed += PhysicsConstants.g * timeDelta;
+        else if (camMoved)
+            camRBody.Speed += camRBody.Acceleration * timeDelta;
         else if (camRBody.Speed > 0)
-            camRBody.Speed -= camRBody.Acceleration * camRBody.AccelerationTime;
+            camRBody.Speed -= camRBody.Acceleration * timeDelta;
+
+        m_camPosDelta = camPos - m_world.Camera.Position;
+
+        if (camRBody.JumpForce > 2 * PhysicsConstants.g)
+            camRBody.JumpForce = (float)MathHelper.Sqrt(camRBody.JumpForce - 2 * PhysicsConstants.g);
+        else
+            camRBody.JumpForce = 0;
+
+        var tmpPos = m_world.Camera.Position;
+        m_world.Camera.Position = camPos;
+
+        foreach (var worldObject in m_world.WorldObjects)
+        {
+            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
+
+            if (m_haveCollision)
+                break;
+        }
+
+        if (!m_haveCollision)
+            m_world.Camera.Position = camPos;
+        else
+        {
+            m_world.Camera.Position = tmpPos;
+            m_world.Camera.RigidBody.Speed = 0;
+        }
 
         if (KeyboardState.IsKeyDown(Keys.Up))
             m_rotation.Y += 1;
@@ -275,20 +310,6 @@ public partial class MainWindow : GameWindow
             m_rotation.Z += 1;
         else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
             m_rotation.Z -= 1;
-
-        foreach (var worldObject in m_world.WorldObjects)
-        {
-            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
-
-            if (m_haveCollision)
-                break;
-        }
-
-        // if (!m_haveCollision)
-        m_camPosDelta = camPos - m_world.Camera.Position;
-        m_world.Camera.Position = camPos;
-        // else 
-        //     m_world.Camera.Position +=  * m_world.Camera.RigidBody.Speed * timeDelta * speedMultiplier;;
     }
 
     private void HandleMouseMove()
@@ -411,6 +432,9 @@ public partial class MainWindow : GameWindow
         if (e.Key == Keys.LeftControl)
             m_world.Camera.RigidBody.MaxSpeedMultiplier = 1;
 
+        if (e.Key == Keys.F)
+            m_activePhysic = !m_activePhysic;
+
         if (e.Key == Keys.R)
         {
             m_rotation = new Vector3();
@@ -450,7 +474,6 @@ public partial class MainWindow : GameWindow
         else
             DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
 
-        // DrawManager.DrawElementsCollision(m_collisionables, m_world.Camera, false);
 
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);

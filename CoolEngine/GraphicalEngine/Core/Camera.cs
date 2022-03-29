@@ -1,4 +1,5 @@
-﻿using CoolEngine.PhysicEngine.Core.Collision;
+﻿using CoolEngine.PhysicEngine.Core;
+using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
