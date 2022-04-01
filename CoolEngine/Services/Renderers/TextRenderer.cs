@@ -1,12 +1,11 @@
 ﻿using System.Buffers;
-using CoolEngine.Core;
 using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
-namespace CoolEngine.Services;
+namespace CoolEngine.Services.Renderers;
 
 public static class TextRenderer
 {
@@ -303,7 +302,6 @@ public static class TextRenderer
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
         GL.BufferData(BufferTarget.ElementArrayBuffer, s_renderIndicesAmount * sizeof(uint), s_indices,
             BufferUsageHint.StaticDraw);
-
 
         return new DrawObjectInfo(vao, vbo, ebo);
     }

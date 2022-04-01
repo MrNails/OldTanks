@@ -10,20 +10,13 @@ public class Scene
     public Scene(float width, float height, float length)
     {
         m_meshes = new List<Mesh>();
-        Width = width;
-        Height = height;
-        Length = length;
     }
 
     public List<Mesh> Meshes => m_meshes;
-    
-    public float Width { get; set; }
-    public float Height { get; set; }
-    public float Length { get; set; }
 
     public Scene Copy()
     {
-        var newScene = new Scene(Width, Height, Length);
+        var newScene = new Scene();
 
         foreach (var mesh in m_meshes)
             newScene.Meshes.Add(mesh.Copy());

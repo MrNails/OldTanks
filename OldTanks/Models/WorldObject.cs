@@ -155,6 +155,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject
     }
 
     public Matrix4 Transform => m_transform;
+    
+    public bool Visible { get; set; }
 
     public virtual void AcceptTransform()
     {
@@ -167,6 +169,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject
                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
                       Matrix4.CreateTranslation(Position);
 
+        Collision.UpdateCollision();
+        
         m_haveTransformation = false;
     }
 }

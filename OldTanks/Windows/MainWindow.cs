@@ -6,6 +6,7 @@ using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
+using CoolEngine.Services.Renderers;
 using OldTanks.Controls;
 using OldTanks.Models;
 using OpenTK.Graphics.OpenGL4;
@@ -86,8 +87,9 @@ public partial class MainWindow : GameWindow
         rBody.MaxBackSpeed = 2;
         rBody.MaxSpeedMultiplier = 1;
         rBody.Rotation = MathHelper.DegreesToRadians(30);
-        rBody.Acceleration = 0.5f;
+        rBody.Acceleration = 10;
         rBody.DefaultJumpForce = 1;
+        rBody.BreakMultiplier = 1.5f;
 
         m_world.Camera.RigidBody = rBody;
     }
@@ -225,61 +227,61 @@ public partial class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyDown(Keys.D))
         {
-            moveDirection.X = 1;
+            camPos += Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) * Math.Abs(camRBody.Speed);
+            camRBody.Speed += camRBody.Acceleration * timeDelta;
+                              moveDirection.X = 1;
         }
         else if (KeyboardState.IsKeyDown(Keys.A))
         {
-            moveDirection.X = -1;
+            camPos -= Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) * Math.Abs(camRBody.Speed);
+            camRBody.Speed += camRBody.Acceleration * timeDelta;
+                              moveDirection.X = -1;
         }
 
         if (KeyboardState.IsKeyDown(Keys.W))
         {
+            camRBody.Speed += camRBody.Acceleration * timeDelta * (camRBody.Speed < 0 ? 5 : 1);
             moveDirection.Z = 1;
         }
         else if (KeyboardState.IsKeyDown(Keys.S))
         {
+            camRBody.Speed -= camRBody.Acceleration * timeDelta * (camRBody.Speed > 0 ? 5 : 1);
             moveDirection.Z = -1;
         }
 
         if (KeyboardState.IsKeyDown(Keys.Space))
-            // {
-            camRBody.JumpForce = camRBody.DefaultJumpForce;
-        // }
-        // else if (KeyboardState.IsKeyDown(Keys.LeftShift))
-        // {
-        //     moveDirection.Y = -1;
-        // }
+            camRBody.VerticalForce = camRBody.DefaultJumpForce;
 
         if (m_activePhysic)
             moveDirection.Y = -1;
 
-        camPos +=
-            (Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) * moveDirection.X +
-             m_world.Camera.Direction * moveDirection.Z) * camRBody.Speed
-            + m_world.Camera.CameraUp * camRBody.JumpForce;
-        
+        camPos += m_world.Camera.Direction * camRBody.Speed +
+                  m_world.Camera.CameraUp * camRBody.VerticalForce;
+
         var camMoved = moveDirection != Vector3.Zero;
 
-        // if (!m_activePhysic && camRBody.Speed > 0 && !camMoved)
-        //     camPos += Vector3.Normalize(m_camPosDelta) * camRBody.Speed;
-
         if (m_activePhysic)
-            camRBody.Speed += PhysicsConstants.g * timeDelta;
-        else if (camMoved)
-            camRBody.Speed += camRBody.Acceleration * timeDelta;
-        else if (camRBody.Speed > 0)
-            camRBody.Speed -= camRBody.Acceleration * timeDelta;
+            camRBody.VerticalForce += PhysicsConstants.g * timeDelta;
+
+        if (!m_activePhysic && camRBody.Speed != 0 &&
+            !camMoved && m_camPosDelta != Vector3.Zero)
+            if (camRBody.Speed > 0.1f || camRBody.Speed < -0.1f)
+                camRBody.Speed += camRBody.Acceleration * (camRBody.Speed > 0 ? -1 : 1) * timeDelta;
+            else
+                camRBody.Speed = 0;
 
         m_camPosDelta = camPos - m_world.Camera.Position;
 
-        if (camRBody.JumpForce > 2 * PhysicsConstants.g)
-            camRBody.JumpForce = (float)MathHelper.Sqrt(camRBody.JumpForce - 2 * PhysicsConstants.g);
+        if (camRBody.VerticalForce > 2 * PhysicsConstants.g)
+            camRBody.VerticalForce =
+                MathHelper.InverseSqrtFast(camRBody.VerticalForce * camRBody.VerticalForce - 2 * PhysicsConstants.g);
         else
-            camRBody.JumpForce = 0;
+            camRBody.VerticalForce = 0;
 
         var tmpPos = m_world.Camera.Position;
         m_world.Camera.Position = camPos;
-
+        
+        m_world.Camera.Collision.CurrentObject.AcceptTransform();
         foreach (var worldObject in m_world.WorldObjects)
         {
             m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
@@ -353,17 +355,13 @@ public partial class MainWindow : GameWindow
             LoadFonts();
             InitControls();
 
-            DrawManager.RegisterScene(typeof(Cube),
+            ObjectRenderer.RegisterScene(typeof(Cube),
                 GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
 
-            DrawManager.RegisterCollisionScene(typeof(Cube),
-                GlobalCache<Shader>.GetItemOrDefault("CollisionShader"));
-
-            DrawManager.RegisterCollisionScene(typeof(Camera),
-                GlobalCache<Shader>.GetItemOrDefault("CollisionShader"));
-
-            DrawManager.RegisterScene(typeof(SkyBox),
+            ObjectRenderer.RegisterScene(typeof(SkyBox),
                 GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
+
+            CollisionRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("CollisionShader");
 
             TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
             TextRenderer.OriginalScene = GlobalCache<Scene>.GetItemOrDefault("FontScene");
@@ -372,23 +370,29 @@ public partial class MainWindow : GameWindow
             m_world.WorldObjects.Add(defCube);
 
             m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
-
+            
             m_world.Camera.Collision = new CubeCollision(m_world.Camera,
                 GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
             m_world.Camera.Size = new Vector3(0.5f);
             m_world.Camera.Yaw = 45;
+
+            m_world.Camera.Collision.IsActive = true;
 
             m_collisionables.Add(m_world.Camera);
 
             defCube.Collision =
                 new CubeCollision(defCube, GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault("Container");
+            defCube.Collision.IsActive = true;
 
             foreach (var mesh in defCube.Scene.Meshes)
                 mesh.Texture = texture;
 
             InitCameraPhysics();
 
+            ObjectRenderer.AddDrawables(m_world.WorldObjects);
+            CollisionRenderer.AddCollisions(m_world.WorldObjects);
+            
             // m_generateObjectThread.Start();
         }
         catch (Exception e)
@@ -438,7 +442,7 @@ public partial class MainWindow : GameWindow
         if (e.Key == Keys.R)
         {
             m_rotation = new Vector3();
-            // m_world.Camera.Position = new Vector3();
+            m_world.Camera.Position = new Vector3();
             // m_world.Camera.Roll = 0;
             // m_world.Camera.Yaw = 0;
             // m_world.Camera.Pitch = 0;
@@ -464,16 +468,17 @@ public partial class MainWindow : GameWindow
         GL.Enable(EnableCap.CullFace);
 
         GL.DepthFunc(DepthFunction.Lequal);
-        DrawManager.DrawSkyBox(m_world.SkyBox, m_world.Camera);
+        ObjectRenderer.DrawSkyBox(m_world.SkyBox, m_world.Camera);
         GL.DepthFunc(DepthFunction.Less);
 
         GEGlobalSettings.s_globalLock.EnterReadLock();
 
         if (!m_debugView)
-            DrawManager.DrawElements(m_world.WorldObjects, m_world.Camera, true);
+            ObjectRenderer.DrawElements(m_world.Camera, true);
         else
-            DrawManager.DrawElementsCollision(m_world.WorldObjects, m_world.Camera);
-
+            CollisionRenderer.DrawElementsCollision(m_world.Camera);
+        
+        // CollisionRenderer.DrawCollision(m_world.Camera, m_world.Camera, false);
 
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);

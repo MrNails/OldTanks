@@ -39,10 +39,11 @@ public abstract class Collision
     public IPhysicObject CurrentObject => m_currentObj;
 
     public CollisionType CollisionType { get; protected set; }
+    
+    public bool IsActive { get; set; }
 
-    public void UpdateCollision()
+    public virtual void UpdateCollision()
     {
-        m_currentObj.AcceptTransform();
         var transformation = m_currentObj.Transform;
 
         for (int i = 0, m = 0; i < m_originalCollision.Count && m < m_meshes.Count; i++)

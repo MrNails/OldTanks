@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using System.Buffers;
+using OpenTK.Graphics.OpenGL4;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.PixelFormats;
@@ -8,6 +9,9 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public class Texture
 {
+    private static readonly string[] Parts =
+        { "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg" };
+
     public int Handle { get; }
 
     public float Width { get; }
@@ -36,24 +40,12 @@ public class Texture
         var img = Image.Load<Rgba32>(path);
         img.Mutate(x => x.Flip(FlipMode.Vertical));
 
-        var pixelsAmount = 4 * img.Width * img.Height;
         var pixelIndex = 0;
-        var pixels = new byte[pixelsAmount];
+        var pixels = ArrayPool<Rgba32>.Shared.Rent(img.Width * img.Height);
 
         for (int i = 0; i < img.Height; i++)
-        {
-            var row = img.DangerousGetPixelRowMemory(i).Span;
-
-            for (int j = 0; j < img.Width; j++)
-            {
-                var currPixels = row[j];
-
-                pixels[pixelIndex++] = currPixels.R;
-                pixels[pixelIndex++] = currPixels.G;
-                pixels[pixelIndex++] = currPixels.B;
-                pixels[pixelIndex++] = currPixels.A;
-            }
-        }
+        for (int j = 0; j < img.Width; j++)
+            pixels[i * img.Width + j] = img[j, i];
 
         GL.TexImage2D(TextureTarget.Texture2D,
             0,
@@ -74,6 +66,8 @@ public class Texture
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
         img.Dispose();
+        
+        ArrayPool<Rgba32>.Shared.Return(pixels);
 
         return new Texture(handle, img.Width, img.Height);
     }
@@ -222,16 +216,16 @@ public class Texture
         GL.ActiveTexture(TextureUnit.Texture0);
         GL.BindTexture(TextureTarget.TextureCubeMap, handle);
 
-        string[] parts = { "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg" };
-
         int idx = 0;
-        foreach (var part in parts)
+        foreach (var part in Parts)
         {
             var img = Image.Load<Rgba32>(Path.Combine(dirPath, part));
 
-            var pixles = new Rgba32[img.Width * img.Height];
+            var pixels = ArrayPool<Rgba32>.Shared.Rent(img.Width * img.Height);
 
-            img.CopyPixelDataTo(pixles);
+            for (int i = 0; i < img.Height; i++)
+            for (int j = 0; j < img.Width; j++)
+                pixels[i * img.Width + j] = img[j, i];
 
             GL.TexImage2D(TextureTarget.TextureCubeMapPositiveX + idx++,
                 0,
@@ -241,9 +235,11 @@ public class Texture
                 0,
                 PixelFormat.Rgba,
                 PixelType.UnsignedByte,
-                pixles);
+                pixels);
 
             img.Dispose();
+            
+            ArrayPool<Rgba32>.Shared.Return(pixels);
         }
 
         GL.TexParameter(TextureTarget.TextureCubeMap, TextureParameterName.TextureMagFilter,

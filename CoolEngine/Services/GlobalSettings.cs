@@ -7,8 +7,10 @@ public static class GlobalSettings
     public static readonly int DefaultCharacterSize = 16;
     public static readonly int DefaultFontSize = 20;
 
-    public static readonly ReaderWriterLockSlim s_globalLock = new ReaderWriterLockSlim();
+    public static readonly int MaxInstanceCount = 100;
     
+    public static readonly ReaderWriterLockSlim s_globalLock = new ReaderWriterLockSlim();
+
     public static Matrix4 Projection { get; set; }
     public static Matrix4 ScreenProjection { get; set; }
     

@@ -220,6 +220,8 @@ public class Camera : IPhysicObject
                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Direction.Z)) *
                       Matrix4.CreateTranslation(Position);
         
+        m_collision.UpdateCollision();
+
         m_haveTransformation = false;
     }
     

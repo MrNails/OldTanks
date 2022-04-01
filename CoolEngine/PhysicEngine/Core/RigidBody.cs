@@ -11,7 +11,7 @@ public class RigidBody
     public float MaxBackSpeed { get; set; }
     public float MaxSpeedMultiplier { get; set; }
     
-    public float JumpForce { get; set; }
+    public float VerticalForce { get; set; }
     public float DefaultJumpForce { get; set; }
     
     public float BreakMultiplier { get; set; }
