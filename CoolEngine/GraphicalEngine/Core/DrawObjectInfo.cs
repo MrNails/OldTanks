@@ -14,6 +14,14 @@ public class DrawObjectInfo
     }
 
     public int VertexArrayObject => m_vertexArrayObject;
+    
+    /// <summary>
+    /// Model vertices buffer
+    /// </summary>
     public int VertexBufferObject => m_vertexBufferObject;
+    
+    /// <summary>
+    /// Indices buffer
+    /// </summary>
     public int ElementsBufferObject => m_elementsBufferObject;
 }

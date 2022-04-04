@@ -12,7 +12,7 @@ internal class CollisionRenderGroup
     private readonly List<ICollisionable> m_collisionables;
 
     private readonly Shader m_shader;
-    
+
     private DrawObjectInfo m_drawObjectInfo;
 
     private int m_verticesPerModel;
@@ -33,7 +33,7 @@ internal class CollisionRenderGroup
             throw new ArgumentNullException(nameof(shader));
 
         m_shader = shader;
-        
+
         m_collisionables = new List<ICollisionable>(capacity);
 
         m_vertices = Array.Empty<Vector3>();
@@ -52,7 +52,7 @@ internal class CollisionRenderGroup
     public List<ICollisionable> Collisionables => m_collisionables;
 
     public Shader Shader => m_shader;
-    
+
     public DrawObjectInfo DrawObjectInfo => m_drawObjectInfo;
 
     public void Add(ICollisionable collisionable) => m_collisionables.Add(collisionable);
@@ -64,10 +64,10 @@ internal class CollisionRenderGroup
     {
         if (m_vertices.Length == 0 && m_collisionables.Count != 0)
             InitRenderGroup();
-        
+
         if (m_collisionables.Capacity * m_verticesPerModel > m_vertices.Length)
             ResizeCollisionableData();
-        
+
         m_activeCount = 0;
         for (int i = 0; i < m_collisionables.Count; i++)
         {
@@ -75,30 +75,24 @@ internal class CollisionRenderGroup
 
             if (!collisionable.Collision.IsActive)
                 continue;
-            
+
             collisionable.Collision.CurrentObject.AcceptTransform();
 
-            for (int j = 0; j < collisionable.Collision.Meshes.Count; j++)
-            {
-                var mesh = collisionable.Collision.Meshes[j];
-
-                for (int vIndex = 0; vIndex < mesh.Vertices.Length; vIndex++)
-                    m_vertices[m_activeCount * m_verticesPerModel + j * mesh.Vertices.Length + vIndex] = mesh.Vertices[vIndex];
-            }
+            for (int vIndex = 0; vIndex < collisionable.Collision.CollisionData.Vertices.Length; vIndex++)
+                m_vertices[m_activeCount * m_verticesPerModel + vIndex] =
+                    collisionable.Collision.CollisionData.Vertices[vIndex];
 
             m_activeCount++;
         }
     }
-    
+
     private void InitRenderGroup()
     {
         var collisionable = m_collisionables[0];
 
-        for (int i = 0; i < collisionable.Collision.Meshes.Count; i++)
-        {
-            m_verticesPerModel += collisionable.Collision.Meshes[i].Vertices.Length;
-            m_indicesPerModel += collisionable.Collision.Meshes[i].Indices.Length;
-        }
+        m_verticesPerModel = collisionable.Collision.CollisionData.Vertices.Length;
+        for (int i = 0; i < collisionable.Collision.CollisionData.Meshes.Count; i++)
+            m_indicesPerModel += collisionable.Collision.CollisionData.Meshes[i].Indices.Length;
 
         ResizeCollisionableData();
     }
@@ -115,22 +109,23 @@ internal class CollisionRenderGroup
             var collisionable = m_collisionables[0];
             for (int i = 0; i < m_collisionables.Capacity; i++)
             {
-                for (int j = 0, indexOffset = 0; j < collisionable.Collision.Meshes.Count; j++)
+                for (int j = 0, nonEmptyOffset = 0; j < collisionable.Collision.CollisionData.Meshes.Count; j++)
                 {
-                    var mesh = collisionable.Collision.Meshes[j];
+                    var mesh = collisionable.Collision.CollisionData.Meshes[j];
 
                     for (int iIndex = 0; iIndex < mesh.Indices.Length; iIndex++)
-                        m_indices[i * m_indicesPerModel + j * mesh.Indices.Length + iIndex] =
-                            mesh.Indices[iIndex] + (uint)(i * m_verticesPerModel + indexOffset);
+                        m_indices[i * m_indicesPerModel + nonEmptyOffset + iIndex] =
+                            mesh.Indices[iIndex] + (uint)(i * m_verticesPerModel);
 
-                    indexOffset += mesh.Vertices.Length;
+                    if (mesh.Indices.Length != 0)
+                        nonEmptyOffset += mesh.Indices.Length;
                 }
             }
         }
-        
+
         m_drawObjectInfo = CreateDrawInfo();
     }
-    
+
     private unsafe DrawObjectInfo CreateDrawInfo()
     {
         int vao = 0, vbo = 0, ebo = 0;

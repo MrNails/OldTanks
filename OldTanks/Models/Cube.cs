@@ -1,5 +1,6 @@
 ﻿using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using OpenTK.Mathematics;
 using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
@@ -21,7 +22,7 @@ public class Cube : WorldObject
     private static void CreateCubeScene()
     {
         var scene = new Scene();
-        var collisionScene = new List<CollisionMesh>();
+        var collisionData = new CollisionData();
 
         //x, y, z, u, v
         Vertex[] topSide =
@@ -70,6 +71,18 @@ public class Cube : WorldObject
            new Vertex(-1.0f,    1.0f,   -1.0f,    0.0f,    0.0f, 0),
            new Vertex(-1.0f,   -1.0f,   -1.0f,    0.0f,    1.0f, 0),
            new Vertex(-1.0f,   -1.0f,    1.0f,    1.0f,    1.0f, 0)
+        }; 
+
+        Vector3[] collisionVertices =
+        {
+            new Vector3(-1.0f,    1.0f,   -1.0f),
+            new Vector3(1.0f,    1.0f,   -1.0f),
+            new Vector3(1.0f,   -1.0f,   -1.0f),
+            new Vector3(-1.0f,   -1.0f,   -1.0f),
+            new Vector3(1.0f,    1.0f,    1.0f),
+            new Vector3(-1.0f,    1.0f,    1.0f),
+            new Vector3(-1.0f,   -1.0f,    1.0f),
+            new Vector3(1.0f,   -1.0f,    1.0f),
         };
 
         uint[] upDownSideIndices =
@@ -78,13 +91,12 @@ public class Cube : WorldObject
             1, 2, 3
         };
         
-        uint[] collisionSceneIndices =
-        {
-            0, 1, 
-            2, 3,
-            1, 2,
-            0, 3
-        };
+        uint[] frontCollisionIndices = { 0, 1, 2, 3 };
+        uint[] backCollisionIndices = { 4, 5, 6, 7 };
+        uint[] leftCollisionIndices = { 0, 3, 4, 7 };
+        uint[] rightCollisionIndices = { 1, 2, 5, 6 };
+        uint[] topCollisionIndices = { 0, 5, 1, 4 };
+        uint[] downCollisionIndices = { 3, 6, 2, 7 };
 
         scene.Meshes.Add(new Mesh(0, backSide, upDownSideIndices) { Normal = new Vector3(0, 0, 1)});
         scene.Meshes.Add(new Mesh(1, frontSide, upDownSideIndices) { Normal = new Vector3(0, 0, -1)});
@@ -93,14 +105,15 @@ public class Cube : WorldObject
         scene.Meshes.Add(new Mesh(4, rightSide, upDownSideIndices) { Normal = new Vector3(1, 0, 0)});
         scene.Meshes.Add(new Mesh(5, leftSide, upDownSideIndices) { Normal = new Vector3(-1, 0, 0)});
         
-        collisionScene.Add(new CollisionMesh(backSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(0, 0, 1)});
-        collisionScene.Add(new CollisionMesh(frontSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(0, 0, -1)});
-        collisionScene.Add(new CollisionMesh(topSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(0, 1, 0)});
-        collisionScene.Add(new CollisionMesh(rightSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(1, 0, 0)});
-        collisionScene.Add(new CollisionMesh(leftSide.Select(b => b.Position).ToArray(), collisionSceneIndices) { Normal = new Vector3(-1, 0, 0)});
-
+        collisionData.Meshes.Add(new CollisionMesh(frontCollisionIndices) { Normal = new Vector3(0, 0, 1)});
+        collisionData.Meshes.Add(new CollisionMesh(backCollisionIndices) { Normal = new Vector3(0, 0, -1)});
+        collisionData.Meshes.Add(new CollisionMesh(topCollisionIndices) { Normal = new Vector3(0, 1, 0)});
+        collisionData.Meshes.Add(new CollisionMesh(downCollisionIndices) { Normal = new Vector3(0, -1, 0)});
+        collisionData.Meshes.Add(new CollisionMesh(rightCollisionIndices) { Normal = new Vector3(1, 0, 0)});
+        collisionData.Meshes.Add(new CollisionMesh(leftCollisionIndices) { Normal = new Vector3(-1, 0, 0)});
+        collisionData.Vertices = collisionVertices;
 
         GlobalCache<Scene>.AddOrUpdateItem("CubeScene", scene);
-        GlobalCache<List<CollisionMesh>>.AddOrUpdateItem("CubeCollision", collisionScene);
+        GlobalCache<CollisionData>.AddOrUpdateItem("CubeCollision", collisionData);
     }
 }

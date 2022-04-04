@@ -12,8 +12,6 @@ public static class ObjectRenderer
 {
     private static readonly Dictionary<Type, DrawSceneInfo> m_sceneBuffers = new();
 
-    private static readonly Dictionary<Type, List<IDrawable>> m_elements = new();
-    
     private static readonly Font DefaultFont = new Font("Arial", 14);
 
     public static bool RegisterScene(Type type, Shader shader)
@@ -24,27 +22,32 @@ public static class ObjectRenderer
         if (shader == null)
             throw new ArgumentNullException(nameof(shader));
 
-        return m_sceneBuffers.TryAdd(type, new DrawSceneInfo(shader, new Dictionary<int, DrawObjectInfo>()));
+        return m_sceneBuffers.TryAdd(type, new DrawSceneInfo(shader));
     }
-
-    public static void AddDrawable(IDrawable drawable)
+    
+    public static bool AddDrawable(IDrawable drawable, Shader shader)
     {
         if (drawable == null)
-            return;
+            return false;
 
-        List<IDrawable> drawables;
+        if (shader == null)
+            return false;
+
+        DrawSceneInfo drawSceneInfo;
         var drawableType = drawable.GetType();
 
-        if (!m_elements.TryGetValue(drawableType, out drawables))
+        if (!m_sceneBuffers.TryGetValue(drawableType, out drawSceneInfo))
         {
-            drawables = new List<IDrawable>();
-            m_elements.Add(drawableType, drawables);
+            drawSceneInfo = new DrawSceneInfo(shader);
+            m_sceneBuffers.Add(drawableType, drawSceneInfo);
         }
 
-        drawables.Add(drawable);
+        drawSceneInfo.Drawables.Add(drawable);
+
+        return true;
     }
 
-    public static void AddDrawables<T>(IList<T> drawables)
+    public static void AddDrawables<T>(IList<T> drawables, Shader shader)
         where T : IDrawable
     {
         if (drawables == null)
@@ -54,30 +57,24 @@ public static class ObjectRenderer
         {
             var drawable = drawables[i];
 
-            AddDrawable(drawable);
+            AddDrawable(drawable, shader);
         }
     }
 
     //TODO: Complete implementing instancing render
     public static void DrawElements(Camera camera, bool faceCounting = false)
     {
-        foreach (var elemPair in m_elements)
+        foreach (var elemPair in m_sceneBuffers)
         {
-            DrawSceneInfo drawSceneInfo;
-
-            if (!m_sceneBuffers.TryGetValue(elemPair.Key, out drawSceneInfo))
-            {
-                Console.WriteLine($"Cannot draw object {elemPair.Key.FullName}");
-                continue;
-            }
+            var drawSceneInfo = elemPair.Value;
 
             drawSceneInfo.Shader.Use();
             drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
             drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
 
-            for (int i = 0; i < elemPair.Value.Count; i++)
+            for (int i = 0; i < drawSceneInfo.Drawables.Count; i++)
             {
-                var element = elemPair.Value[i];
+                var element = drawSceneInfo.Drawables[i];
 
                 element.AcceptTransform();
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
@@ -112,7 +109,7 @@ public static class ObjectRenderer
             }
         }
     }
-    
+
 
     public static void DrawSkyBox(SkyBox skyBox, Camera camera)
     {
@@ -120,7 +117,10 @@ public static class ObjectRenderer
         DrawSceneInfo drawSceneInfo;
 
         if (!m_sceneBuffers.TryGetValue(elemType, out drawSceneInfo))
-            throw new DrawException($"Cannot draw object {elemType.FullName}");
+        {
+            Console.WriteLine("Cannot draw skybox because DrawSceneInfo not exists.");
+            return;
+        }
 
         drawSceneInfo.Shader.Use();
         drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
@@ -141,7 +141,7 @@ public static class ObjectRenderer
 
         GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
     }
-    
+
     private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera)
     {
         var norm = originalMesh.Normal;
@@ -185,14 +185,15 @@ public static class ObjectRenderer
 
         return new DrawObjectInfo(vao, vbo, ebo);
     }
-    
+
     private static unsafe DrawObjectInfo CreateSkyBoxDrawMeshInfo(Vector3[] vertices, Shader shader)
     {
         int vao = 0, vbo = 0, ebo = 0;
 
         vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length  * 3 * sizeof(Vector3), vertices, BufferUsageHint.StaticDraw);
+        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * 3 * sizeof(Vector3), vertices,
+            BufferUsageHint.StaticDraw);
 
         vao = GL.GenVertexArray();
         GL.BindVertexArray(vao);
@@ -204,3 +205,50 @@ public static class ObjectRenderer
         return new DrawObjectInfo(vao, vbo, ebo);
     }
 }
+
+
+// private static unsafe void FillDrawSceneInfo(Shader shader, DrawSceneInfo drawSceneInfo, IDrawable drawable)
+// {
+//     int vao = 0, vbo = 0, ebo = 0, texturesVBO = 0;
+//
+//     vbo = GL.GenBuffer();
+//     GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+//     GL.BufferData(BufferTarget.ArrayBuffer, drawable.Scene.Vertices.Length * sizeof(Vector3),
+//         drawable.Scene.Vertices,
+//         BufferUsageHint.StaticDraw);
+//
+//     vao = GL.GenVertexArray();
+//     GL.BindVertexArray(vao);
+//
+//     var posIndex = shader.GetAttribLocation("iPos");
+//     GL.EnableVertexAttribArray(posIndex);
+//     GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, sizeof(Vector3), 0);
+//
+//     ebo = GL.GenBuffer();
+//     GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
+//     GL.BufferData(BufferTarget.ElementArrayBuffer, drawable.Scene.Indices.Length * sizeof(uint),
+//         drawable.Scene.Indices.ToArray(), BufferUsageHint.StaticDraw);
+//
+//     var textureCoordsLength = drawable.Scene.Meshes.Sum(m => m.TextureCoords.Length);
+//     var textureCoords = new Vector2[textureCoordsLength];
+//
+//     for (int i = 0; i < drawable.Scene.Meshes.Count; i++)
+//     for (int j = 0; j < drawable.Scene.Meshes[i].TextureCoords.Length; j++)
+//         textureCoords[i * drawable.Scene.Meshes[i].TextureCoords.Length + j] = drawable.Scene.Meshes[i].TextureCoords[j];
+//
+//     texturesVBO = GL.GenBuffer();
+//     GL.BindBuffer(BufferTarget.ArrayBuffer, texturesVBO);
+//     GL.BufferData(BufferTarget.ArrayBuffer, textureCoords.Length * sizeof(Vector2), textureCoords, BufferUsageHint.StaticDraw);
+//
+//     var textureIndex = shader.GetAttribLocation("iTextureCoord");
+//     
+//     GL.EnableVertexAttribArray(textureIndex);
+//     GL.BindBuffer(BufferTarget.ArrayBuffer, texturesVBO);
+//     
+//     GL.VertexAttribPointer(textureIndex, 8, VertexAttribPointerType.Float, false, 4 * sizeof(Vector2), 0);
+//     GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+//     GL.VertexAttribDivisor(textureIndex, 1);
+//
+//     drawSceneInfo.DrawObjectInfo = new DrawObjectInfo(vao, vbo, ebo);
+//     drawSceneInfo.TexturesVBO = texturesVBO;
+// }

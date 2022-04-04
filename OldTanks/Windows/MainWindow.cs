@@ -121,7 +121,7 @@ public partial class MainWindow : GameWindow
 
             cube.Collision =
                 new CubeCollision(cube,
-                    GlobalCache<List<CoolEngine.PhysicEngine.Core.Mesh>>.GetItemOrDefault("CubeCollision"));
+                    GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
 
             foreach (var mesh in cube.Scene.Meshes)
@@ -227,15 +227,17 @@ public partial class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyDown(Keys.D))
         {
-            camPos += Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) * Math.Abs(camRBody.Speed);
+            camPos += Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
+                      Math.Abs(camRBody.Speed);
             camRBody.Speed += camRBody.Acceleration * timeDelta;
-                              moveDirection.X = 1;
+            moveDirection.X = 1;
         }
         else if (KeyboardState.IsKeyDown(Keys.A))
         {
-            camPos -= Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) * Math.Abs(camRBody.Speed);
+            camPos -= Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
+                      Math.Abs(camRBody.Speed);
             camRBody.Speed += camRBody.Acceleration * timeDelta;
-                              moveDirection.X = -1;
+            moveDirection.X = -1;
         }
 
         if (KeyboardState.IsKeyDown(Keys.W))
@@ -256,7 +258,7 @@ public partial class MainWindow : GameWindow
             moveDirection.Y = -1;
 
         camPos += m_world.Camera.Direction * camRBody.Speed +
-                  m_world.Camera.CameraUp * camRBody.VerticalForce;
+                 m_world.Camera.CameraUp * camRBody.VerticalForce;
 
         var camMoved = moveDirection != Vector3.Zero;
 
@@ -280,22 +282,19 @@ public partial class MainWindow : GameWindow
 
         var tmpPos = m_world.Camera.Position;
         m_world.Camera.Position = camPos;
-        
+
         m_world.Camera.Collision.CurrentObject.AcceptTransform();
         foreach (var worldObject in m_world.WorldObjects)
         {
-            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera);
+            Vector3 side;
+            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera, out side);
 
             if (m_haveCollision)
+            {
+                m_world.Camera.Position = tmpPos;
+                // m_world.Camera.Position += Vector3.Cross(m_world.Camera.Direction, side) * 0.4f;
                 break;
-        }
-
-        if (!m_haveCollision)
-            m_world.Camera.Position = camPos;
-        else
-        {
-            m_world.Camera.Position = tmpPos;
-            m_world.Camera.RigidBody.Speed = 0;
+            }
         }
 
         if (KeyboardState.IsKeyDown(Keys.Up))
@@ -355,9 +354,9 @@ public partial class MainWindow : GameWindow
             LoadFonts();
             InitControls();
 
-            ObjectRenderer.RegisterScene(typeof(Cube),
-                GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
-
+            // ObjectRenderer.RegisterScene(typeof(Cube),
+            //     GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
+            //
             ObjectRenderer.RegisterScene(typeof(SkyBox),
                 GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
 
@@ -370,9 +369,9 @@ public partial class MainWindow : GameWindow
             m_world.WorldObjects.Add(defCube);
 
             m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
-            
+
             m_world.Camera.Collision = new CubeCollision(m_world.Camera,
-                GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
+                GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
             m_world.Camera.Size = new Vector3(0.5f);
             m_world.Camera.Yaw = 45;
 
@@ -381,7 +380,7 @@ public partial class MainWindow : GameWindow
             m_collisionables.Add(m_world.Camera);
 
             defCube.Collision =
-                new CubeCollision(defCube, GlobalCache<List<CollisionMesh>>.GetItemOrDefault("CubeCollision"));
+                new CubeCollision(defCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault("Container");
             defCube.Collision.IsActive = true;
 
@@ -390,9 +389,9 @@ public partial class MainWindow : GameWindow
 
             InitCameraPhysics();
 
-            ObjectRenderer.AddDrawables(m_world.WorldObjects);
+            ObjectRenderer.AddDrawables(m_world.WorldObjects, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
             CollisionRenderer.AddCollisions(m_world.WorldObjects);
-            
+
             // m_generateObjectThread.Start();
         }
         catch (Exception e)
@@ -477,7 +476,7 @@ public partial class MainWindow : GameWindow
             ObjectRenderer.DrawElements(m_world.Camera, true);
         else
             CollisionRenderer.DrawElementsCollision(m_world.Camera);
-        
+
         // CollisionRenderer.DrawCollision(m_world.Camera, m_world.Camera, false);
 
         GL.Disable(EnableCap.CullFace);
