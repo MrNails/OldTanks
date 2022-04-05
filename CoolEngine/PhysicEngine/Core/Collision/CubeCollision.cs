@@ -87,8 +87,8 @@ public class CubeCollision : Collision
             var mesh = CurrentObject.Collision.CollisionData.Meshes[i];
             float currMin, currMax, t2Min, t2Max;
 
-            SATTest(mesh.Normal, CurrentObject.Collision.CollisionData.Vertices, out currMin, out currMax);
-            SATTest(mesh.Normal, t2.Collision.CollisionData.Vertices, out t2Min, out t2Max);
+            ProjectionMinMaxVertices(mesh.Normal, CurrentObject.Collision.CollisionData.Vertices, Array.Empty<uint>(), out currMin, out currMax);
+            ProjectionMinMaxVertices(mesh.Normal, t2.Collision.CollisionData.Vertices, Array.Empty<uint>(), out t2Min, out t2Max);
 
             if (!Overlaps(currMin, currMax, t2Min, t2Max))
                 return false;
@@ -97,18 +97,31 @@ public class CubeCollision : Collision
         return true;
     }
 
-    private void SATTest(in Vector3 normal, Vector3[] vertices, 
+    private void ProjectionMinMaxVertices(in Vector3 normal, Vector3[] vertices, uint[] indices,
         out float min, out float max)
     {
         min = float.MaxValue;
         max = float.MinValue;
 
-        for (int j = 0; j < vertices.Length; j++)
+        if (indices.Length == 0)
         {
-            var dotRes = Vector3.Dot(vertices[j], normal);
+            for (int j = 0; j < vertices.Length; j++)
+            {
+                var dotRes = Vector3.Dot(vertices[j], normal);
 
-            if (min > dotRes) min = dotRes;
-            if (max < dotRes) max = dotRes;
+                if (min > dotRes) min = dotRes;
+                if (max < dotRes) max = dotRes;
+            }
+        }
+        else
+        {
+            for (int j = 0; j < indices.Length; j++)
+            {
+                var dotRes = Vector3.Dot(vertices[indices[j]], normal);
+
+                if (min > dotRes) min = dotRes;
+                if (max < dotRes) max = dotRes;
+            }
         }
     }
 

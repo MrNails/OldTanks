@@ -44,9 +44,12 @@ public abstract class Collision
     {
         var transformation = m_currentObj.Transform;
 
-        for (int i = 0, m = 0; i < m_currentCollision.Vertices.Length && m < m_originalCollision.Vertices.Length; i++)
+        for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
             m_currentCollision.Vertices[i] =
                 new Vector3(new Vector4(m_originalCollision.Vertices[i], 1) * transformation);
+
+        for (int i = 0; i < m_currentCollision.Meshes.Count; i++)
+            m_currentCollision.Meshes[i].Normal = Vector3.NormalizeFast(new Vector3(new Vector4(m_originalCollision.Meshes[i].Normal, 1) * transformation));
     }
 
     private void InitCollision(CollisionData originalCollision)
