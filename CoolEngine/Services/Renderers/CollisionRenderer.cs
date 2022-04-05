@@ -58,6 +58,12 @@ public class CollisionRenderer
         Shader.SetMatrix4("view", useLookAt ? camera.LookAt : Matrix4.Identity);
         Shader.SetVector3("color", Colors.Orange);
 
+        var textDrawInfo = new TextDrawInformation
+        {
+            Color = Colors.Orange,
+            Scale = 0.01f
+        };
+        
         foreach (var elementPair in m_drawCollisions)
         {
             var element = elementPair.Value;
@@ -72,12 +78,13 @@ public class CollisionRenderer
 
             GL.DrawElements(BeginMode.Lines, element.IndicesPerModel * element.ActiveCount,
                 DrawElementsType.UnsignedInt, 0);
-
+            
             for (int j = 0; j < element.ActiveCount * element.VerticesPerModel; j++)
             {
                 var pos = element.Vertices[j];
-                TextRenderer.DrawText3D(DefaultFont, $"{j} {pos}", pos, Colors.Orange, default,
-                    0.01f, camera, true);
+                textDrawInfo.SelfPosition = pos;
+
+                TextRenderer.DrawText3D(DefaultFont, $"{j} {pos}", camera, textDrawInfo, true);
             }
 
             Shader.Use();

@@ -2,6 +2,7 @@
 using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -146,27 +147,23 @@ public static class TextRenderer
         }
     }
 
-    public static void DrawText3D(Font font, string text, Vector3 position, Vector3 color,
-        Vector3 rotation, float scale, Camera camera, bool useBillboardView = false, Vector3 outerRotation = default)
+    public static void DrawText3D(Font font, string text, Camera camera, 
+        in TextDrawInformation textDrawInformation, bool useBillboardView = false)
     {
         if ((s_drawObjectInfo == null || text.Length > s_renderAmount * s_resizeThreshold)
             && s_maxRenderAmount >= text.Length * 2)
             SetNewRenderAmount(text.Length * 2);
         
-        var sizeMultiplier = (font.FontSize / font.FontInformation.OriginalFontSize) * scale;
+        var sizeMultiplier = (font.FontSize / font.FontInformation.OriginalFontSize) * textDrawInformation.Scale;
 
         Shader.Use();
         Shader.SetMatrix4("projection", camera.LookAt * GlobalSettings.Projection);
-        Shader.SetVector3("color", color);
+        Shader.SetVector3("color", textDrawInformation.Color);
 
         Matrix4 mTransOrigin;
-        var mRotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(rotation.X)) *
-                        Matrix4.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y)) *
-                        Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(rotation.Z));
-
-        var mOutRotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(outerRotation.X)) *
-                           Matrix4.CreateRotationY(MathHelper.DegreesToRadians(outerRotation.Y)) *
-                           Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(outerRotation.Z));
+        var mRotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)) *
+                        Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y)) *
+                        Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z));
 
         if (useBillboardView)
         {
@@ -178,12 +175,18 @@ public static class TextRenderer
                 camLookAt.M11, camLookAt.M21, camLookAt.M31, 0,
                 camLookAt.M12, camLookAt.M22, camLookAt.M32, 0,
                 invertedMat.M41, invertedMat.M42, invertedMat.M43, 0,
-                position.X, position.Y, position.Z, 1
+                textDrawInformation.SelfPosition.X, textDrawInformation.SelfPosition.Y, textDrawInformation.SelfPosition.Z, 1
             );
             mTransOrigin = bMatrix;
         }
         else
-            mTransOrigin = Matrix4.CreateTranslation(position);
+            mTransOrigin = Matrix4.CreateTranslation(textDrawInformation.SelfPosition);
+        
+        var mOriginTransform = mRotation * mTransOrigin *
+                               Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X)) *
+                               Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y)) *
+                               Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z)) *
+                               Matrix4.CreateTranslation(textDrawInformation.OriginPosition);
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
@@ -227,7 +230,7 @@ public static class TextRenderer
                     characterInfo, font.FontInformation.Texture);
             }
 
-            Shader.SetMatrix4("model",  Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0) * mRotation * mTransOrigin * mOutRotation);
+            Shader.SetMatrix4("model",  Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0) * mOriginTransform);
             
             GL.BindVertexArray(s_drawObjectInfo.VertexArrayObject);
 

@@ -37,8 +37,11 @@ public partial class MainWindow : GameWindow
     private World m_world;
 
     private double m_fps;
+    
     private bool m_debugView;
     private bool m_activePhysic;
+    private bool m_drawNormals;
+    private bool m_drawFaceNumber;
 
     private Vector3 m_camPosDelta;
 
@@ -365,7 +368,7 @@ public partial class MainWindow : GameWindow
             TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
             TextRenderer.OriginalScene = GlobalCache<Scene>.GetItemOrDefault("FontScene");
 
-            var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10) };
+            var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Visible = true };
             m_world.WorldObjects.Add(defCube);
 
             m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
@@ -429,31 +432,41 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyUp(KeyboardKeyEventArgs e)
     {
-        if (e.Key == Keys.D0)
-            m_debugView = !m_debugView;
-
-        if (e.Key == Keys.LeftControl)
-            m_world.Camera.RigidBody.MaxSpeedMultiplier = 1;
-
-        if (e.Key == Keys.F)
-            m_activePhysic = !m_activePhysic;
-
-        if (e.Key == Keys.R)
+        switch (e.Key)
         {
-            m_rotation = new Vector3();
-            m_world.Camera.Position = new Vector3();
-            // m_world.Camera.Roll = 0;
-            // m_world.Camera.Yaw = 0;
-            // m_world.Camera.Pitch = 0;
+            case Keys.D0:
+                m_debugView = !m_debugView;
+                break;
+            case Keys.LeftControl:
+                m_world.Camera.RigidBody.MaxSpeedMultiplier = 1;
+                break;
+            case Keys.F:
+                m_activePhysic = !m_activePhysic;
+                break;
+            case Keys.N:
+                m_drawNormals = !m_drawNormals;
+                break;
+            case Keys.R:
+                m_rotation = new Vector3();
+                m_world.Camera.Position = new Vector3();
+                // m_world.Camera.Roll = 0;
+                // m_world.Camera.Yaw = 0;
+                // m_world.Camera.Pitch = 0;
+                break;
+            case Keys.O:
+                m_drawFaceNumber = !m_drawFaceNumber;
+                break;
+            default:
+            {
+                if (e.Alt && e.Key == Keys.Enter)
+                    WindowState = WindowState == WindowState.Normal ? WindowState.Fullscreen : WindowState.Normal;
+
+                break;
+            }
         }
 
-        if (e.Alt == true && e.Key == Keys.Enter)
-            if (WindowState == WindowState.Normal)
-                WindowState = WindowState.Fullscreen;
-            else
-                WindowState = WindowState.Normal;
 
-
+        
         base.OnKeyUp(e);
     }
 
@@ -473,7 +486,7 @@ public partial class MainWindow : GameWindow
         GEGlobalSettings.s_globalLock.EnterReadLock();
 
         if (!m_debugView)
-            ObjectRenderer.DrawElements(m_world.Camera, true);
+            ObjectRenderer.DrawElements(m_world.Camera, m_drawFaceNumber, m_drawNormals);
         else
             CollisionRenderer.DrawElementsCollision(m_world.Camera);
 

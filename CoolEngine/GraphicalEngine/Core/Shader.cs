@@ -5,6 +5,9 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public class Shader : IDisposable
 {
+    private Dictionary<string, int> m_uniforms;
+    private Dictionary<string, int> m_attributes;
+
     public Shader(string vertexShaderText, string fragmentShaderText, string name)
     {
         Name = name;
@@ -31,6 +34,11 @@ public class Shader : IDisposable
         GL.DetachShader(Handle, fragmentShader);
         GL.DeleteShader(vertexShader);
         GL.DeleteShader(fragmentShader);
+
+        m_uniforms = new Dictionary<string, int>();
+        m_attributes = new Dictionary<string, int>();
+        LoadShaderUniforms();
+        LoadShaderAttributes();
     }
 
     public int Handle { get; }
@@ -61,14 +69,56 @@ public class Shader : IDisposable
         GL.Uniform3(GetUniformLocation(name), ref vector);
     }
     
+    public void SetBool(string name, bool boolean)
+    {
+        GL.UseProgram(Handle);
+        GL.Uniform1(GetUniformLocation(name), boolean ? 1 : 0);
+    }
+    
     public int GetAttribLocation(string attribName)
     {
-        return GL.GetAttribLocation(Handle, attribName);
+        m_attributes.TryGetValue(attribName, out int location);
+
+        return location;
     }
     
     public int GetUniformLocation(string uniformName)
     {
-        return GL.GetUniformLocation(Handle, uniformName);
+        m_uniforms.TryGetValue(uniformName, out int location);
+        
+        return location;
+    }
+
+    private void LoadShaderUniforms()
+    {
+        int output = 0;
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveUniforms, out output);
+
+        for (int i = 0; i < output; i++)
+        {
+            var size = 0;
+            var ut = ActiveUniformType.FloatMat4;
+
+            var key = GL.GetActiveUniform(Handle, i, out size, out ut);
+
+            m_uniforms[key] = GL.GetUniformLocation(Handle, key);
+        }
+    }
+    
+    private void LoadShaderAttributes()
+    {
+        int output = 0;
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveAttributes, out output);
+
+        for (int i = 0; i < output; i++)
+        {
+            var size = 0;
+            var attribType = ActiveAttribType.FloatMat4;
+
+            var key = GL.GetActiveAttrib(Handle, i, out size, out attribType);
+
+            m_attributes[key] = GL.GetAttribLocation(Handle, key);
+        }
     }
     
     private static int CreateShader(ShaderType shaderType, string source)
