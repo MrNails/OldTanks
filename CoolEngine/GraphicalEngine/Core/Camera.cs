@@ -48,6 +48,7 @@ public class Camera : IPhysicObject
         set
         {
             m_position = value;
+            m_isLookAtChanged = true;
             m_haveTransformation = true;
         }
     }

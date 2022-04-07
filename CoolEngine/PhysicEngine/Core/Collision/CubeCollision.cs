@@ -25,32 +25,14 @@ public class CubeCollision : Collision
         if (CurrentObject.Collision.CollisionData.Vertices.Length == 0)
             return;
 
-        var first = CurrentObject.Collision.CollisionData.Vertices[0];
-        m_maxVertex = first;
-        m_minVertex = first;
-
-
-        var vertices = CurrentObject.Collision.CollisionData.Vertices;
-
-        for (int j = 0; j < vertices.Length; j++)
-        {
-            var current = vertices[j];
-
-            if (m_maxVertex.X < current.X) m_maxVertex.X = current.X;
-            if (m_maxVertex.Y < current.Y) m_maxVertex.Y = current.Y;
-            if (m_maxVertex.Z < current.Z) m_maxVertex.Z = current.Z;
-
-            if (m_minVertex.X > current.X) m_minVertex.X = current.X;
-            if (m_minVertex.Y > current.Y) m_minVertex.Y = current.Y;
-            if (m_minVertex.Z > current.Z) m_minVertex.Z = current.Z;
-        }
+        GetBoundingBoxCoors(CurrentObject.Collision.CollisionData.Vertices, out m_minVertex, out m_maxVertex);
     }
 
     //TODO: implement collision check
     /// <inheritdoc/>
-    public override bool CheckCollision(IPhysicObject t2, out Vector3 side)
+    public override bool CheckCollision(IPhysicObject t2, out Vector3 normal)
     {
-        side = Vector3.Zero;
+        normal = Vector3.Zero;
 
         if (t2 == null)
             return false;
@@ -58,12 +40,29 @@ public class CubeCollision : Collision
         if (t2.Collision.CollisionType != CollisionType.Cube)
             return false;
 
-        var collisionCheck = CurrentObject.Direction == Vector3.Zero ? AABBCollisionCheck(t2) : OBBCollisionCheck(t2);
+        normal = (t2.Position - CurrentObject.Position).Normalized();
 
-        if (!collisionCheck)
-            return collisionCheck;
+        return AABBCollisionCheck(t2) || 
+               OBBCollisionCheck(t2);
+    }
 
-        return collisionCheck;
+    private void GetBoundingBoxCoors(Vector3[] vertices, out Vector3 min, out Vector3 max)
+    {
+        min = new Vector3(float.MaxValue);
+        max = new Vector3(float.MinValue);
+
+        for (int j = 0; j < vertices.Length; j++)
+        {
+            var current = vertices[j];
+
+            if (max.X < current.X) max.X = current.X;
+            if (max.Y < current.Y) max.Y = current.Y;
+            if (max.Z < current.Z) max.Z = current.Z;
+
+            if (min.X > current.X) min.X = current.X;
+            if (min.Y > current.Y) min.Y = current.Y;
+            if (min.Z > current.Z) min.Z = current.Z;
+        }
     }
 
     private bool AABBCollisionCheck(IPhysicObject t2)
@@ -87,11 +86,16 @@ public class CubeCollision : Collision
             var mesh = CurrentObject.Collision.CollisionData.Meshes[i];
             float currMin, currMax, t2Min, t2Max;
 
-            ProjectionMinMaxVertices(mesh.Normal, CurrentObject.Collision.CollisionData.Vertices, Array.Empty<uint>(), out currMin, out currMax);
-            ProjectionMinMaxVertices(mesh.Normal, t2.Collision.CollisionData.Vertices, Array.Empty<uint>(), out t2Min, out t2Max);
-
-            if (!Overlaps(currMin, currMax, t2Min, t2Max))
-                return false;
+            for (int j = 0; j < t2.Collision.CollisionData.Meshes.Count; j++)
+            {
+                ProjectionMinMaxVertices(mesh.Normal, CurrentObject.Collision.CollisionData.Vertices, mesh.Indices,
+                    out currMin, out currMax);
+                ProjectionMinMaxVertices(mesh.Normal, t2.Collision.CollisionData.Vertices, t2.Collision.CollisionData.Meshes[j].Indices, out t2Min,
+                    out t2Max);
+                
+                if (!Overlaps(currMin, currMax, t2Min, t2Max))
+                    return false;
+            }
         }
 
         return true;
@@ -103,25 +107,12 @@ public class CubeCollision : Collision
         min = float.MaxValue;
         max = float.MinValue;
 
-        if (indices.Length == 0)
+        for (int j = 0; j < indices.Length; j++)
         {
-            for (int j = 0; j < vertices.Length; j++)
-            {
-                var dotRes = Vector3.Dot(vertices[j], normal);
+            var dotRes = Vector3.Dot(vertices[indices[j]], normal);
 
-                if (min > dotRes) min = dotRes;
-                if (max < dotRes) max = dotRes;
-            }
-        }
-        else
-        {
-            for (int j = 0; j < indices.Length; j++)
-            {
-                var dotRes = Vector3.Dot(vertices[indices[j]], normal);
-
-                if (min > dotRes) min = dotRes;
-                if (max < dotRes) max = dotRes;
-            }
+            if (min > dotRes) min = dotRes;
+            if (max < dotRes) max = dotRes;
         }
     }
 

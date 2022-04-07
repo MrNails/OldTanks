@@ -102,6 +102,7 @@ public static class ObjectRenderer
 
                 element.AcceptTransform();
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
+                drawSceneInfo.Shader.SetVector3("textureScale", element.Size / 2);
 
                 for (int j = 0; j < element.Scene.Meshes.Count; j++, normalsCount += 2)
                 {

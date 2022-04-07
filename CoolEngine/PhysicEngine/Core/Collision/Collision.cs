@@ -47,9 +47,6 @@ public abstract class Collision
         for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
             m_currentCollision.Vertices[i] =
                 new Vector3(new Vector4(m_originalCollision.Vertices[i], 1) * transformation);
-
-        for (int i = 0; i < m_currentCollision.Meshes.Count; i++)
-            m_currentCollision.Meshes[i].Normal = Vector3.NormalizeFast(new Vector3(new Vector4(m_originalCollision.Meshes[i].Normal, 1) * transformation));
     }
 
     private void InitCollision(CollisionData originalCollision)
@@ -72,7 +69,7 @@ public abstract class Collision
     /// Check collision between two physic objects
     /// </summary>
     /// <param name="t2">From which object will takes vertices</param>
-    /// <param name="side">Normal of side where collision was</param>
+    /// <param name="normal">Normal of side where collision was</param>
     /// <returns></returns>
-    public abstract bool CheckCollision(IPhysicObject t2, out Vector3 side);
+    public abstract bool CheckCollision(IPhysicObject t2, out Vector3 normal);
 }

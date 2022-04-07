@@ -17,4 +17,7 @@ public static class VectorExtensions
                left.Y < right.Y &&
                left.Z < right.Z;
     }
+
+    public static Vector3 SystemToGLVector(in System.Numerics.Vector3 source) => new (source.X, source.Y, source.Z);
+    public static  System.Numerics.Vector3  GLToSystemVector(in Vector3 source) => new (source.X, source.Y, source.Z);
 }

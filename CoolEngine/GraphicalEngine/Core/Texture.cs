@@ -7,12 +7,14 @@ using SixLabors.ImageSharp.Processing;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class Texture
+public class Texture : IDisposable
 {
     private static readonly string[] Parts =
         { "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg" };
 
     public int Handle { get; }
+    
+    public bool Disposed { get; private set; }
 
     public float Width { get; }
     public float Height { get; }
@@ -257,6 +259,36 @@ public class Texture
         return new Texture(handle, -1, -1);
     }
 
+    public static Texture CreateTexture(IntPtr ptr, int width, int height, TextureWrapMode wrapMode)
+    {
+        var handle = GL.GenTexture();
+
+        GL.ActiveTexture(TextureUnit.Texture0);
+        GL.BindTexture(TextureTarget.Texture2D, handle);
+
+        GL.TexImage2D(TextureTarget.Texture2D,
+            0,
+            PixelInternalFormat.Rgba,
+            width,
+            height,
+            0,
+            PixelFormat.Rgba,
+            PixelType.UnsignedByte,
+            ptr);
+
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+            (int)TextureMinFilter.Linear);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+            (int)TextureMagFilter.Linear);
+
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)wrapMode);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)wrapMode);
+
+        GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+
+        return new Texture(handle, width, height);
+    }
+    
     internal static Texture CreateFontTexture(byte[] img, int width, int height, TextureWrapMode wrapMode)
     {
         var handle = GL.GenTexture();
@@ -285,5 +317,25 @@ public class Texture
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
         return new Texture(handle, width, height);
+    }
+
+    private void ReleaseUnmanagedResources()
+    {
+        if (!Disposed)
+        {
+            GL.DeleteTexture(Handle);
+            Disposed = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        ReleaseUnmanagedResources();
+        GC.SuppressFinalize(this);
+    }
+
+    ~Texture()
+    {
+        ReleaseUnmanagedResources();
     }
 }

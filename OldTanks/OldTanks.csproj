@@ -26,4 +26,8 @@
       <ProjectReference Include="..\CoolEngine\CoolEngine.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="ImGui.NET" Version="1.87.3" />
+    </ItemGroup>
+
 </Project>
