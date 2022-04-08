@@ -163,7 +163,7 @@ public class Font
                 }
             }
 
-            var texture = Texture.CreateFontTexture(img, imgLength / maxHeight, maxHeight, TextureWrapMode.ClampToEdge);
+            var texture = Texture.Texture.CreateFontTexture(img, imgLength / maxHeight, maxHeight, TextureWrapMode.ClampToEdge);
 
             ArrayPool<byte>.Shared.Return(img);
 

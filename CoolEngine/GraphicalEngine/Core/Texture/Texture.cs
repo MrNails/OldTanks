@@ -5,10 +5,12 @@ using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 
-namespace CoolEngine.GraphicalEngine.Core;
+namespace CoolEngine.GraphicalEngine.Core.Texture;
 
 public class Texture : IDisposable
 {
+    public static readonly Texture Empty = new Texture(0, -1, -1);
+    
     private static readonly string[] Parts =
         { "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg" };
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.GraphicalEngine.Services;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;

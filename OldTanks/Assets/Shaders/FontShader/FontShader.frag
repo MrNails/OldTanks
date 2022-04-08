@@ -3,7 +3,7 @@ in vec2 texture;
 
 uniform sampler2D texture0;
 
-uniform vec3 color;
+uniform vec4 color;
 uniform int boldMultiplier;
 
 void main() {
@@ -13,5 +13,5 @@ void main() {
         _bolMultipler = 1;
     
     vec4 sampled = vec4(1.0f, 1.0f, 1.0f, texture(texture0, texture).r);
-    gl_FragColor = sampled * vec4(color, 1.0) * _bolMultipler;
+    gl_FragColor = sampled * color * _bolMultipler;
 }

@@ -55,5 +55,5 @@ public class SkyBox
         };
     }
 
-    public Texture? Texture { get; set; }
+    public Texture.Texture? Texture { get; set; }
 }

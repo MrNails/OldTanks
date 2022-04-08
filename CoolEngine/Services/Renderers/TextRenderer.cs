@@ -2,6 +2,7 @@
 using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -73,7 +74,7 @@ public static class TextRenderer
         DrawText2D(text, font, position, Colors.White);
     }
 
-    public static void DrawText2D(string text, Font font, in Vector2 position, in Vector3 color,
+    public static void DrawText2D(string text, Font font, in Vector2 position, in Vector4 color,
         in Vector2 rotation = default)
     {
         if ((s_drawObjectInfo == null || text.Length > s_renderAmount * s_resizeThreshold)
@@ -85,7 +86,7 @@ public static class TextRenderer
         Shader.Use();
         Shader.SetMatrix4("projection", GlobalSettings.ScreenProjection);
         Shader.SetMatrix4("model", Matrix4.Identity);
-        Shader.SetVector3("color", color);
+        Shader.SetVector4("color", color);
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
@@ -158,7 +159,7 @@ public static class TextRenderer
 
         Shader.Use();
         Shader.SetMatrix4("projection", camera.LookAt * GlobalSettings.Projection);
-        Shader.SetVector3("color", textDrawInformation.Color);
+        Shader.SetVector4("color", textDrawInformation.Color);
 
         Matrix4 mTransOrigin;
         var mRotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)) *

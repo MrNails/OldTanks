@@ -103,6 +103,7 @@ public static class ObjectRenderer
                 element.AcceptTransform();
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
                 drawSceneInfo.Shader.SetVector3("textureScale", element.Size / 2);
+                drawSceneInfo.Shader.SetVector4("color", Colors.White);
 
                 for (int j = 0; j < element.Scene.Meshes.Count; j++, normalsCount += 2)
                 {
@@ -118,7 +119,7 @@ public static class ObjectRenderer
 
                     GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
 
-                    mesh.Texture.Use(TextureUnit.Texture0);
+                    mesh.TextureData.Texture?.Use(TextureUnit.Texture0);
 
                     GL.DrawElements(BeginMode.Triangles, mesh.Indices.Length, DrawElementsType.UnsignedInt, 0);
 
@@ -144,7 +145,7 @@ public static class ObjectRenderer
                 if (!showNormals)
                     continue;
                 
-                drawSceneInfo.Shader.SetVector3("color", Colors.Red);
+                drawSceneInfo.Shader.SetVector4("color", Colors.Red);
                 drawSceneInfo.Shader.SetBool("useColor", true);
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform.ClearScale());
                 

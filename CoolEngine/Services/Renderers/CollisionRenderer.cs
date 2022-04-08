@@ -56,7 +56,7 @@ public class CollisionRenderer
         Shader.Use();
         Shader.SetMatrix4("projection", GlobalSettings.Projection);
         Shader.SetMatrix4("view", useLookAt ? camera.LookAt : Matrix4.Identity);
-        Shader.SetVector3("color", Colors.Orange);
+        Shader.SetVector4("color", Colors.Orange);
 
         var textDrawInfo = new TextDrawInformation
         {

@@ -10,6 +10,6 @@ public struct TextDrawInformation
     public Vector3 SelfRotation { get; set; }
     public Vector3 SelfPosition { get; set; }
 
-    public Vector3 Color { get; set; }
+    public Vector4 Color { get; set; }
     public float Scale { get; set; } = 1;
 }

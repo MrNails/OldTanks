@@ -7,7 +7,7 @@ public class FontInformation
     private readonly Dictionary<char, CharacterInfo> m_characters;
     private readonly ReadOnlyDictionary<char, CharacterInfo> m_readOnlyCharacters;
     
-    public FontInformation(int originalFontSize, string fontName, Dictionary<char, CharacterInfo> characterInformations, Texture texture)
+    public FontInformation(int originalFontSize, string fontName, Dictionary<char, CharacterInfo> characterInformations, Texture.Texture texture)
     {
         OriginalFontSize = originalFontSize;
         FontName = fontName;
@@ -19,7 +19,7 @@ public class FontInformation
 
     public int OriginalFontSize { get; }
     public string FontName { get; }
-    public Texture Texture { get; }
+    public Texture.Texture Texture { get; }
 
     public ReadOnlyDictionary<char, CharacterInfo> CharacterInformations => m_readOnlyCharacters;
 }

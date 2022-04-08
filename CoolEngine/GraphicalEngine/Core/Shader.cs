@@ -69,6 +69,12 @@ public class Shader : IDisposable
         GL.Uniform3(GetUniformLocation(name), ref vector);
     }
     
+    public void SetVector4(string name, Vector4 vector)
+    {
+        GL.UseProgram(Handle);
+        GL.Uniform4(GetUniformLocation(name), ref vector);
+    }
+    
     public void SetBool(string name, bool boolean)
     {
         GL.UseProgram(Handle);

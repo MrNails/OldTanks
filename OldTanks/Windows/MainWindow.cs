@@ -1,6 +1,7 @@
 ﻿using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
@@ -193,7 +194,7 @@ public partial class MainWindow : GameWindow
             var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
 
             foreach (var mesh in cube.Scene.Meshes)
-                mesh.Texture = texture;
+                mesh.TextureData.Texture = texture;
 
             GEGlobalSettings.s_globalLock.EnterWriteLock();
             m_world.WorldObjects.Add(cube);
@@ -506,7 +507,7 @@ public partial class MainWindow : GameWindow
             defCube.Collision.IsActive = true;
 
             foreach (var mesh in defCube.Scene.Meshes)
-                mesh.Texture = texture;
+                mesh.TextureData.Texture = texture;
 
             m_testCube.Collision =
                 new CubeCollision(m_testCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
@@ -514,7 +515,7 @@ public partial class MainWindow : GameWindow
             m_testCube.Collision.IsActive = true;
 
             foreach (var mesh in m_testCube.Scene.Meshes)
-                mesh.Texture = texture;
+                mesh.TextureData.Texture = Texture.Empty;
 
             InitCameraPhysics();
 

@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.GraphicalEngine.Core.Texture;
 
 namespace CoolEngine.Services.Misc;
 
@@ -30,10 +31,10 @@ public class RenderGroup : IEnumerable<KeyValuePair<Texture, MeshGroup>>
     public void Add(Mesh mesh)
     {
         MeshGroup? meshes;
-        if (!m_elements.TryGetValue(mesh.Texture, out meshes))
+        if (!m_elements.TryGetValue(mesh.TextureData.Texture, out meshes))
         {
             meshes = new MeshGroup();
-            m_elements.Add(mesh.Texture, meshes);
+            m_elements.Add(mesh.TextureData.Texture, meshes);
         }
 
         mesh.TextureChanging += TextureChanged;
@@ -53,7 +54,7 @@ public class RenderGroup : IEnumerable<KeyValuePair<Texture, MeshGroup>>
     public bool Remove(Mesh mesh)
     {
         MeshGroup? meshes;
-        if (!m_elements.TryGetValue(mesh.Texture, out meshes))
+        if (!m_elements.TryGetValue(mesh.TextureData.Texture, out meshes))
             return false;
         
         mesh.TextureChanging -= TextureChanged;
@@ -68,7 +69,7 @@ public class RenderGroup : IEnumerable<KeyValuePair<Texture, MeshGroup>>
             var mesh = meshes[i];
             MeshGroup? _meshes;
 
-            if (m_elements.TryGetValue(mesh.Texture, out _meshes))
+            if (m_elements.TryGetValue(mesh.TextureData.Texture, out _meshes))
                 _meshes.Remove(mesh);
         }
     }
@@ -76,7 +77,7 @@ public class RenderGroup : IEnumerable<KeyValuePair<Texture, MeshGroup>>
     public bool Contains(Mesh mesh)
     {
         MeshGroup? meshes;
-        if (!m_elements.TryGetValue(mesh.Texture, out meshes))
+        if (!m_elements.TryGetValue(mesh.TextureData.Texture, out meshes))
             return false;
 
         return meshes.Contains(mesh);
@@ -93,10 +94,10 @@ public class RenderGroup : IEnumerable<KeyValuePair<Texture, MeshGroup>>
         m_elements[old].Remove(source);
         
         MeshGroup? meshes;
-        if (!m_elements.TryGetValue(source.Texture, out meshes))
+        if (!m_elements.TryGetValue(source.TextureData.Texture, out meshes))
         {
             meshes = new MeshGroup();
-            m_elements.Add(source.Texture, meshes);
+            m_elements.Add(source.TextureData.Texture, meshes);
         }
         
         meshes.Add(source);

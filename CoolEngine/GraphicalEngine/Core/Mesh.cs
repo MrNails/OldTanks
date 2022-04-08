@@ -1,17 +1,17 @@
 ﻿using CoolEngine.Core.Primitives;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public delegate void TextureDelegate(Texture old, Mesh source);
+public delegate void TextureDelegate(Texture.Texture old, Mesh source);
 
 public class Mesh
 {
     private int m_meshId;
     private Vertex[] m_vertices;
     private uint[] m_indices;
-    private Texture m_texture;
 
     public event TextureDelegate? TextureChanging;
 
@@ -24,6 +24,8 @@ public class Mesh
         Vertices = vertices;
         Indices = indices;
         m_meshId = meshId;
+
+        TextureData = new TextureData();
     }
 
     /// <summary>
@@ -57,38 +59,30 @@ public class Mesh
 
     public Vector3 Normal { get; set; }
 
-    public Texture Texture
-    {
-        get => m_texture;
-        set
-        {
-            // var old = m_texture;
-            m_texture = value;
-
-            // if (old?.Handle != m_texture.Handle)
-            //     TextureChanging?.Invoke(old, this);
-        }
-    }
+    public TextureData TextureData { get; }
 
     public IDrawable Drawable { get; set; }
     
     public Mesh Copy()
     {
-        return new Mesh(MeshId)
+        var mesh = new Mesh(MeshId)
         {
             Vertices = m_vertices,
             Indices = m_indices,
-            Texture = Texture,
             Normal = Normal,
             Drawable = Drawable
         };
+
+        mesh.TextureData.Texture = TextureData.Texture;
+
+        return mesh;
     }
 
     public static bool operator ==(Mesh left, Mesh right)
     {
         return left.Vertices == right.Vertices &&
                left.Indices == right.Indices &&
-               left.Texture.Handle == right.Texture.Handle &&
+               left.TextureData.Texture?.Handle == right.TextureData.Texture?.Handle &&
                left.Normal == right.Normal;
     }
 

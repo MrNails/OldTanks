@@ -35,7 +35,7 @@ public abstract class TextControl : Control
     public VerticalTextAlignment VerticalTextAlignment { get; set; }
     public HorizontalTextAlignment HorizontalTextAlignment { get; set; }
 
-    public Vector3 Color { get; set; }
+    public Vector4 Color { get; set; }
     
     public Font Font
     {
