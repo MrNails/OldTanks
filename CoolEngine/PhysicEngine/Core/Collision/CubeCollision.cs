@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
@@ -42,8 +43,8 @@ public class CubeCollision : Collision
 
         normal = (t2.Position - CurrentObject.Position).Normalized();
 
-        return AABBCollisionCheck(t2) || 
-               OBBCollisionCheck(t2);
+        // return AABBCollisionCheck(t2) || 
+        return OBBCollisionCheck(t2);
     }
 
     private void GetBoundingBoxCoors(Vector3[] vertices, out Vector3 min, out Vector3 max)
@@ -86,40 +87,40 @@ public class CubeCollision : Collision
             var mesh = CurrentObject.Collision.CollisionData.Meshes[i];
             float currMin, currMax, t2Min, t2Max;
 
-            for (int j = 0; j < t2.Collision.CollisionData.Meshes.Count; j++)
+            ProjectionMinMaxVertices(mesh.Normal, CurrentObject.Collision.CollisionData.Vertices,
+                out currMin, out currMax);
+            ProjectionMinMaxVertices(mesh.Normal, t2.Collision.CollisionData.Vertices,
+                out t2Min, out t2Max);
+
+            if (currMin >= t2Max || t2Min >= currMax)
             {
-                ProjectionMinMaxVertices(mesh.Normal, CurrentObject.Collision.CollisionData.Vertices, mesh.Indices,
-                    out currMin, out currMax);
-                ProjectionMinMaxVertices(mesh.Normal, t2.Collision.CollisionData.Vertices, t2.Collision.CollisionData.Meshes[j].Indices, out t2Min,
-                    out t2Max);
-                
-                if (!Overlaps(currMin, currMax, t2Min, t2Max))
-                    return false;
+                mesh.Color = Colors.Red;
+                t2.Collision.CollisionData.Meshes[i].Color = Colors.Red;
+                return false;
             }
         }
 
         return true;
     }
 
-    private void ProjectionMinMaxVertices(in Vector3 normal, Vector3[] vertices, uint[] indices,
-        out float min, out float max)
+    private void ProjectionMinMaxVertices(in Vector3 normal, Vector3[] vertices, out float min, out float max)
     {
         min = float.MaxValue;
         max = float.MinValue;
 
-        for (int j = 0; j < indices.Length; j++)
+        for (int j = 0; j < vertices.Length; j++)
         {
-            var dotRes = Vector3.Dot(vertices[indices[j]], normal);
+            var dotRes = Vector3.Dot(vertices[j], normal);
 
             if (min > dotRes) min = dotRes;
             if (max < dotRes) max = dotRes;
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool Overlaps(float min1, float max1, float min2, float max2)
     {
-        return IsBetweenOrdered(min2, min1, max1) ||
-               IsBetweenOrdered(min1, min2, max2);
+        return min1 >= max2 || min2 >= max1;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

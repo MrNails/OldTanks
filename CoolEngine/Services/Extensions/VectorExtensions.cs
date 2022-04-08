@@ -18,6 +18,12 @@ public static class VectorExtensions
                left.Z < right.Z;
     }
 
-    public static Vector3 SystemToGLVector(in System.Numerics.Vector3 source) => new (source.X, source.Y, source.Z);
-    public static  System.Numerics.Vector3  GLToSystemVector(in Vector3 source) => new (source.X, source.Y, source.Z);
+    public static Vector4 SystemToGLVector4(in System.Numerics.Vector4 source) => new (source.X, source.Y, source.Z, source.W);
+    public static  System.Numerics.Vector4  GLToSystemVector3(in Vector4 source) => new (source.X, source.Y, source.Z, source.W);
+    
+    public static Vector3 SystemToGLVector3(in System.Numerics.Vector3 source) => new (source.X, source.Y, source.Z);
+    public static  System.Numerics.Vector3  GLToSystemVector3(in Vector3 source) => new (source.X, source.Y, source.Z);
+    
+    public static Vector2 SystemToGLVector2(in System.Numerics.Vector2 source) => new (source.X, source.Y);
+    public static  System.Numerics.Vector2  GLToSystemVector2(in Vector2 source) => new (source.X, source.Y);
 }

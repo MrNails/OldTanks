@@ -123,8 +123,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject
             m_haveTransformation = true;
         }
     }
-
-    public float Pitch
+    
+    public float Yaw
     {
         get => m_direction.X;
         set
@@ -133,8 +133,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject
             m_haveTransformation = true;
         }
     }
-
-    public float Yaw
+    
+    public float Pitch
     {
         get => m_direction.Y;
         set
@@ -164,8 +164,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject
             return;
 
         m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
-                      Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Pitch)) *
-                      Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Yaw)) *
+                      Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Yaw)) *
+                      Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Pitch)) *
                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
                       Matrix4.CreateTranslation(Position);
 

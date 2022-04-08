@@ -34,7 +34,7 @@ public class Texture : IDisposable
         GL.BindTexture(textureTarget, Handle);
     }
 
-    public static Texture CreateTexture(string path)
+    public static Texture CreateTexture(string path, TextureWrapMode textureWrapMode = TextureWrapMode.Repeat)
     {
         int handle = GL.GenTexture();
 
@@ -64,8 +64,8 @@ public class Texture : IDisposable
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
         GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
 
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)textureWrapMode);
+        GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)textureWrapMode);
 
         GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 

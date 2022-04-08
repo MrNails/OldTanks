@@ -56,4 +56,6 @@ public class SkyBox
     }
 
     public Texture.Texture? Texture { get; set; }
+    
+    public Vector3 Rotation { get; set; }
 }

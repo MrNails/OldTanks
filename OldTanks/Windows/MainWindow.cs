@@ -11,6 +11,7 @@ using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Renderers;
 using ImGuiNET;
 using OldTanks.Controls;
+using OldTanks.ImGuiControls;
 using OldTanks.Models;
 using OldTanks.Services;
 using OldTanks.Services.ImGUI;
@@ -31,15 +32,17 @@ public partial class MainWindow : GameWindow
     private readonly List<Control> m_controls;
     private readonly List<Vector3> m_objSLots;
 
+    private readonly List<ImGuiControl> m_imgGuiControls;
+
     private readonly List<ICollisionable> m_collisionables = new List<ICollisionable>();
 
     private readonly int m_renderRadius;
-    
+
     private bool m_exit;
     private bool m_haveCollision;
 
     private ImGuiController m_imGuiController;
-    
+
     private readonly Thread m_generateObjectThread;
 
     private World m_world;
@@ -60,7 +63,7 @@ public partial class MainWindow : GameWindow
     private bool m_firstMouseMove;
 
     private Vector3 m_rotation;
-    
+
     private readonly Dictionary<string, byte[]> m_imGUITextBoxDatas;
 
     public MainWindow(string caption)
@@ -96,6 +99,7 @@ public partial class MainWindow : GameWindow
         m_imGUITextBoxDatas = new Dictionary<string, byte[]>();
 
         m_rotation = new Vector3(0, 0, 0);
+        m_imgGuiControls = new List<ImGuiControl>();
     }
 
     private void InitCameraPhysics()
@@ -125,41 +129,103 @@ public partial class MainWindow : GameWindow
         m_testCube.RigidBody = cubeRBody;
     }
 
+    // private void InitImGuiControls()
+    // {
+    //     var root = new ImGuiTreeNode("TestCubeRigidBody");
+    //
+    //     for (int i = 0; i < m_testCube.Scene.Meshes.Count; i++)
+    //     {
+    //         var treeNode =  new ImGuiTreeNode($"TestCube mesh {i}");
+    //         treeNode.Children.Add(new FloatDragTextBox($"Test cube scale {i}"));
+    //         treeNode.Children.Add(new Float2DragTextBox($"Test cube rotation {i}"));
+    //         
+    //         root.Nodes.Add(treeNode);
+    //     }
+    //     
+    //     m_imgGuiControls.Add(root);
+    // }
+
     private void HandleImGUI()
     {
-        var testCubePos = VectorExtensions.GLToSystemVector(m_testCube.Position);
-        var testCubeRotation = VectorExtensions.GLToSystemVector(m_testCube.Direction);
-        var testCubeSize = VectorExtensions.GLToSystemVector(m_testCube.Size);
+        var testCubePos = VectorExtensions.GLToSystemVector3(m_testCube.Position);
+        var testCubeRotation = VectorExtensions.GLToSystemVector3(m_testCube.Direction);
+        var testCubeSize = VectorExtensions.GLToSystemVector3(m_testCube.Size);
 
-        var defCubePos = VectorExtensions.GLToSystemVector(m_world.WorldObjects[0].Position);
-        var defCubeDirection = VectorExtensions.GLToSystemVector(m_world.WorldObjects[0].Direction);
-        var defCubeSize = VectorExtensions.GLToSystemVector(m_world.WorldObjects[0].Size);
-        
+        var defCubePos = VectorExtensions.GLToSystemVector3(m_world.WorldObjects[0].Position);
+        var defCubeDirection = VectorExtensions.GLToSystemVector3(m_world.WorldObjects[0].Direction);
+        var defCubeSize = VectorExtensions.GLToSystemVector3(m_world.WorldObjects[0].Size);
+
         ImGui.Begin("Debug");
 
         ImGui.Columns(2);
-        
+
         ImGui.Text("Test cube data");
-        
-        ImGui.DragFloat3("Position", ref testCubePos); 
-        ImGui.DragFloat3("Rotation", ref testCubeRotation); 
-        ImGui.DragFloat3("Size", ref testCubeSize); 
-        
+
+        ImGui.DragFloat3("Position", ref testCubePos);
+        ImGui.DragFloat3("Rotation", ref testCubeRotation);
+        ImGui.DragFloat3("Size", ref testCubeSize);
+
+
+        for (int i = 0; i < m_testCube.Scene.Meshes.Count; i++)
+        {
+            var mesh = m_testCube.Scene.Meshes[i];
+            var expanded = ImGui.TreeNodeEx($"Mesh {i}");
+            var scale = VectorExtensions.GLToSystemVector2(mesh.TextureData.Scale);
+            var angle = mesh.TextureData.RotationAngle;
+
+            if (expanded)
+            {
+                ImGui.DragFloat2($"Mesh texture scale {i}", ref scale);
+                ImGui.DragFloat($"Mesh texture angle {i}", ref angle);
+                ImGui.TreePop();
+            }
+
+            mesh.TextureData.Scale = VectorExtensions.SystemToGLVector2(scale);
+            mesh.TextureData.RotationAngle = angle;
+        }
+
+        // for (int i = 0; i < m_imgGuiControls.Count; i++)
+        // {
+        //     var control = m_imgGuiControls[i];
+        //
+        //     if (control is ImGuiTreeNode treeNode)
+        //     {
+        //         for (int j = 0; j < m_testCube.Scene.Meshes.Count; j++)
+        //         {
+        //             var mesh = m_testCube.Scene.Meshes[i];
+        //             var rotation = ((FloatDragTextBox)treeNode.Nodes[j].Children[0]).Value;
+        //             var scale = ((Float2DragTextBox)treeNode.Nodes[j].Children[1]).Vector2;
+        //
+        //             rotation = mesh.TextureData.RotationAngle;
+        //             scale.X = mesh.TextureData.Scale.X;
+        //             scale.Y = mesh.TextureData.Scale.Y;
+        //             
+        //             treeNode.Nodes[j].Draw();
+        //             
+        //             mesh.TextureData.RotationAngle = rotation;
+        //             mesh.TextureData.Scale = VectorExtensions.SystemToGLVector2(scale);
+        //         }
+        //     }
+        //     else
+        //         control.Draw();
+        // }
+
+
         ImGui.NextColumn();
 
-        m_testCube.Position = VectorExtensions.SystemToGLVector(testCubePos);
-        m_testCube.Direction = VectorExtensions.SystemToGLVector(testCubeRotation);
-        m_testCube.Size = VectorExtensions.SystemToGLVector(testCubeSize);
+        m_testCube.Position = VectorExtensions.SystemToGLVector3(testCubePos);
+        m_testCube.Direction = VectorExtensions.SystemToGLVector3(testCubeRotation);
+        m_testCube.Size = VectorExtensions.SystemToGLVector3(testCubeSize);
 
         ImGui.Text("Def cube data");
-        
-        ImGui.DragFloat3("Position 1", ref defCubePos); 
-        ImGui.DragFloat3("Rotation 1", ref defCubeDirection); 
-        ImGui.DragFloat3("Size 1", ref defCubeSize); 
-        
-        m_world.WorldObjects[0].Position = VectorExtensions.SystemToGLVector(defCubePos);
-        m_world.WorldObjects[0].Direction = VectorExtensions.SystemToGLVector(defCubeDirection);
-        m_world.WorldObjects[0].Size = VectorExtensions.SystemToGLVector(defCubeSize);
+
+        ImGui.DragFloat3("Position 1", ref defCubePos);
+        ImGui.DragFloat3("Rotation 1", ref defCubeDirection);
+        ImGui.DragFloat3("Size 1", ref defCubeSize);
+
+        m_world.WorldObjects[0].Position = VectorExtensions.SystemToGLVector3(defCubePos);
+        m_world.WorldObjects[0].Direction = VectorExtensions.SystemToGLVector3(defCubeDirection);
+        m_world.WorldObjects[0].Size = VectorExtensions.SystemToGLVector3(defCubeSize);
 
         ImGui.End();
     }
@@ -368,40 +434,21 @@ public partial class MainWindow : GameWindow
 
         var testCubeMoving = new Vector3();
 
-        if (KeyboardState.IsKeyDown(Keys.LeftShift))
-        {
-            if (KeyboardState.IsKeyDown(Keys.Up))
-                testCubeMoving.Z = 1;
-            else if (KeyboardState.IsKeyDown(Keys.Down))
-                testCubeMoving.Z = -1;
+        if (KeyboardState.IsKeyDown(Keys.Up))
+            testCubeMoving.Z = 1;
+        else if (KeyboardState.IsKeyDown(Keys.Down))
+            testCubeMoving.Z = -1;
 
-            if (KeyboardState.IsKeyDown(Keys.Left))
-                testCubeMoving.X = 1;
-            else if (KeyboardState.IsKeyDown(Keys.Right))
-                testCubeMoving.X = -1;
+        if (KeyboardState.IsKeyDown(Keys.Left))
+            testCubeMoving.X = 1;
+        else if (KeyboardState.IsKeyDown(Keys.Right))
+            testCubeMoving.X = -1;
 
-            if (KeyboardState.IsKeyDown(Keys.KeyPad7))
-                testCubeMoving.Y = 1;
-            else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
-                testCubeMoving.Y = -1;
-        }
-        else
-        {
-            if (KeyboardState.IsKeyDown(Keys.Up))
-                m_rotation.Y += 1;
-            else if (KeyboardState.IsKeyDown(Keys.Down))
-                m_rotation.Y -= 1;
+        if (KeyboardState.IsKeyDown(Keys.KeyPad7))
+            testCubeMoving.Y = 1;
+        else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
+            testCubeMoving.Y = -1;
 
-            if (KeyboardState.IsKeyDown(Keys.Left))
-                m_rotation.X += 1;
-            else if (KeyboardState.IsKeyDown(Keys.Right))
-                m_rotation.X -= 1;
-
-            if (KeyboardState.IsKeyDown(Keys.KeyPad7))
-                m_rotation.Z += 1;
-            else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
-                m_rotation.Z -= 1;
-        }
 
         if (testCubeMoving != Vector3.Zero)
             m_testCube.RigidBody.Speed += m_testCube.RigidBody.Acceleration * timeDelta;
@@ -411,9 +458,9 @@ public partial class MainWindow : GameWindow
                 m_testCube.RigidBody.Speed -= m_testCube.RigidBody.Acceleration * timeDelta;
             else
                 m_testCube.RigidBody.Speed = 0;
-        
+
         m_testCube.Position += testCubeMoving * m_testCube.RigidBody.Speed;
-        
+
         foreach (var worldObject in m_world.WorldObjects)
         {
             if (worldObject != m_testCube)
@@ -424,9 +471,10 @@ public partial class MainWindow : GameWindow
             if (m_haveCollision)
                 break;
         }
-        
+
         if (m_haveCollision)
-            m_testCube.Position += normal * (m_testCube.RigidBody.Speed == 0 ? 0.5f : m_testCube.RigidBody.Speed) * 1.1f;
+            m_testCube.Position +=
+                normal * (m_testCube.RigidBody.Speed == 0 ? 10f : m_testCube.RigidBody.Speed) * 1.1f;
     }
 
     private void HandleMouseMove()
@@ -441,7 +489,7 @@ public partial class MainWindow : GameWindow
             var deltaX = MousePosition.X - m_lastMousePos.X;
             var deltaY = MousePosition.Y - m_lastMousePos.Y;
             m_lastMousePos = new Vector2(MousePosition.X, MousePosition.Y);
-            
+
             if (m_mouseDown)
             {
                 // Apply the camera pitch and yaw (we clamp the pitch in the camera class)
@@ -459,7 +507,7 @@ public partial class MainWindow : GameWindow
         m_imGuiController = new ImGuiController(Size.X, Size.Y);
 
         Title += $". OpenGL: {GL.GetString(StringName.Version)}";
-        
+
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
         // CursorVisible = false;
@@ -474,7 +522,7 @@ public partial class MainWindow : GameWindow
             LoadTextures();
             LoadFonts();
             InitControls();
-            
+
             ObjectRenderer.RegisterScene(typeof(SkyBox),
                 GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
 
@@ -515,7 +563,7 @@ public partial class MainWindow : GameWindow
             m_testCube.Collision.IsActive = true;
 
             foreach (var mesh in m_testCube.Scene.Meshes)
-                mesh.TextureData.Texture = Texture.Empty;
+                mesh.TextureData.Texture = texture;
 
             InitCameraPhysics();
 
@@ -559,7 +607,7 @@ public partial class MainWindow : GameWindow
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
-        
+
         m_imGuiController.MouseScroll(e.Offset);
     }
 
@@ -612,7 +660,7 @@ public partial class MainWindow : GameWindow
                 break;
             }
         }
-        
+
         base.OnKeyUp(e);
     }
 
@@ -648,7 +696,7 @@ public partial class MainWindow : GameWindow
 
         HandleImGUI();
         m_imGuiController.Render();
-        
+
         Context.SwapBuffers();
 
         base.OnRenderFrame(args);
@@ -662,6 +710,8 @@ public partial class MainWindow : GameWindow
         HandleMove(args);
         HandleMouseMove();
         m_imGuiController.Update(this, (float)args.Time);
+
+        // m_world.SkyBox.Rotation = new Vector3(0, (m_world.SkyBox.Rotation.Y + 0.05f), 0);
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbCamRotation.Text = m_world.Camera.Direction.ToString();
@@ -697,7 +747,7 @@ public partial class MainWindow : GameWindow
             aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
 
         m_imGuiController.WindowResized(Size.X, Size.Y);
-        
+
         VSync = VSyncMode.On;
     }
 

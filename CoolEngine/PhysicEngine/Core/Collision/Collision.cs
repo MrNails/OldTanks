@@ -43,10 +43,16 @@ public abstract class Collision
     public virtual void UpdateCollision()
     {
         var transformation = m_currentObj.Transform;
+        var rotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(m_currentObj.Yaw)) * 
+                       Matrix4.CreateRotationY(MathHelper.DegreesToRadians(m_currentObj.Pitch)) * 
+                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(m_currentObj.Roll));
 
         for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
             m_currentCollision.Vertices[i] =
                 new Vector3(new Vector4(m_originalCollision.Vertices[i], 1) * transformation);
+        
+        for (int i = 0; i < m_currentCollision.Meshes.Count; i++)
+            m_currentCollision.Meshes[i].Normal = Vector3.Normalize(new Vector3(new Vector4(m_originalCollision.Meshes[i].Normal, 1) * rotation));
     }
 
     private void InitCollision(CollisionData originalCollision)

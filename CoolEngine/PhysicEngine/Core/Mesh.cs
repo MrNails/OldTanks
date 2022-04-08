@@ -1,4 +1,5 @@
-﻿using OpenTK.Mathematics;
+﻿using CoolEngine.Services;
+using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core;
 
@@ -26,6 +27,7 @@ public class Mesh
     }
 
     public Vector3 Normal { get; set; }
+    public Vector4 Color { get; set; } = Colors.Orange;
 
     public Mesh Copy()
     {

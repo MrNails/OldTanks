@@ -16,6 +16,8 @@ public class CollisionRenderer
 
     private static readonly Font DefaultFont = new Font("Arial", 32);
 
+    private static DrawObjectInfo s_normalObjInfo;
+
     public static Shader? Shader { get; set; }
 
     public static void AddCollision(ICollisionable collisionable)
@@ -53,6 +55,9 @@ public class CollisionRenderer
             return;
         }
 
+        if (s_normalObjInfo == null)
+            s_normalObjInfo = CreateDrawNormalInfo(Shader);
+
         Shader.Use();
         Shader.SetMatrix4("projection", GlobalSettings.Projection);
         Shader.SetMatrix4("view", useLookAt ? camera.LookAt : Matrix4.Identity);
@@ -63,7 +68,7 @@ public class CollisionRenderer
             Color = Colors.Orange,
             Scale = 0.01f
         };
-        
+
         foreach (var elementPair in m_drawCollisions)
         {
             var element = elementPair.Value;
@@ -72,23 +77,82 @@ public class CollisionRenderer
 
             GL.BindVertexArray(element.DrawObjectInfo.VertexArrayObject);
 
-            PrepareFontToDraw(element);
+            PrepareCollisionToDraw(element);
 
             GL.LineWidth(lineWidth);
 
             GL.DrawElements(BeginMode.Lines, element.IndicesPerModel * element.ActiveCount,
                 DrawElementsType.UnsignedInt, 0);
-            
+
             for (int j = 0; j < element.ActiveCount * element.VerticesPerModel; j++)
             {
                 var pos = element.Vertices[j];
                 textDrawInfo.SelfPosition = pos;
 
-                TextRenderer.DrawText3D(DefaultFont, $"{j} {pos}", camera, textDrawInfo, true);
+                TextRenderer.DrawText3D(DefaultFont, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
             }
 
             Shader.Use();
+
+            for (int i = 0; i < element.Collisionables.Count; i++)
+                DrawNormals(element.Collisionables[i]);
         }
+    }
+
+    public static void DrawNormals(ICollisionable collisionable)
+    {
+        var normals = ArrayPool<Vector3>.Shared.Rent(collisionable.Collision.CollisionData.Vertices.Length * 4);
+
+        for (int i = 0; i < collisionable.Collision.CollisionData.Meshes.Count; i++)
+        {
+            var normalsCount = 0;
+            var mesh = collisionable.Collision.CollisionData.Meshes[i];
+            
+            normals[normalsCount] = new Vector3(new Vector4(mesh.Normal, 1) * collisionable.Collision.CurrentObject.Transform.ClearRotation()); 
+            normals[normalsCount + 1] = normals[normalsCount] + mesh.Normal;
+            normalsCount += 2;
+            
+            Shader.Use();
+        
+            Shader.SetVector4("color", mesh.Color);
+
+            PrepareNormalToDraw(normals, normalsCount);
+
+            GL.LineWidth(5);
+
+            GL.DrawArrays(PrimitiveType.Lines, 0, normalsCount);
+
+            GL.LineWidth(1);
+
+            mesh.Color = Colors.Orange;
+        }
+    }
+
+    private static unsafe void PrepareNormalToDraw(Vector3[] vertices, int drawAmount)
+    {
+        GL.BindVertexArray(s_normalObjInfo.VertexArrayObject);
+
+        GL.BindBuffer(BufferTarget.ArrayBuffer, s_normalObjInfo.VertexBufferObject);
+        GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, drawAmount * sizeof(Vector3), vertices);
+    }
+
+    private static unsafe DrawObjectInfo CreateDrawNormalInfo(Shader shader)
+    {
+        int vao = 0, vbo = 0, ebo = 0;
+
+        vbo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+        GL.BufferData(BufferTarget.ArrayBuffer, 1000 * sizeof(Vector3), (Vector3[]?)null,
+            BufferUsageHint.StreamDraw);
+
+        vao = GL.GenVertexArray();
+        GL.BindVertexArray(vao);
+
+        var posIndex = shader.GetAttribLocation("iPos");
+        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, sizeof(Vector3), 0);
+        GL.EnableVertexAttribArray(posIndex);
+
+        return new DrawObjectInfo(vao, vbo, ebo);
     }
 
     // public static void DrawCollision(ICollisionable collisionable, Camera camera, bool useLookAt = true)
@@ -140,14 +204,14 @@ public class CollisionRenderer
     //     }
     // }
 
-    private static unsafe void PrepareFontToDraw(CollisionRenderGroup collisionRenderGroup)
+    private static unsafe void PrepareCollisionToDraw(CollisionRenderGroup collisionRenderGroup)
     {
         GL.BindBuffer(BufferTarget.ArrayBuffer, collisionRenderGroup.DrawObjectInfo.VertexBufferObject);
         GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero,
             collisionRenderGroup.ActiveCount * collisionRenderGroup.VerticesPerModel * sizeof(Vector3),
             collisionRenderGroup.Vertices);
     }
-    
+
     // private static unsafe DrawObjectInfo CreateCollisionDrawMeshInfo(PhysicEngine.Core.Mesh mesh, Shader shader)
     // {
     //     int vao = 0, vbo = 0, ebo = 0;

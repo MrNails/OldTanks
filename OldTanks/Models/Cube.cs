@@ -105,8 +105,8 @@ public class Cube : WorldObject
         scene.Meshes.Add(new Mesh(4, rightSide, upDownSideIndices) { Normal = new Vector3(1, 0, 0)});
         scene.Meshes.Add(new Mesh(5, leftSide, upDownSideIndices) { Normal = new Vector3(-1, 0, 0)});
         
-        collisionData.Meshes.Add(new CollisionMesh(frontCollisionIndices) { Normal = new Vector3(0, 0, 1)});
-        collisionData.Meshes.Add(new CollisionMesh(backCollisionIndices) { Normal = new Vector3(0, 0, -1)});
+        collisionData.Meshes.Add(new CollisionMesh(frontCollisionIndices) { Normal = new Vector3(0, 0, -1)});
+        collisionData.Meshes.Add(new CollisionMesh(backCollisionIndices) { Normal = new Vector3(0, 0, 1)});
         collisionData.Meshes.Add(new CollisionMesh(topCollisionIndices) { Normal = new Vector3(0, 1, 0)});
         collisionData.Meshes.Add(new CollisionMesh(downCollisionIndices) { Normal = new Vector3(0, -1, 0)});
         collisionData.Meshes.Add(new CollisionMesh(rightCollisionIndices) { Normal = new Vector3(1, 0, 0)});

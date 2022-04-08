@@ -104,7 +104,9 @@ public static class ObjectRenderer
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
                 drawSceneInfo.Shader.SetVector3("textureScale", element.Size / 2);
                 drawSceneInfo.Shader.SetVector4("color", Colors.White);
-
+                
+                var scale = new Vector3(element.Width / 2, element.Height / 2, element.Length / 2);
+                
                 for (int j = 0; j < element.Scene.Meshes.Count; j++, normalsCount += 2)
                 {
                     var mesh = element.Scene.Meshes[j];
@@ -116,6 +118,9 @@ public static class ObjectRenderer
                         drawObjectInfo = CreateDrawMeshInfo(mesh, drawSceneInfo.Shader);
                         drawSceneInfo.Buffers.Add(mesh.MeshId, drawObjectInfo);
                     }
+                    
+                    drawSceneInfo.Shader.SetMatrix2("textureTransform", Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
+                                                                        Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle)));
 
                     GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
 
@@ -125,12 +130,7 @@ public static class ObjectRenderer
 
                     if (showNormals)
                     {
-                        var verticesSum = new Vector3();
-                        var scale = new Vector3(element.Width / 2, element.Height / 2, element.Length / 2);
-                        for (int l = 0; l < mesh.Vertices.Length; l++)
-                            verticesSum += mesh.Vertices[l].Position;
-
-                        normals[normalsCount] = (verticesSum / mesh.Vertices.Length) * scale;
+                        normals[normalsCount] = mesh.Normal * scale;
                         normals[normalsCount + 1] = normals[normalsCount] + mesh.Normal;
                     }
 
@@ -146,18 +146,18 @@ public static class ObjectRenderer
                     continue;
                 
                 drawSceneInfo.Shader.SetVector4("color", Colors.Red);
-                drawSceneInfo.Shader.SetBool("useColor", true);
+                drawSceneInfo.Shader.SetBool("useOnlyColor", true);
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform.ClearScale());
                 
                 PrepareNormalToDraw(normals, normalsCount);
                 
                 GL.LineWidth(5);
                 
-                GL.DrawArrays(PrimitiveType.Lines, 0, normals.Length);
+                GL.DrawArrays(PrimitiveType.Lines, 0, normalsCount);
                 
                 GL.LineWidth(1);
                 
-                drawSceneInfo.Shader.SetBool("useColor", false);
+                drawSceneInfo.Shader.SetBool("useOnlyColor", false);
             }
             
             ArrayPool<Vector3>.Shared.Return(normals);
@@ -178,6 +178,7 @@ public static class ObjectRenderer
         drawSceneInfo.Shader.Use();
         drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
         drawSceneInfo.Shader.SetMatrix3("view", new Matrix3(camera.LookAt));
+        // drawSceneInfo.Shader.SetMatrix4("model", Matrix4.CreateRotationY(MathHelper.DegreesToRadians(skyBox.Rotation.Y)));
 
         DrawObjectInfo drawObjectInfo;
 
@@ -207,9 +208,9 @@ public static class ObjectRenderer
         
         var norm = originalMesh.Normal;
         textDrawInfo.SelfPosition = new Vector3(
-            norm.X != 0 ? norm.X * (element.Width / 2 + element.Width * 0.05f) : 0,
-            norm.Y != 0 ? norm.Y * (element.Height / 2 + element.Height * 0.05f) : 0,
-            norm.Z != 0 ? norm.Z * (element.Length / 2 + element.Length * 0.05f) : 0);
+            norm.X != 0 ? norm.X * (element.Width / 2 + 0.05f) : 0,
+            norm.Y != 0 ? norm.Y * (element.Height / 2 + 0.05f) : 0,
+            norm.Z != 0 ? norm.Z * (element.Length / 2 + 0.05f) : 0);
 
         textDrawInfo.SelfRotation = new Vector3(norm.Z < 0 ? 180 : norm.Y != 0 ? -norm.Y * 90 : 0,
             norm.X != 0 ? norm.X * 90 : 0,
