@@ -1,93 +1,61 @@
-﻿using CoolEngine.Core.Primitives;
+﻿using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public delegate void TextureDelegate(Texture.Texture old, Mesh source);
+public struct VertexTextureIndices
+{
+    public uint VertexIndex;
+    public uint TextureIndex;
+}
 
 public class Mesh
 {
-    private int m_meshId;
-    private Vertex[] m_vertices;
-    private uint[] m_indices;
+    private readonly List<Face> m_faces;
 
-    public event TextureDelegate? TextureChanging;
-
-    public Mesh(int meshId) : this(meshId, Array.Empty<Vertex>(), Array.Empty<uint>())
-    {
-    }
-
-    public Mesh(int meshId, Vertex[] vertices, uint[] indices)
+    public Mesh(Vector3[] vertices)
     {
         Vertices = vertices;
-        Indices = indices;
-        m_meshId = meshId;
 
         TextureData = new TextureData();
+
+        Texture = Core.Texture.Texture.Empty;
+
+        m_faces = new List<Face>();
     }
+    
+    public Vector3[] Vertices { get; set; }
 
-    /// <summary>
-    /// Represent mesh id related to specified scene.
-    /// </summary>
-    public int MeshId => m_meshId;
+    public Vector2[] TextureCoords { get; set; }
 
-    public Vertex[] Vertices
-    {
-        get => m_vertices;
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value));
+    public Vector3[] Normals { get; set; }
 
-            m_vertices = value;
-        }
-    }
+    public List<Face> Faces => m_faces;
 
-    public uint[] Indices
-    {
-        get => m_indices;
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value));
-
-            m_indices = value;
-        }
-    }
-
-    public Vector3 Normal { get; set; }
+    public bool HasTextureCoords => TextureCoords.Length > 0;
+    public bool HasNormals => Normals.Length > 0;
 
     public TextureData TextureData { get; }
-
-    public IDrawable Drawable { get; set; }
     
+    public Texture.Texture Texture { get; set; }
+
     public Mesh Copy()
     {
-        var mesh = new Mesh(MeshId)
+        var mesh = new Mesh(Vertices)
         {
-            Vertices = m_vertices,
-            Indices = m_indices,
-            Normal = Normal,
-            Drawable = Drawable
+            Normals = Normals,
+            TextureCoords = TextureCoords,
+            Texture = Texture
         };
 
         mesh.TextureData.Texture = TextureData.Texture;
 
+        for (int i = 0; i < Faces.Count; i++)
+            mesh.Faces.Add(new Face(Faces[i].Indices, Faces[i].TextureIndices, Faces[i].NormalsIndices));
+
         return mesh;
-    }
-
-    public static bool operator ==(Mesh left, Mesh right)
-    {
-        return left.Vertices == right.Vertices &&
-               left.Indices == right.Indices &&
-               left.TextureData.Texture?.Handle == right.TextureData.Texture?.Handle &&
-               left.Normal == right.Normal;
-    }
-
-    public static bool operator !=(Mesh left, Mesh right)
-    {
-        return !(left == right);
     }
 }

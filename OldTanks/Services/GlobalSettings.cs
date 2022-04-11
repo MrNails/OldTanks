@@ -1,7 +1,4 @@
-﻿using CoolEngine.Core;
-using OpenTK.Mathematics;
-
-namespace OldTanks.Services;
+﻿namespace OldTanks.Services;
 
 public static class GlobalSettings
 {

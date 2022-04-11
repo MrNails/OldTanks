@@ -1,6 +1,4 @@
-﻿using CoolEngine.Core;
-using CoolEngine.GraphicalEngine.Core;
-using CoolEngine.PhysicEngine.Core;
+﻿using CoolEngine.PhysicEngine.Core;
 
 namespace CoolEngine.Services.Interfaces;
 

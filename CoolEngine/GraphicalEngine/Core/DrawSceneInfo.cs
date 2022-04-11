@@ -1,5 +1,4 @@
-﻿using CoolEngine.Core;
-using CoolEngine.Services.Interfaces;
+﻿using CoolEngine.Services.Interfaces;
 
 namespace CoolEngine.GraphicalEngine.Core;
 

@@ -1,5 +1,4 @@
-﻿using CoolEngine.Core;
-using CoolEngine.GraphicalEngine.Core;
+﻿using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services.Exceptions;
@@ -169,7 +168,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject
                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
                       Matrix4.CreateTranslation(Position);
 
-        Collision.UpdateCollision();
+        Collision?.UpdateCollision();
         
         m_haveTransformation = false;
     }

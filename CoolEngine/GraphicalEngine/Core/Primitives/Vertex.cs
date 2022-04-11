@@ -1,21 +1,24 @@
 ﻿using OpenTK.Mathematics;
 
-namespace CoolEngine.Core.Primitives;
+namespace CoolEngine.GraphicalEngine.Core.Primitives;
 
 public struct Vertex
 {
     private Vector3 m_position;
     private Vector2 m_texturePosition;
+    private Vector3 m_normal;
+    private float m_textureIndex;
 
-    public Vertex(float x, float y, float z, float u, float v, float textureIndex) 
-        : this(new Vector3(x, y, z), new Vector2(u, v), textureIndex)
+    public Vertex(float x, float y, float z, float u, float v, Vector3 normal, float textureIndex) 
+        : this(new Vector3(x, y, z), new Vector2(u, v), normal, textureIndex)
     { }
     
-    public Vertex(Vector3 position, Vector2 texturePosition, float textureIndex)
+    public Vertex(Vector3 position, Vector2 texturePosition, Vector3 normal, float textureIndex)
     {
         m_position = position;
         m_texturePosition = texturePosition;
-        TextureIndex = textureIndex;
+        m_normal = normal;
+        m_textureIndex = textureIndex;
     }
 
     public Vector3 Position
@@ -30,8 +33,18 @@ public struct Vertex
         set => m_texturePosition = value;
     }
 
-    public float TextureIndex { get; set; }
-    
+    public Vector3 Normal
+    {
+        get => m_normal;
+        set => m_normal = value;
+    }
+
+    public float TextureIndex
+    {
+        get => m_textureIndex;
+        set => m_textureIndex = value;
+    }
+
     public float X
     {
         get => m_position.X;

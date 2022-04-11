@@ -1,6 +1,6 @@
-﻿using CoolEngine.Core.Primitives;
-using CoolEngine.GraphicalEngine.Core;
+﻿using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
@@ -8,6 +8,7 @@ using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
+using CoolEngine.Services.Loaders;
 using CoolEngine.Services.Renderers;
 using ImGuiNET;
 using OldTanks.Controls;
@@ -115,18 +116,6 @@ public partial class MainWindow : GameWindow
         rBody.BreakMultiplier = 1.5f;
 
         m_world.Camera.RigidBody = rBody;
-
-        var cubeRBody = new RigidBody();
-
-        cubeRBody.MaxSpeed = 0.1f;
-        cubeRBody.MaxBackSpeed = 2;
-        cubeRBody.MaxSpeedMultiplier = 1;
-        cubeRBody.Rotation = MathHelper.DegreesToRadians(30);
-        cubeRBody.Acceleration = 10;
-        cubeRBody.DefaultJumpForce = 1;
-        cubeRBody.BreakMultiplier = 1.5f;
-
-        m_testCube.RigidBody = cubeRBody;
     }
 
     // private void InitImGuiControls()
@@ -234,7 +223,7 @@ public partial class MainWindow : GameWindow
     {
         var rand = new Random();
 
-        GEGlobalSettings.s_globalLock.EnterWriteLock();
+        GEGlobalSettings.GlobalLock.EnterWriteLock();
 
         var textures = new string[] { "Container", "Brick" };
         for (int i = 0; i < m_renderRadius; i++)
@@ -242,7 +231,7 @@ public partial class MainWindow : GameWindow
         for (int k = 0; k < m_renderRadius; k += 2)
             m_objSLots.Add(new Vector3(i - m_renderRadius / 2, j - m_renderRadius / 2, k - m_renderRadius / 2));
 
-        GEGlobalSettings.s_globalLock.ExitWriteLock();
+        GEGlobalSettings.GlobalLock.ExitWriteLock();
 
         while (m_objSLots.Count != 0 && !m_exit)
         {
@@ -255,18 +244,18 @@ public partial class MainWindow : GameWindow
             };
 
             cube.Collision =
-                new CubeCollision(cube,
-                    GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
+                new Collision(cube,
+                    GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
             var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
 
             foreach (var mesh in cube.Scene.Meshes)
                 mesh.TextureData.Texture = texture;
 
-            GEGlobalSettings.s_globalLock.EnterWriteLock();
+            GEGlobalSettings.GlobalLock.EnterWriteLock();
             m_world.WorldObjects.Add(cube);
 
             m_objSLots.RemoveAt(index);
-            GEGlobalSettings.s_globalLock.ExitWriteLock();
+            GEGlobalSettings.GlobalLock.ExitWriteLock();
 
             // Thread.Sleep(100);
         }
@@ -292,12 +281,18 @@ public partial class MainWindow : GameWindow
     {
         var shaderDirPath = Path.Combine(Environment.CurrentDirectory, @"Assets\Textures");
         var skyBoxesDir = Path.Combine(shaderDirPath, "SkyBoxes");
+        var textures = new List<string>(20);
 
         foreach (var textureFile in Directory.GetFiles(shaderDirPath))
         {
-            GlobalCache<Texture>.AddOrUpdateItem(Path.GetFileNameWithoutExtension(textureFile),
+            var tName = Path.GetFileNameWithoutExtension(textureFile);
+            textures.Add(tName);
+            
+            GlobalCache<Texture>.AddOrUpdateItem(tName,
                 Texture.CreateTexture(textureFile));
         }
+
+        GlobalCache<List<string>>.AddOrUpdateItem("Textures", textures);
 
         // foreach (var textureFile in Directory.GetFiles(skyBoxesDir))
         // {
@@ -315,31 +310,6 @@ public partial class MainWindow : GameWindow
     private void LoadFonts()
     {
         var fontsDirPath = Path.Combine(Environment.CurrentDirectory, @"Assets\Fonts");
-        // var chars = new List<char>('~' - ' ');
-
-        Vertex[] characterVert =
-        {
-            //x     y         z        tX(u)        tY(v)
-            new Vertex(1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0), //top right
-            new Vertex(1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0), //bottom right
-            new Vertex(-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0), //bottom left
-            new Vertex(-1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0) //top left
-        };
-
-        uint[] characterVertIndices =
-        {
-            0, 1, 3,
-            1, 2, 3
-        };
-
-        var scene = new Scene();
-        scene.Meshes.Add(new Mesh(0, characterVert, characterVertIndices));
-
-        var dynamicFontScene = new Scene();
-        dynamicFontScene.Meshes.Add(new Mesh(1, Array.Empty<Vertex>(), characterVertIndices));
-
-        GlobalCache<Scene>.AddOrUpdateItem("FontScene", scene);
-        GlobalCache<Scene>.AddOrUpdateItem("DynamicFontScene", dynamicFontScene);
 
         foreach (var fontPath in Directory.GetFiles(fontsDirPath))
         {
@@ -350,6 +320,101 @@ public partial class MainWindow : GameWindow
             else
                 GlobalCache<FontInformation>.AddOrUpdateItem(font.FontName, font);
         }
+    }
+
+    private async Task LoadModelsFromDir(IModelLoader loader, string dirPath)
+    {
+        foreach (var fPath in Directory.GetFiles(dirPath))
+        {
+            try
+            {
+                var loadData = await loader.LoadAsync(fPath);
+                var fName = Path.GetFileNameWithoutExtension(fPath);
+
+                GlobalCache<Scene>.AddOrUpdateItem(fName, loadData.Scene);
+                Console.WriteLine($"Loading model {fName} completed");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+        }
+        
+    }
+    private async Task LoadModels()
+    {
+        var wfLoader = new WaveFrontLoader();
+        var modelsPath = Path.Combine(Environment.CurrentDirectory, @"Assets\Models");
+
+        await LoadModelsFromDir(wfLoader, modelsPath);
+        
+        foreach (var dirPath in Directory.GetDirectories(modelsPath))
+        {
+            await LoadModelsFromDir(wfLoader, dirPath);
+        }
+        
+        GEGlobalSettings.GlobalLock.EnterWriteLock();
+        InitDefaultObjects();
+        GEGlobalSettings.GlobalLock.ExitWriteLock();
+    }
+
+    private void ApplyGLSettings()
+    {
+        GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        GL.Enable(EnableCap.Blend);
+        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+    }
+
+    private void InitDefaultObjects()
+    {
+        var textures = GlobalCache<List<string>>.GetItemOrDefault("Textures");
+
+        var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Visible = true };
+        m_world.WorldObjects.Add(defCube);
+
+        var sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1), Visible = true };
+        m_world.WorldObjects.Add(sphere);
+        
+        var robot = new Robot { Size = new Vector3(10, 10, 10), Position = new Vector3(0, 10, 0), Visible = true };
+        m_world.WorldObjects.Add(robot);
+
+
+        m_testCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0), Visible = true };
+        m_world.WorldObjects.Add(m_testCube);
+
+        m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
+
+        m_world.Camera.Collision = new Collision(m_world.Camera,
+            GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
+        m_world.Camera.Size = new Vector3(1f);
+        m_world.Camera.Yaw = 45;
+        m_world.Camera.Collision.IsActive = true;
+        m_collisionables.Add(m_world.Camera);
+
+        defCube.Collision =
+            new Collision(defCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
+        defCube.Collision.IsActive = true;
+
+        m_testCube.Collision =
+            new Collision(m_testCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"),
+                CollisionType.Polygon);
+        m_testCube.Collision.IsActive = true;
+
+        foreach (var wObject in m_world.WorldObjects)
+        foreach (var mesh in wObject.Scene.Meshes)
+            mesh.TextureData.Texture = GlobalCache<Texture>.GetItemOrDefault(textures[Random.Shared.Next(0, textures.Count)]);
+        
+        var cubeRBody = new RigidBody();
+
+        cubeRBody.MaxSpeed = 0.1f;
+        cubeRBody.MaxBackSpeed = 2;
+        cubeRBody.MaxSpeedMultiplier = 1;
+        cubeRBody.Rotation = MathHelper.DegreesToRadians(30);
+        cubeRBody.Acceleration = 10;
+        cubeRBody.DefaultJumpForce = 1;
+        cubeRBody.BreakMultiplier = 1.5f;
+
+        m_testCube.RigidBody = cubeRBody;
     }
 
     private void HandleMove(in FrameEventArgs args)
@@ -423,6 +488,8 @@ public partial class MainWindow : GameWindow
 
         foreach (var worldObject in m_world.WorldObjects)
         {
+            if (worldObject.Collision == null)
+                continue;
             m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera, out normal);
 
             if (m_haveCollision)
@@ -463,6 +530,8 @@ public partial class MainWindow : GameWindow
 
         foreach (var worldObject in m_world.WorldObjects)
         {
+            if (worldObject.Collision == null)
+                continue;
             if (worldObject != m_testCube)
                 m_haveCollision = worldObject.Collision.CheckCollision(m_testCube, out normal);
             else
@@ -508,74 +577,36 @@ public partial class MainWindow : GameWindow
 
         Title += $". OpenGL: {GL.GetString(StringName.Version)}";
 
-        GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        ApplyGLSettings();
+        
+        // try
+        // {
+        LoadShaders();
+        LoadTextures();
+        LoadFonts();
+        InitControls();
 
-        // CursorVisible = false;
-        // CursorGrabbed = true;
+        ObjectRenderer.RegisterScene(typeof(SkyBox),
+            GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
 
-        GL.Enable(EnableCap.Blend);
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        CollisionRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("CollisionShader");
 
-        try
-        {
-            LoadShaders();
-            LoadTextures();
-            LoadFonts();
-            InitControls();
+        TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
+        
+        InitCameraPhysics();
 
-            ObjectRenderer.RegisterScene(typeof(SkyBox),
-                GlobalCache<Shader>.GetItemOrDefault("SkyBoxShader"));
-
-            CollisionRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("CollisionShader");
-
-            TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
-            TextRenderer.OriginalScene = GlobalCache<Scene>.GetItemOrDefault("FontScene");
-
-            var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Visible = true };
-            m_world.WorldObjects.Add(defCube);
+        LoadModels().Wait();
 
 
-            m_testCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0), Visible = true };
-            m_world.WorldObjects.Add(m_testCube);
+        ObjectRenderer.AddDrawables(m_world.WorldObjects, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
+        CollisionRenderer.AddCollisions(m_world.WorldObjects);
 
-            m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
-
-            m_world.Camera.Collision = new CubeCollision(m_world.Camera,
-                GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
-            m_world.Camera.Size = new Vector3(0.5f);
-            m_world.Camera.Yaw = 45;
-
-            m_world.Camera.Collision.IsActive = true;
-
-            m_collisionables.Add(m_world.Camera);
-
-            defCube.Collision =
-                new CubeCollision(defCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
-            var texture = GlobalCache<Texture>.GetItemOrDefault("Container");
-            defCube.Collision.IsActive = true;
-
-            foreach (var mesh in defCube.Scene.Meshes)
-                mesh.TextureData.Texture = texture;
-
-            m_testCube.Collision =
-                new CubeCollision(m_testCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
-            texture = GlobalCache<Texture>.GetItemOrDefault("wall-texture");
-            m_testCube.Collision.IsActive = true;
-
-            foreach (var mesh in m_testCube.Scene.Meshes)
-                mesh.TextureData.Texture = texture;
-
-            InitCameraPhysics();
-
-            ObjectRenderer.AddDrawables(m_world.WorldObjects, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
-            CollisionRenderer.AddCollisions(m_world.WorldObjects);
-
-            // m_generateObjectThread.Start();
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
+        // m_generateObjectThread.Start();
+        // }
+        // catch (Exception e)
+        // {
+        //     Console.WriteLine(e);
+        // }
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.Camera.FOV),
@@ -677,7 +708,7 @@ public partial class MainWindow : GameWindow
         ObjectRenderer.DrawSkyBox(m_world.SkyBox, m_world.Camera);
         GL.DepthFunc(DepthFunction.Less);
 
-        GEGlobalSettings.s_globalLock.EnterReadLock();
+        GEGlobalSettings.GlobalLock.EnterReadLock();
 
         if (!m_debugView)
             ObjectRenderer.DrawElements(m_world.Camera, m_drawFaceNumber, m_drawNormals);
@@ -692,7 +723,7 @@ public partial class MainWindow : GameWindow
         foreach (var control in m_controls)
             control.Draw();
 
-        GEGlobalSettings.s_globalLock.ExitReadLock();
+        GEGlobalSettings.GlobalLock.ExitReadLock();
 
         HandleImGUI();
         m_imGuiController.Render();

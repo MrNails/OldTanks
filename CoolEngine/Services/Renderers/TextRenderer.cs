@@ -1,7 +1,7 @@
 ﻿using System.Buffers;
-using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
@@ -12,6 +12,9 @@ namespace CoolEngine.Services.Renderers;
 public static class TextRenderer
 {
     private record struct CharSize(float Width, float Height, float TranslationX, float TranslationY);
+    
+    private static readonly FontVertex[] s_quadVertices;
+    private static readonly uint[] s_quadIndices;
 
     private static readonly ArrayPool<FontVertex> m_verticesPool;
     private static readonly ArrayPool<uint> m_indicesPool;
@@ -19,10 +22,6 @@ public static class TextRenderer
     private static readonly int s_maxRenderAmount = 2000;
     private static readonly int s_defaultRenderAmount = 500;
     private static readonly float s_resizeThreshold = 0.9f;
-
-    private static readonly int s_sceneVerticesAmount = 4;
-    private static readonly int s_sceneIndicesAmount = 6;
-
 
     private static int s_renderAmount;
     private static int s_renderVerticesAmount;
@@ -40,6 +39,21 @@ public static class TextRenderer
     {
         m_verticesPool = ArrayPool<FontVertex>.Create();
         m_indicesPool = ArrayPool<uint>.Create();
+        
+        s_quadVertices = new FontVertex[]
+        {
+            //x     y         z        tX(u)        tY(v)
+            new FontVertex(1.0f, 1.0f, 0.0f, 1.0f, 1.0f), //top right
+            new FontVertex(1.0f, -1.0f, 0.0f, 1.0f, 0.0f), //bottom right
+            new FontVertex(-1.0f, -1.0f, 0.0f, 0.0f, 0.0f), //bottom left
+            new FontVertex(-1.0f, 1.0f, 0.0f, 0.0f, 1.0f) //top left
+        };
+        
+        s_quadIndices = new uint[] 
+        {
+            0, 1, 3,
+            1, 2, 3
+        };
 
         s_vertices = Array.Empty<FontVertex>();
         s_indices = Array.Empty<uint>();
@@ -143,7 +157,7 @@ public static class TextRenderer
 
             PrepareFontToDraw(offset, s_drawObjectInfo, Shader);
 
-            GL.DrawElements(BeginMode.Triangles, (text.Length - spacesAmount) * s_sceneIndicesAmount,
+            GL.DrawElements(BeginMode.Triangles, (text.Length - spacesAmount) * s_quadIndices.Length,
                 DrawElementsType.UnsignedInt, 0);
         }
     }
@@ -237,7 +251,7 @@ public static class TextRenderer
 
             PrepareFontToDraw(offset, s_drawObjectInfo, Shader);
 
-            GL.DrawElements(BeginMode.Triangles, (text.Length - spacesAmount) * s_sceneIndicesAmount,
+            GL.DrawElements(BeginMode.Triangles, (text.Length - spacesAmount) * s_quadIndices.Length,
                 DrawElementsType.UnsignedInt, 0);
         }
     }
@@ -245,8 +259,8 @@ public static class TextRenderer
     private static void SetNewRenderAmount(int renderAmount)
     {
         s_renderAmount = renderAmount <= 0 ? s_defaultRenderAmount : renderAmount;
-        s_renderVerticesAmount = s_renderAmount * s_sceneVerticesAmount;
-        s_renderIndicesAmount = s_renderAmount * s_sceneIndicesAmount;
+        s_renderVerticesAmount = s_renderAmount * s_quadVertices.Length;
+        s_renderIndicesAmount = s_renderAmount * s_quadIndices.Length;
 
         if (s_indices.Length != 0)
             m_indicesPool.Return(s_indices);
@@ -257,13 +271,11 @@ public static class TextRenderer
         s_indices = m_indicesPool.Rent(s_renderIndicesAmount);
         s_vertices = m_verticesPool.Rent(s_renderVerticesAmount);
 
-        var mesh = s_originalScene.Meshes[0];
-
         //Filling indices depends on original scene indices.
         //E.g. 0 + 4 * 0, 0 + 4 * 1, 0 + 4 * 2, ....
         for (int i = 0; i < s_renderAmount; i++)
-        for (int j = 0; j < s_sceneIndicesAmount; j++)
-            s_indices[i * s_sceneIndicesAmount + j] = mesh.Indices[j] + (uint)(s_sceneVerticesAmount * i);
+        for (int j = 0; j < s_quadIndices.Length; j++)
+            s_indices[i * s_quadIndices.Length + j] = s_quadIndices[j] + (uint)(s_quadVertices.Length * i);
 
         if (s_drawObjectInfo != null)
         {

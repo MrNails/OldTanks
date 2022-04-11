@@ -1,6 +1,4 @@
-﻿using System.Drawing;
-using CoolEngine.Core;
-using CoolEngine.GraphicalEngine.Core.Font;
+﻿using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.Services;
 using OpenTK.Mathematics;
 

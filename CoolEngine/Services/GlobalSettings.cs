@@ -9,7 +9,7 @@ public static class GlobalSettings
 
     public static readonly int MaxInstanceCount = 100;
     
-    public static readonly ReaderWriterLockSlim s_globalLock = new ReaderWriterLockSlim();
+    public static readonly ReaderWriterLockSlim GlobalLock = new ReaderWriterLockSlim();
 
     public static Matrix4 Projection { get; set; }
     public static Matrix4 ScreenProjection { get; set; }

@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using CoolEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.Services.Interfaces;
@@ -22,7 +21,7 @@ public class CollisionRenderer
 
     public static void AddCollision(ICollisionable collisionable)
     {
-        if (collisionable == null)
+        if (collisionable == null || collisionable.Collision == null)
             return;
 
         CollisionRenderGroup collisionRenderGroup;

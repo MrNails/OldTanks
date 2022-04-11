@@ -1,11 +1,15 @@
 ﻿using OpenTK.Mathematics;
 
-namespace CoolEngine.Core.Primitives;
+namespace CoolEngine.GraphicalEngine.Core.Primitives;
 
 public struct FontVertex
 {
     private Vector3 m_position;
     private Vector2 m_texturePosition;
+
+    public FontVertex(float x, float y, float z, float u, float v) 
+        : this(new Vector3(x, y, z), new Vector2(u , v))
+    { }
 
     public FontVertex(Vector3 position, Vector2 texturePosition)
     {
