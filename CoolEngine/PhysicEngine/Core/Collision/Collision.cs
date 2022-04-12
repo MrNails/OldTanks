@@ -64,9 +64,10 @@ public class Collision
             m_currentCollision.Meshes[i].Normal = Vector3.Normalize(new Vector3(new Vector4(m_originalCollision.Meshes[i].Normal, 1) * rotation));
     }
 
-     public bool CheckCollision(IPhysicObject t2, out Vector3 normal)
+     public bool CheckCollision(IPhysicObject t2, out Vector3 normal, out float depth)
      {
          normal = Vector3.Zero;
+         depth = float.MaxValue;
 
          if (t2 == null)
              return false;
@@ -78,8 +79,8 @@ public class Collision
          
          return CollisionType == CollisionType.Sphere ?
              t2.Collision.CollisionType == CollisionType.Sphere ? 
-                 SphereXSphereCollision(t2) : SphereXPolygonCollision(t2)
-             : OBBCollisionCheck(t2);
+                 SphereXSphereCollision(t2, out depth) : SphereXPolygonCollision(t2, out depth)
+             : OBBCollisionCheck(t2, out normal, out depth);
      }
     
     private void InitCollision(CollisionData originalCollision)
@@ -123,24 +124,40 @@ public class Collision
         }
     }
 
-    private bool SphereXSphereCollision(IPhysicObject t2)
+    private bool SphereXSphereCollision(IPhysicObject t2, out float depth)
     {
-        return Math.Abs(Vector3.Distance(CurrentObject.Position, t2.Collision.CurrentObject.Position)) <=
-               (CurrentObject.Width + t2.Width) / 2;
+        var distance = Math.Abs(Vector3.Distance(CurrentObject.Position, t2.Collision.CurrentObject.Position));
+        var radii = (CurrentObject.Width + t2.Width) / 2;
+
+        depth = Math.Abs(radii - t2.Width);
+        
+        return distance <= radii;
     }
     
-    private bool SphereXPolygonCollision(IPhysicObject t2)
+    private bool SphereXPolygonCollision(IPhysicObject t2, out float depth)
     {
-        for (int i = 0; i < t2.Collision.CollisionData.Vertices.Length; i++)
-            if (Math.Abs(Vector3.Distance(CurrentObject.Position, t2.Collision.CollisionData.Vertices[i])) <=
-                CurrentObject.Width / 2)
-                return true;
+        depth = float.MaxValue;
 
-       return false;
+        for (int i = 0; i < t2.Collision.CollisionData.Vertices.Length; i++)
+        {
+            var distance = Math.Abs(Vector3.Distance(CurrentObject.Position, t2.Collision.CollisionData.Vertices[i]));
+            var radius = CurrentObject.Width / 2;
+            
+            if (distance <= radius)
+            {
+                depth = radius - distance;
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    private bool OBBCollisionCheck(IPhysicObject t2)
+    private bool OBBCollisionCheck(IPhysicObject t2, out Vector3 normal, out float depth)
     {
+        normal = Vector3.Zero;
+        depth = float.MaxValue;
+        
         for (int i = 0; i < CurrentObject.Collision.CollisionData.Meshes.Count; i++)
         {
             var mesh = CurrentObject.Collision.CollisionData.Meshes[i];
@@ -157,8 +174,18 @@ public class Collision
                 t2.Collision.CollisionData.Meshes[i].Color = Colors.Red;
                 return false;
             }
+
+            var min = Math.Min(t2Max - currMin, currMax - t2Min);
+            if (min < depth)
+            {
+                normal = mesh.Normal;
+                depth = min;
+            }
         }
-        
+
+        if (Vector3.Dot(t2.Position - CurrentObject.Position, normal) < 0)
+            normal = -normal;
+
         return true;
     }
 

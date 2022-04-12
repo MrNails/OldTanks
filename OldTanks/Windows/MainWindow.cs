@@ -33,8 +33,6 @@ public partial class MainWindow : GameWindow
     private readonly List<Control> m_controls;
     private readonly List<Vector3> m_objSLots;
 
-    private readonly List<ImGuiControl> m_imgGuiControls;
-
     private readonly List<ICollisionable> m_collisionables = new List<ICollisionable>();
 
     private readonly int m_renderRadius;
@@ -100,7 +98,6 @@ public partial class MainWindow : GameWindow
         m_imGUITextBoxDatas = new Dictionary<string, byte[]>();
 
         m_rotation = new Vector3(0, 0, 0);
-        m_imgGuiControls = new List<ImGuiControl>();
     }
 
     private void InitCameraPhysics()
@@ -117,23 +114,7 @@ public partial class MainWindow : GameWindow
 
         m_world.Camera.RigidBody = rBody;
     }
-
-    // private void InitImGuiControls()
-    // {
-    //     var root = new ImGuiTreeNode("TestCubeRigidBody");
-    //
-    //     for (int i = 0; i < m_testCube.Scene.Meshes.Count; i++)
-    //     {
-    //         var treeNode =  new ImGuiTreeNode($"TestCube mesh {i}");
-    //         treeNode.Children.Add(new FloatDragTextBox($"Test cube scale {i}"));
-    //         treeNode.Children.Add(new Float2DragTextBox($"Test cube rotation {i}"));
-    //         
-    //         root.Nodes.Add(treeNode);
-    //     }
-    //     
-    //     m_imgGuiControls.Add(root);
-    // }
-
+    
     private void HandleImGUI()
     {
         var testCubePos = VectorExtensions.GLToSystemVector3(m_testCube.Position);
@@ -172,33 +153,6 @@ public partial class MainWindow : GameWindow
             mesh.TextureData.Scale = VectorExtensions.SystemToGLVector2(scale);
             mesh.TextureData.RotationAngle = angle;
         }
-
-        // for (int i = 0; i < m_imgGuiControls.Count; i++)
-        // {
-        //     var control = m_imgGuiControls[i];
-        //
-        //     if (control is ImGuiTreeNode treeNode)
-        //     {
-        //         for (int j = 0; j < m_testCube.Scene.Meshes.Count; j++)
-        //         {
-        //             var mesh = m_testCube.Scene.Meshes[i];
-        //             var rotation = ((FloatDragTextBox)treeNode.Nodes[j].Children[0]).Value;
-        //             var scale = ((Float2DragTextBox)treeNode.Nodes[j].Children[1]).Vector2;
-        //
-        //             rotation = mesh.TextureData.RotationAngle;
-        //             scale.X = mesh.TextureData.Scale.X;
-        //             scale.Y = mesh.TextureData.Scale.Y;
-        //             
-        //             treeNode.Nodes[j].Draw();
-        //             
-        //             mesh.TextureData.RotationAngle = rotation;
-        //             mesh.TextureData.Scale = VectorExtensions.SystemToGLVector2(scale);
-        //         }
-        //     }
-        //     else
-        //         control.Draw();
-        // }
-
 
         ImGui.NextColumn();
 
@@ -375,8 +329,8 @@ public partial class MainWindow : GameWindow
         var sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1), Visible = true };
         m_world.WorldObjects.Add(sphere);
         
-        var robot = new Robot { Size = new Vector3(10, 10, 10), Position = new Vector3(0, 10, 0), Visible = true };
-        m_world.WorldObjects.Add(robot);
+        // var robot = new Robot { Size = new Vector3(10, 10, 10), Position = new Vector3(0, 10, 0), Visible = true };
+        // m_world.WorldObjects.Add(robot);
 
 
         m_testCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0), Visible = true };
@@ -485,19 +439,20 @@ public partial class MainWindow : GameWindow
         m_world.Camera.Collision.CurrentObject.AcceptTransform();
 
         Vector3 normal = Vector3.Zero;
+        float depth = 0;
 
         foreach (var worldObject in m_world.WorldObjects)
         {
             if (worldObject.Collision == null)
                 continue;
-            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera, out normal);
+            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera, out normal, out depth);
 
             if (m_haveCollision)
                 break;
         }
 
         if (m_haveCollision)
-            m_world.Camera.Position += normal * (camRBody.Speed == 0 ? 0.5f : camRBody.Speed) * 1.1f;
+            m_world.Camera.Position += normal * depth;
 
         var testCubeMoving = new Vector3();
 
@@ -533,7 +488,7 @@ public partial class MainWindow : GameWindow
             if (worldObject.Collision == null)
                 continue;
             if (worldObject != m_testCube)
-                m_haveCollision = worldObject.Collision.CheckCollision(m_testCube, out normal);
+                m_haveCollision = worldObject.Collision.CheckCollision(m_testCube, out normal, out depth);
             else
                 continue;
 
@@ -542,8 +497,7 @@ public partial class MainWindow : GameWindow
         }
 
         if (m_haveCollision)
-            m_testCube.Position +=
-                normal * (m_testCube.RigidBody.Speed == 0 ? 10f : m_testCube.RigidBody.Speed) * 1.1f;
+            m_testCube.Position += normal * depth;
     }
 
     private void HandleMouseMove()
