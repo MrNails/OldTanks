@@ -158,7 +158,7 @@ public class Camera : IPhysicObject
         set => m_fov = MathHelper.Clamp(value, 20, 90);
     }
 
-    public Collision Collision
+    public Collision? Collision
     {
         get => m_collision;
         set
@@ -221,7 +221,7 @@ public class Camera : IPhysicObject
                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Direction.Z)) *
                       Matrix4.CreateTranslation(Position);
         
-        m_collision.UpdateCollision();
+        m_collision?.UpdateCollision();
 
         m_haveTransformation = false;
     }

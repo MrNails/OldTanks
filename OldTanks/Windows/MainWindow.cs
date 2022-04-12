@@ -55,6 +55,8 @@ public partial class MainWindow : GameWindow
     private bool m_drawNormals;
     private bool m_drawFaceNumber;
     private bool m_mouseDown;
+    private bool m_freeCamMode;
+    private bool m_activeCamPhysics;
 
     private Vector3 m_camPosDelta;
 
@@ -62,8 +64,6 @@ public partial class MainWindow : GameWindow
     private bool m_firstMouseMove;
 
     private Vector3 m_rotation;
-
-    private readonly Dictionary<string, byte[]> m_imGUITextBoxDatas;
 
     public MainWindow(string caption)
         : this(800, 600, caption)
@@ -84,18 +84,18 @@ public partial class MainWindow : GameWindow
     public MainWindow(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
         : base(gameWindowSettings, nativeWindowSettings)
     {
-        m_world = new World();
         m_controls = new List<Control>();
+        m_world = new World();
 
         // m_renderRadius = 20;
+
+        m_freeCamMode = true;
 
         GlobalSettings.UserSettings.Sensitivity = 0.1f;
 
         m_objSLots = new List<Vector3>(20);
 
         m_generateObjectThread = new Thread(GenerateObjects);
-
-        m_imGUITextBoxDatas = new Dictionary<string, byte[]>();
 
         m_rotation = new Vector3(0, 0, 0);
     }
@@ -111,8 +111,9 @@ public partial class MainWindow : GameWindow
         rBody.Acceleration = 10;
         rBody.DefaultJumpForce = 1;
         rBody.BreakMultiplier = 1.5f;
+        rBody.Speed = 2;
 
-        m_world.Camera.RigidBody = rBody;
+        m_world.CurrentCamera.RigidBody = rBody;
     }
     
     private void HandleImGUI()
@@ -309,6 +310,8 @@ public partial class MainWindow : GameWindow
         
         GEGlobalSettings.GlobalLock.EnterWriteLock();
         InitDefaultObjects();
+
+        InitCameraPhysics();
         GEGlobalSettings.GlobalLock.ExitWriteLock();
     }
 
@@ -323,36 +326,27 @@ public partial class MainWindow : GameWindow
     {
         var textures = GlobalCache<List<string>>.GetItemOrDefault("Textures");
 
-        var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Visible = true };
+        m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
+        
+        var defCube = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10)};
         m_world.WorldObjects.Add(defCube);
 
-        var sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1), Visible = true };
+        var sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1)};
         m_world.WorldObjects.Add(sphere);
         
-        // var robot = new Robot { Size = new Vector3(10, 10, 10), Position = new Vector3(0, 10, 0), Visible = true };
-        // m_world.WorldObjects.Add(robot);
-
-
-        m_testCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0), Visible = true };
+        m_testCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0)};
         m_world.WorldObjects.Add(m_testCube);
 
-        m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
-
-        m_world.Camera.Collision = new Collision(m_world.Camera,
+        m_world.Player = m_testCube;
+        
+        m_world.Player.Collision = new Collision(m_world.Player,
             GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
-        m_world.Camera.Size = new Vector3(1f);
-        m_world.Camera.Yaw = 45;
-        m_world.Camera.Collision.IsActive = true;
-        m_collisionables.Add(m_world.Camera);
+        m_world.Player.Size = new Vector3(1f);
+        m_world.Player.Yaw = 45;
+        m_collisionables.Add(m_world.Player);
 
         defCube.Collision =
             new Collision(defCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
-        defCube.Collision.IsActive = true;
-
-        m_testCube.Collision =
-            new Collision(m_testCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"),
-                CollisionType.Polygon);
-        m_testCube.Collision.IsActive = true;
 
         foreach (var wObject in m_world.WorldObjects)
         foreach (var mesh in wObject.Scene.Meshes)
@@ -371,72 +365,38 @@ public partial class MainWindow : GameWindow
         m_testCube.RigidBody = cubeRBody;
     }
 
-    private void HandleMove(in FrameEventArgs args)
+    private void HandleCameraMove(in FrameEventArgs args)
     {
         var timeDelta = (float)args.Time;
-
-        var camPos = m_world.Camera.Position;
-        var camRBody = m_world.Camera.RigidBody;
-        var moveDirection = new Vector3();
-
+        var camRBody = m_world.CurrentCamera.RigidBody;
+        
+        var speedMultiplier = 1f;
+        
+        if (KeyboardState.IsKeyDown(Keys.LeftControl))
+            speedMultiplier = 3f;
+        
         if (KeyboardState.IsKeyDown(Keys.D))
-        {
-            camPos += Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
-                      Math.Abs(camRBody.Speed);
-            camRBody.Speed += camRBody.Acceleration * timeDelta;
-            moveDirection.X = 1;
-        }
+            m_world.CurrentCamera.Position += Vector3.Normalize(Vector3.Cross(m_world.CurrentCamera.Direction, m_world.CurrentCamera.CameraUp)) *
+                                              camRBody.Speed * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.A))
-        {
-            camPos -= Vector3.Normalize(Vector3.Cross(m_world.Camera.Direction, m_world.Camera.CameraUp)) *
-                      Math.Abs(camRBody.Speed);
-            camRBody.Speed += camRBody.Acceleration * timeDelta;
-            moveDirection.X = -1;
-        }
-
+            m_world.CurrentCamera.Position -=
+                Vector3.Normalize(Vector3.Cross(m_world.CurrentCamera.Direction, m_world.CurrentCamera.CameraUp)) *
+                camRBody.Speed * timeDelta * speedMultiplier;
+        
         if (KeyboardState.IsKeyDown(Keys.W))
-        {
-            camRBody.Speed += camRBody.Acceleration * timeDelta * (camRBody.Speed < 0 ? 5 : 1);
-            moveDirection.Z = 1;
-        }
+            m_world.CurrentCamera.Position += m_world.CurrentCamera.Direction * camRBody.Speed * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.S))
-        {
-            camRBody.Speed -= camRBody.Acceleration * timeDelta * (camRBody.Speed > 0 ? 5 : 1);
-            moveDirection.Z = -1;
-        }
-
+            m_world.CurrentCamera.Position -= m_world.CurrentCamera.Direction * camRBody.Speed * timeDelta * speedMultiplier;
+        
         if (KeyboardState.IsKeyDown(Keys.Space))
-            camRBody.VerticalForce = camRBody.DefaultJumpForce;
+            m_world.CurrentCamera.Position += m_world.CurrentCamera.CameraUp * camRBody.Speed * timeDelta * speedMultiplier;
+        else if (KeyboardState.IsKeyDown(Keys.LeftShift))
+            m_world.CurrentCamera.Position -= m_world.CurrentCamera.CameraUp * camRBody.Speed * timeDelta * speedMultiplier;
+        
+        m_world.CurrentCamera.AcceptTransform();
 
-        if (m_activePhysic)
-            moveDirection.Y = -1;
-
-        camPos += m_world.Camera.Direction * camRBody.Speed +
-                  m_world.Camera.CameraUp * camRBody.VerticalForce;
-
-        var camMoved = moveDirection != Vector3.Zero;
-
-        if (m_activePhysic)
-            camRBody.VerticalForce += PhysicsConstants.g * timeDelta;
-
-        if (!m_activePhysic && camRBody.Speed != 0 &&
-            !camMoved && m_camPosDelta != Vector3.Zero)
-            if (camRBody.Speed > 0.1f || camRBody.Speed < -0.1f)
-                camRBody.Speed += camRBody.Acceleration * (camRBody.Speed > 0 ? -1 : 1) * timeDelta;
-            else
-                camRBody.Speed = 0;
-
-        m_camPosDelta = camPos - m_world.Camera.Position;
-
-        if (camRBody.VerticalForce > 2 * PhysicsConstants.g)
-            camRBody.VerticalForce =
-                MathHelper.InverseSqrtFast(camRBody.VerticalForce * camRBody.VerticalForce - 2 * PhysicsConstants.g);
-        else
-            camRBody.VerticalForce = 0;
-
-        m_world.Camera.Position = camPos;
-
-        m_world.Camera.Collision.CurrentObject.AcceptTransform();
+        if (m_world.CurrentCamera.Collision == null)
+            return;
 
         Vector3 normal = Vector3.Zero;
         float depth = 0;
@@ -445,59 +405,99 @@ public partial class MainWindow : GameWindow
         {
             if (worldObject.Collision == null)
                 continue;
-            m_haveCollision = worldObject.Collision.CheckCollision(m_world.Camera, out normal, out depth);
+            
+            m_haveCollision = worldObject.Collision.CheckCollision(m_world.CurrentCamera, out normal, out depth);
 
             if (m_haveCollision)
                 break;
         }
 
         if (m_haveCollision)
-            m_world.Camera.Position += normal * depth;
+            m_world.CurrentCamera.Position += normal * depth;
+    }
 
-        var testCubeMoving = new Vector3();
-
-        if (KeyboardState.IsKeyDown(Keys.Up))
-            testCubeMoving.Z = 1;
-        else if (KeyboardState.IsKeyDown(Keys.Down))
-            testCubeMoving.Z = -1;
-
-        if (KeyboardState.IsKeyDown(Keys.Left))
-            testCubeMoving.X = 1;
-        else if (KeyboardState.IsKeyDown(Keys.Right))
-            testCubeMoving.X = -1;
-
-        if (KeyboardState.IsKeyDown(Keys.KeyPad7))
-            testCubeMoving.Y = 1;
-        else if (KeyboardState.IsKeyDown(Keys.KeyPad9))
-            testCubeMoving.Y = -1;
-
-
-        if (testCubeMoving != Vector3.Zero)
-            m_testCube.RigidBody.Speed += m_testCube.RigidBody.Acceleration * timeDelta;
-
-        if (m_testCube.RigidBody.Speed != 0 && testCubeMoving == Vector3.Zero && m_camPosDelta != Vector3.Zero)
-            if (m_testCube.RigidBody.Speed > 0.1f || m_testCube.RigidBody.Speed < -0.1f)
-                m_testCube.RigidBody.Speed -= m_testCube.RigidBody.Acceleration * timeDelta;
-            else
-                m_testCube.RigidBody.Speed = 0;
-
-        m_testCube.Position += testCubeMoving * m_testCube.RigidBody.Speed;
-
-        foreach (var worldObject in m_world.WorldObjects)
-        {
-            if (worldObject.Collision == null)
-                continue;
-            if (worldObject != m_testCube)
-                m_haveCollision = worldObject.Collision.CheckCollision(m_testCube, out normal, out depth);
-            else
-                continue;
-
-            if (m_haveCollision)
-                break;
-        }
-
-        if (m_haveCollision)
-            m_testCube.Position += normal * depth;
+    private void HandleObjectMove(in FrameEventArgs args)
+    {
+        //         var timeDelta = (float)args.Time;
+        //
+        // var cam = m_world.DefaultCamera;
+        // var camPos = m_world.DefaultCamera.Position;
+        //
+        // var moveDirection = new Vector3();
+        //
+        // if (KeyboardState.IsKeyDown(Keys.D))
+        // {
+        //     camPos += Vector3.Normalize(Vector3.Cross(m_world.Player.Direction, m_world.Player.CameraUp)) *
+        //               Math.Abs(camRBody.Speed);
+        //     camRBody.Speed += camRBody.Acceleration * timeDelta;
+        //     moveDirection.X = 1;
+        // }
+        // else if (KeyboardState.IsKeyDown(Keys.A))
+        // {
+        //     camPos -= Vector3.Normalize(Vector3.Cross(m_world.Player.Direction, m_world.Player.CameraUp)) *
+        //               Math.Abs(camRBody.Speed);
+        //     camRBody.Speed += camRBody.Acceleration * timeDelta;
+        //     moveDirection.X = -1;
+        // }
+        //
+        // if (KeyboardState.IsKeyDown(Keys.W))
+        // {
+        //     camRBody.Speed += camRBody.Acceleration * timeDelta * (camRBody.Speed < 0 ? 5 : 1);
+        //     moveDirection.Z = 1;
+        // }
+        // else if (KeyboardState.IsKeyDown(Keys.S))
+        // {
+        //     camRBody.Speed -= camRBody.Acceleration * timeDelta * (camRBody.Speed > 0 ? 5 : 1);
+        //     moveDirection.Z = -1;
+        // }
+        //
+        // if (KeyboardState.IsKeyDown(Keys.Space))
+        //     camRBody.VerticalForce = camRBody.DefaultJumpForce;
+        //
+        // if (m_activePhysic)
+        //     moveDirection.Y = -1;
+        //
+        // camPos += m_world.Player.Direction * camRBody.Speed +
+        //           m_world.Player.Camera.CameraUp * camRBody.VerticalForce;
+        //
+        // var camMoved = moveDirection != Vector3.Zero;
+        //
+        // if (m_activePhysic)
+        //     camRBody.VerticalForce += PhysicsConstants.g * timeDelta;
+        //
+        // if (!m_activePhysic && camRBody.Speed != 0 &&
+        //     !camMoved && m_camPosDelta != Vector3.Zero)
+        //     if (camRBody.Speed > 0.1f || camRBody.Speed < -0.1f)
+        //         camRBody.Speed += camRBody.Acceleration * (camRBody.Speed > 0 ? -1 : 1) * timeDelta;
+        //     else
+        //         camRBody.Speed = 0;
+        //
+        // m_camPosDelta = camPos - m_world.Player.Position;
+        //
+        // if (camRBody.VerticalForce > 2 * PhysicsConstants.g)
+        //     camRBody.VerticalForce =
+        //         MathHelper.InverseSqrtFast(camRBody.VerticalForce * camRBody.VerticalForce - 2 * PhysicsConstants.g);
+        // else
+        //     camRBody.VerticalForce = 0;
+        //
+        // m_world.Player.Position = camPos;
+        // m_world.Player.Collision.CurrentObject.AcceptTransform();
+        //
+        // Vector3 normal = Vector3.Zero;
+        // float depth = 0;
+        //
+        // foreach (var worldObject in m_world.WorldObjects)
+        // {
+        //     if (worldObject.Collision == null)
+        //         continue;
+        //     m_haveCollision = worldObject.Collision.CheckCollision(m_world.Player, out normal, out depth);
+        //
+        //     if (m_haveCollision)
+        //         break;
+        // }
+        //
+        // if (m_haveCollision)
+        //     m_world.Player.Position += normal * depth;
     }
 
     private void HandleMouseMove()
@@ -516,8 +516,8 @@ public partial class MainWindow : GameWindow
             if (m_mouseDown)
             {
                 // Apply the camera pitch and yaw (we clamp the pitch in the camera class)
-                m_world.Camera.Yaw += deltaX * GlobalSettings.UserSettings.Sensitivity;
-                m_world.Camera.Pitch +=
+                m_world.CurrentCamera.Yaw += deltaX * GlobalSettings.UserSettings.Sensitivity;
+                m_world.CurrentCamera.Pitch +=
                     -deltaY * GlobalSettings.UserSettings
                         .Sensitivity; // Reversed since y-coordinates range from bottom to top
             }
@@ -546,11 +546,8 @@ public partial class MainWindow : GameWindow
         CollisionRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("CollisionShader");
 
         TextRenderer.Shader = GlobalCache<Shader>.GetItemOrDefault("FontShader");
-        
-        InitCameraPhysics();
 
         LoadModels().Wait();
-
 
         ObjectRenderer.AddDrawables(m_world.WorldObjects, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
         CollisionRenderer.AddCollisions(m_world.WorldObjects);
@@ -563,7 +560,7 @@ public partial class MainWindow : GameWindow
         // }
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.Camera.FOV),
+            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             (float)Size.X / Size.Y, 0.1f, GlobalSettings.MaxDepthLength);
 
         base.OnLoad();
@@ -587,10 +584,10 @@ public partial class MainWindow : GameWindow
             return;
 
         var aspect = (float)Size.X / Size.Y;
-        m_world.Camera.FOV += -e.OffsetY;
+        m_world.Player.Camera.FOV += -e.OffsetY;
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.Camera.FOV),
+            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
 
         m_imGuiController.MouseScroll(e.Offset);
@@ -605,7 +602,7 @@ public partial class MainWindow : GameWindow
     protected override void OnKeyDown(KeyboardKeyEventArgs e)
     {
         if (e.Key == Keys.LeftControl)
-            m_world.Camera.RigidBody.MaxSpeedMultiplier = 3;
+            m_world.Player.RigidBody.MaxSpeedMultiplier = 3;
 
 
         base.OnKeyDown(e);
@@ -619,7 +616,7 @@ public partial class MainWindow : GameWindow
                 m_debugView = !m_debugView;
                 break;
             case Keys.LeftControl:
-                m_world.Camera.RigidBody.MaxSpeedMultiplier = 1;
+                m_world.Player.RigidBody.MaxSpeedMultiplier = 1;
                 break;
             case Keys.F:
                 m_activePhysic = !m_activePhysic;
@@ -629,7 +626,7 @@ public partial class MainWindow : GameWindow
                 break;
             case Keys.R:
                 m_rotation = new Vector3();
-                m_world.Camera.Position = new Vector3();
+                m_world.Player.Position = new Vector3();
                 // m_world.Camera.Roll = 0;
                 // m_world.Camera.Yaw = 0;
                 // m_world.Camera.Pitch = 0;
@@ -659,15 +656,15 @@ public partial class MainWindow : GameWindow
         GL.Enable(EnableCap.CullFace);
 
         GL.DepthFunc(DepthFunction.Lequal);
-        ObjectRenderer.DrawSkyBox(m_world.SkyBox, m_world.Camera);
+        ObjectRenderer.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
         GL.DepthFunc(DepthFunction.Less);
 
         GEGlobalSettings.GlobalLock.EnterReadLock();
 
         if (!m_debugView)
-            ObjectRenderer.DrawElements(m_world.Camera, m_drawFaceNumber, m_drawNormals);
+            ObjectRenderer.DrawElements(m_world.CurrentCamera, m_drawFaceNumber, m_drawNormals);
         else
-            CollisionRenderer.DrawElementsCollision(m_world.Camera);
+            CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera);
 
         // CollisionRenderer.DrawCollision(m_world.Camera, m_world.Camera, false);
 
@@ -692,20 +689,20 @@ public partial class MainWindow : GameWindow
         if (KeyboardState.IsKeyDown(Keys.Escape))
             Close();
 
-        HandleMove(args);
+        HandleCameraMove(args);
         HandleMouseMove();
         m_imGuiController.Update(this, (float)args.Time);
 
         // m_world.SkyBox.Rotation = new Vector3(0, (m_world.SkyBox.Rotation.Y + 0.05f), 0);
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
-        m_tbCamRotation.Text = m_world.Camera.Direction.ToString();
-        m_tbX.Text = m_world.Camera.Position.X.ToString();
-        m_tbY.Text = m_world.Camera.Position.Y.ToString();
-        m_tbZ.Text = m_world.Camera.Position.Z.ToString();
+        m_tbCamRotation.Text = m_world.Player.Direction.ToString();
+        m_tbX.Text = m_world.Player.Position.X.ToString();
+        m_tbY.Text = m_world.Player.Position.Y.ToString();
+        m_tbZ.Text = m_world.Player.Position.Z.ToString();
         m_tbRotation.Text = m_rotation.ToString();
         m_tbHaveCollision.Text = m_haveCollision.ToString();
-        m_tbCurrentSpeed.Text = m_world.Camera.RigidBody.Speed.ToString();
+        m_tbCurrentSpeed.Text = m_world.Player.RigidBody.Speed.ToString();
 
         base.OnUpdateFrame(args);
     }
@@ -728,7 +725,7 @@ public partial class MainWindow : GameWindow
         var aspect = (float)Size.X / Size.Y;
 
         GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.Camera.FOV),
+            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, GlobalSettings.MaxDepthLength);
 
         m_imGuiController.WindowResized(Size.X, Size.Y);

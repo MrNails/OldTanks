@@ -15,9 +15,7 @@ public class RigidBody
     public float DefaultJumpForce { get; set; }
     
     public float BreakMultiplier { get; set; }
-    
-    public Vector3 PushForce { get; set; }
-    
+
     /// <summary>
     /// Represent on how many degree rotate object per 1 second
     /// </summary>

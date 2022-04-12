@@ -39,6 +39,7 @@ public class Collision
         CollisionType = collisionType;
 
         InitCollision(originalCollision);
+        IsActive = true;
     }
 
     public CollisionData CollisionData => m_currentCollision;
@@ -85,6 +86,9 @@ public class Collision
     
     private void InitCollision(CollisionData originalCollision)
     {
+        if (CollisionType == CollisionType.Sphere)
+            return;
+        
         if (originalCollision.Vertices.Length == 0)
         {
             Console.WriteLine(
