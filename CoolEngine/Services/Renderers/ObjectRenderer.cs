@@ -19,6 +19,7 @@ public static class ObjectRenderer
     private static readonly uint[] s_quadIndices = new uint[] { 0, 1, 3, 1, 2, 3 };
 
     private static DrawObjectInfo s_normalObjInfo;
+    private static DrawObjectInfo s_centerDot;
 
     private static readonly Font DefaultFont = new Font("Arial", 14);
 
@@ -73,7 +74,11 @@ public static class ObjectRenderer
     public static void DrawElements(Camera camera, bool faceCounting = false, bool showNormals = false)
     {
         if (s_normalObjInfo == null)
-            s_normalObjInfo = CreateDrawNormalInfo(GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
+            s_normalObjInfo = CreateDrawOnlyVerticesInfo(GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
+        
+        if (s_centerDot == null)
+            s_centerDot = CreateDrawOnlyVerticesInfo(GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
+
 
         var textDrawInfo = new TextDrawInformation
         {
@@ -85,6 +90,9 @@ public static class ObjectRenderer
         {
             var drawSceneInfo = elemPair.Value;
 
+            if (elemPair.Key == typeof(SkyBox))
+                continue;
+
             drawSceneInfo.Shader.Use();
             drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
             drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
@@ -94,6 +102,7 @@ public static class ObjectRenderer
 
             var normals = ArrayPool<Vector3>.Shared.Rent(drawSceneInfo.Drawables[0].Scene.Meshes
                 .Sum(m => m.Faces.Sum(f => f.NormalsIndices.Length)) * 2);
+            var centers = ArrayPool<Vector3>.Shared.Rent(drawSceneInfo.Drawables.Count);
 
             for (int i = 0; i < drawSceneInfo.Drawables.Count; i++)
             {
@@ -107,11 +116,11 @@ public static class ObjectRenderer
 
                 element.AcceptTransform();
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
-                drawSceneInfo.Shader.SetVector3("textureScale", element.Size / 2);
                 drawSceneInfo.Shader.SetVector4("color", Colors.White);
 
                 var scale = new Vector3(element.Width / 2, element.Height / 2, element.Length / 2);
 
+                centers[i] = element.Position;
                 for (int j = 0; j < element.Scene.Meshes.Count; j++)
                 {
                     var mesh = element.Scene.Meshes[j];
@@ -171,22 +180,32 @@ public static class ObjectRenderer
                 if (!showNormals)
                     continue;
 
+                GL.LineWidth(5);
+                GL.PointSize(5);
+                
                 drawSceneInfo.Shader.SetVector4("color", Colors.Red);
                 drawSceneInfo.Shader.SetBool("useOnlyColor", true);
+                
+                PrepareVerticesToDraw(s_centerDot, centers, drawSceneInfo.Drawables.Count);
+                
+                drawSceneInfo.Shader.SetMatrix4("model", Matrix4.Identity);
+                
+                GL.DrawArrays(PrimitiveType.Points, 0, drawSceneInfo.Drawables.Count);
+                
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform.ClearScale());
 
-                PrepareNormalToDraw(normals, normalsCount);
-
-                GL.LineWidth(5);
+                PrepareVerticesToDraw(s_normalObjInfo, normals, normalsCount);
 
                 GL.DrawArrays(PrimitiveType.Lines, 0, normalsCount);
 
                 GL.LineWidth(1);
+                GL.PointSize(1);
 
                 drawSceneInfo.Shader.SetBool("useOnlyColor", false);
             }
 
             ArrayPool<Vector3>.Shared.Return(normals);
+            ArrayPool<Vector3>.Shared.Return(centers);
         }
     }
 
@@ -329,7 +348,7 @@ public static class ObjectRenderer
         };
     }
 
-    private static unsafe DrawObjectInfo CreateDrawNormalInfo(Shader shader)
+    private static unsafe DrawObjectInfo CreateDrawOnlyVerticesInfo(Shader shader)
     {
         int vao = 0, vbo = 0, ebo = 0;
 
@@ -348,11 +367,11 @@ public static class ObjectRenderer
         return new DrawObjectInfo(vao, vbo, ebo);
     }
 
-    private static unsafe void PrepareNormalToDraw(Vector3[] vertices, int drawAmount)
+    private static unsafe void PrepareVerticesToDraw(DrawObjectInfo drawObjectInfo, Vector3[] vertices, int drawAmount)
     {
-        GL.BindVertexArray(s_normalObjInfo.VertexArrayObject);
+        GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
 
-        GL.BindBuffer(BufferTarget.ArrayBuffer, s_normalObjInfo.VertexBufferObject);
+        GL.BindBuffer(BufferTarget.ArrayBuffer, drawObjectInfo.VertexBufferObject);
         GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, drawAmount * sizeof(Vector3), vertices);
     }
 

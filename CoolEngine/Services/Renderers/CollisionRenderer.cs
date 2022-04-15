@@ -46,7 +46,8 @@ public class CollisionRenderer
             AddCollision(collisionable);
     }
 
-    public static void DrawElementsCollision(Camera camera, int lineWidth = 3, bool useLookAt = true)
+    public static void DrawElementsCollision(Camera camera, int lineWidth = 3,
+        bool useLookAt = true, bool drawVerticesPositions = true, bool drawNormals = true)
     {
         if (Shader == null)
         {
@@ -80,21 +81,28 @@ public class CollisionRenderer
 
             GL.LineWidth(lineWidth);
 
-            GL.DrawElements(BeginMode.Lines, element.IndicesPerModel * element.ActiveCount,
-                DrawElementsType.UnsignedInt, 0);
+            if (element.IndicesPerModel != 0)
+                GL.DrawElements(BeginMode.Lines, element.IndicesPerModel * element.ActiveCount,
+                    DrawElementsType.UnsignedInt, 0);
+            else
+                GL.DrawArrays(PrimitiveType.Lines, 0, element.VerticesPerModel * element.ActiveCount);
 
-            for (int j = 0; j < element.ActiveCount * element.VerticesPerModel; j++)
+            if (drawVerticesPositions)
             {
-                var pos = element.Vertices[j];
-                textDrawInfo.SelfPosition = pos;
+                for (int j = 0; j < element.ActiveCount * element.VerticesPerModel; j++)
+                {
+                    var pos = element.Vertices[j];
+                    textDrawInfo.SelfPosition = pos;
 
-                TextRenderer.DrawText3D(DefaultFont, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
+                    TextRenderer.DrawText3D(DefaultFont, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
+                }
             }
 
             Shader.Use();
 
-            for (int i = 0; i < element.Collisionables.Count; i++)
-                DrawNormals(element.Collisionables[i]);
+            if (drawNormals)
+                for (int i = 0; i < element.Collisionables.Count; i++)
+                    DrawNormals(element.Collisionables[i]);
         }
     }
 
@@ -106,13 +114,14 @@ public class CollisionRenderer
         {
             var normalsCount = 0;
             var mesh = collisionable.Collision.CollisionData.Meshes[i];
-            
-            normals[normalsCount] = new Vector3(new Vector4(mesh.Normal, 1) * collisionable.Collision.CurrentObject.Transform.ClearRotation()); 
+
+            normals[normalsCount] = new Vector3(new Vector4(mesh.Normal, 1) *
+                                                collisionable.Collision.CurrentObject.Transform.ClearRotation());
             normals[normalsCount + 1] = normals[normalsCount] + mesh.Normal;
             normalsCount += 2;
-            
+
             Shader.Use();
-        
+
             Shader.SetVector4("color", mesh.Color);
 
             PrepareNormalToDraw(normals, normalsCount);

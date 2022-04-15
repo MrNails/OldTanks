@@ -17,7 +17,6 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
     private bool m_haveTransformation;
 
     protected Matrix4 m_transform;
-    private Camera m_camera;
     private Vector3 m_cameraOffset;
 
     protected WorldObject(Scene scene)
@@ -25,7 +24,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         var currType = GetType();
         Visible = true;
 
-        CameraOffset = new Vector3(0, 1, -1);
+        CameraOffset = new Vector3(0, 0, 0);
 
         m_scene = scene ??
                   throw new ObjectException(currType, $"Cannot create {currType.Name}. Scene is not exists");
@@ -45,8 +44,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_size = value;
             m_haveTransformation = true;
-            CameraOffset = new Vector3(0, CameraOffset.Y / 2 + 1, CameraOffset.Z / 2 - 2);
-            SetCameraPos();
+            CameraOffset = new Vector3(0, m_size.Y / 2 + 1, 0);
+            SetCameraData();
         }
     }
 
@@ -57,7 +56,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_position = value;
             m_haveTransformation = true;
-            SetCameraPos();
+            SetCameraData();
         }
     }
 
@@ -78,7 +77,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_position.X = value;
             m_haveTransformation = true;
-            SetCameraPos();
+            SetCameraData();
         }
     }
 
@@ -89,7 +88,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_position.Y = value;
             m_haveTransformation = true;
-            SetCameraPos();
+            SetCameraData();
         }
     }
 
@@ -100,7 +99,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_position.Z = value;
             m_haveTransformation = true;
-            SetCameraPos();
+            SetCameraData();
         }
     }
 
@@ -111,7 +110,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_size.X = value;
             m_haveTransformation = true;
-            SetCameraPos();
+            SetCameraData();
         }
     }
 
@@ -123,7 +122,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_size.Y = value;
             m_haveTransformation = true;
             m_cameraOffset.Y = m_size.Y / 2 + 1;
-            SetCameraPos();
+            SetCameraData();
         }
     }
 
@@ -134,8 +133,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_size.Z = value;
             m_haveTransformation = true;
-            m_cameraOffset.Z = m_size.Z / 2 - 2;
-            SetCameraPos();
+            m_cameraOffset.Z = m_size.Z / 2;
+            SetCameraData();
         }
     }
     
@@ -169,17 +168,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         }
     }
     
-    public Camera? Camera
-    {
-        get => m_camera;
-        set
-        {
-            if (value == null)
-                throw new ArgumentNullException(nameof(value));
-                
-            m_camera = value;
-        }
-    }
+    public Camera? Camera { get; set; }
     
     public Vector3 CameraOffset
     {
@@ -207,7 +196,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         m_haveTransformation = false;
     }
 
-    private void SetCameraPos()
+    private void SetCameraData()
     {
         if (Camera == null)
             return;
