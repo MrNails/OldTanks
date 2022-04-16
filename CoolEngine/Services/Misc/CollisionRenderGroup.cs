@@ -73,7 +73,7 @@ internal class CollisionRenderGroup
         {
             var collisionable = m_collisionables[i];
 
-            if (collisionable.Collision?.IsActive == true)
+            if (collisionable.Collision?.IsActive == false)
                 continue;
 
             collisionable.Collision.CollisionData.Transformable?.AcceptTransform();
