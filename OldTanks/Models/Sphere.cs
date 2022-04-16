@@ -41,6 +41,6 @@ public class Sphere : WorldObject
             
             // vertices[idx++] = new Vector3((float)Math.Sin(yAngle), (float)Math.Cos(yAngle), 0);
         
-        GlobalCache<CollisionData>.AddOrUpdateItem("SphereCollision", new CollisionData() { Vertices = res.Scene.Meshes[0].Vertices });
+        GlobalCache<CollisionData>.AddOrUpdateItem("SphereCollision", new CollisionData(CollisionType.Sphere) { Vertices = res.Scene.Meshes[0].Vertices });
     }
 }

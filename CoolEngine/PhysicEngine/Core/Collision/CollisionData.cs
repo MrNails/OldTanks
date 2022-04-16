@@ -1,16 +1,25 @@
-﻿using OpenTK.Mathematics;
+﻿using CoolEngine.Services.Interfaces;
+using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core.Collision;
+
+public enum CollisionType
+{
+    Polygon,
+    Sphere
+}
 
 public class CollisionData
 {
     private readonly List<Mesh> m_meshes;
     private Vector3[] m_vertices;
 
-    public CollisionData()
+    public CollisionData(CollisionType collisionType)
     {
         Vertices = Array.Empty<Vector3>();
         m_meshes = new List<Mesh>();
+
+        CollisionType = collisionType;
     }
 
     public List<Mesh> Meshes => m_meshes;
@@ -26,4 +35,8 @@ public class CollisionData
             m_vertices = value;
         }
     }
+    
+    public ITransformable? Transformable { get; set; }
+    
+    public CollisionType CollisionType { get; }
 }

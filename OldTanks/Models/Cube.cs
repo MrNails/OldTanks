@@ -22,7 +22,7 @@ public class Cube : WorldObject
 
     private static void CreateCubeScene()
     {
-        var collisionData = new CollisionData();
+        var collisionData = new CollisionData(CollisionType.Polygon);
         
         // //x, y, z, u, v
         // Vertex[] topSide =

@@ -279,7 +279,7 @@ public partial class MainWindow : GameWindow
 
             cube.Collision =
                 new Collision(cube,
-                    GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
+                    GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
             var texture = GlobalCache<Texture>.GetItemOrDefault(textures[rand.Next(0, 9) % 2]);
 
             foreach (var mesh in cube.Scene.Meshes)
@@ -415,8 +415,7 @@ public partial class MainWindow : GameWindow
         m_world.WorldObjects.Add(defCube);
 
         var sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1) };
-        sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"),
-            CollisionType.Sphere);
+        sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
         m_world.WorldObjects.Add(sphere);
 
         m_testCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0) };
@@ -425,11 +424,11 @@ public partial class MainWindow : GameWindow
         m_world.Player = m_testCube;
 
         m_world.Player.Collision = new Collision(m_world.Player,
-            GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
+            GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         m_collisionables.Add(m_world.Player);
 
         defCube.Collision =
-            new Collision(defCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"), CollisionType.Polygon);
+            new Collision(defCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
 
         foreach (var wObject in m_world.WorldObjects)
         {
@@ -453,7 +452,7 @@ public partial class MainWindow : GameWindow
         m_world.CurrentCamera.FOV = 45;
         m_world.CurrentCamera.Size = new Vector3(1);
         m_world.CurrentCamera.Collision = new Collision(m_world.CurrentCamera,
-            GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"), CollisionType.Sphere);
+            GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
         
         m_interactionWorker.Start();
     }
@@ -581,21 +580,21 @@ public partial class MainWindow : GameWindow
             {
                 while (!m_exit)
                 {
-                    Thread.Sleep((int)(1.0f / 60 * 1000));
+                    for (int i = 0; i < m_world.WorldObjects.Count; i++)
+                        m_world.WorldObjects[i].Collision.UpdateCollision();
+
                     // GEGlobalSettings.GlobalLock.EnterWriteLock();
                     for (int i = 0; i < m_world.WorldObjects.Count; i++)
                     {
                         for (int j = i + 1; j < m_world.WorldObjects.Count; j++)
                         {
-                            m_world.WorldObjects[i].Collision.UpdateCollision();
-                            m_world.WorldObjects[j].Collision.UpdateCollision();
-                    
-                            haveCollision = m_world.WorldObjects[i].Collision.CheckCollision(m_world.WorldObjects[j], out normal, out depth);
+                            haveCollision = m_world.WorldObjects[i].Collision.CheckCollision(m_world.WorldObjects[j].Collision, out normal, out depth);
 
                             if (haveCollision)
                             {
                                 // m_world.WorldObjects[i].Position += -normal * depth;
                                 m_world.WorldObjects[j].Position += normal * depth;
+                                m_world.WorldObjects[j].Collision.UpdateCollision();
                             }
                         }
                     }
