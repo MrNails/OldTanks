@@ -23,6 +23,7 @@ public class Camera : IPhysicObject
     private Matrix4 m_transform;
 
     private bool m_haveTransformation;
+    private RigidBody m_rigidBody;
 
     public Camera() : this(new Vector3(0, 0, 0))
     {
@@ -38,6 +39,14 @@ public class Camera : IPhysicObject
         Pitch = 0;
 
         FOV = 45;
+
+        RigidBody = new RigidBody
+        {
+            MaxSpeed = 100,
+            MaxBackSpeed = 100,
+            MaxSpeedMultiplier = 1,
+            Speed = 5,
+        };
     }
 
     public Vector3 Direction => m_direction;
@@ -59,7 +68,11 @@ public class Camera : IPhysicObject
     
     public Matrix4 Transform => m_transform;
 
-    public RigidBody RigidBody { get; set; }
+    public RigidBody RigidBody
+    {
+        get => m_rigidBody;
+        set => m_rigidBody = value ?? throw new ArgumentNullException(nameof(value));
+    }
 
     public Matrix4 LookAt
     {
@@ -225,6 +238,8 @@ public class Camera : IPhysicObject
 
         m_haveTransformation = false;
     }
+
+    public void Move(float timeDelta) {}
     
     private void ChangedLookAt()
     {

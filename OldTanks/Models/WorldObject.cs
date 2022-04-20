@@ -1,4 +1,5 @@
 ﻿using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services.Exceptions;
@@ -137,7 +138,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             SetCameraData();
         }
     }
-    
+
     public float Yaw
     {
         get => m_direction.X;
@@ -147,7 +148,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_haveTransformation = true;
         }
     }
-    
+
     public float Pitch
     {
         get => m_direction.Y;
@@ -167,9 +168,9 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_haveTransformation = true;
         }
     }
-    
+
     public Camera? Camera { get; set; }
-    
+
     public Vector3 CameraOffset
     {
         get => m_cameraOffset;
@@ -177,7 +178,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
     }
 
     public Matrix4 Transform => m_transform;
-    
+
     public bool Visible { get; set; }
 
     public virtual void AcceptTransform()
@@ -192,8 +193,20 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
                       Matrix4.CreateTranslation(Position);
 
         Collision?.UpdateCollision();
-        
+
         m_haveTransformation = false;
+    }
+
+    public void Move(float timeDelta)
+    {
+        if (RigidBody == null || RigidBody.IsStatic)
+            return;
+
+        RigidBody.OnTick(timeDelta);
+
+        Position += (Matrix3.CreateRotationX(MathHelper.DegreesToRadians(Direction.X)) *
+                    Vector3.UnitZ * RigidBody.Speed + 
+                    PhysicsConstants.GravityDirection * RigidBody.VerticalSpeed) * timeDelta;
     }
 
     private void SetCameraData()

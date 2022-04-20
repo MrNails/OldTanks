@@ -113,8 +113,7 @@ public static class ObjectRenderer
                     continue;
 
                 textDrawInfo.OriginPosition = element.Position;
-
-                element.AcceptTransform();
+                
                 drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
                 drawSceneInfo.Shader.SetVector4("color", Colors.White);
 
@@ -394,7 +393,6 @@ public static class ObjectRenderer
         return new DrawObjectInfo(vao, vbo, ebo);
     }
 }
-
 
 // private static unsafe void FillDrawSceneInfo(Shader shader, DrawSceneInfo drawSceneInfo, IDrawable drawable)
 // {

@@ -4,14 +4,16 @@ namespace CoolEngine.Services.Interfaces;
 
 public interface IMovable
 {
-    public Vector3 Position { get; }
-    public Vector3 Direction { get; }
+    Vector3 Position { get; }
+    Vector3 Direction { get; }
     
-    public float X { get; set; }
-    public float Y { get; set; }
-    public float Z { get; set; }
+    float X { get; set; }
+    float Y { get; set; }
+    float Z { get; set; }
     
-    public float Pitch { get; set; }
-    public float Yaw { get; set; }
-    public float Roll { get; set; }
+    float Pitch { get; set; }
+    float Yaw { get; set; }
+    float Roll { get; set; }
+
+    void Move(float timeDelta);
 }

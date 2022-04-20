@@ -11,8 +11,9 @@ public static class GlobalSettings
     
     public static readonly ReaderWriterLockSlim GlobalLock = new ReaderWriterLockSlim();
 
-    public static Matrix4 Projection { get; set; }
-    public static Matrix4 ScreenProjection { get; set; }
+    public static Matrix4 Projection;
+    public static Matrix4 ScreenProjection;
+    public static bool PhysicsEnable;
     
     public static float WindowWidth { get; set; }
     public static float WindowHeight { get; set; }
