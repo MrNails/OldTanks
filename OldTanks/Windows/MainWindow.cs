@@ -434,6 +434,12 @@ public partial class MainWindow : GameWindow
         tempObjects.Add(wall);
 
         FillObject(wall, GlobalCache<Texture>.GetItemOrDefault("wall-texture"));
+        
+        wall = new Cube { Size = new Vector3(20, 5, 0.1f), Position = new Vector3(9.95f, 1, 0), Direction = new Vector3(0, 90, 0)};
+        wall.Collision = new Collision(wall, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
+        tempObjects.Add(wall);
+
+        FillObject(wall, GlobalCache<Texture>.GetItemOrDefault("wall-texture"));
 
         var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0 ) };
         floor.Collision = new Collision(floor, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
@@ -464,6 +470,10 @@ public partial class MainWindow : GameWindow
         var dynamicCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0) };
         dynamicCube.Collision = new Collision(dynamicCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(dynamicCube);
+        
+        sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(2, 0, -1) };
+        sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
+        tempObjects.Add(sphere);
         
         foreach (var wObject in tempObjects)
         {
@@ -543,9 +553,9 @@ public partial class MainWindow : GameWindow
         if (!m_freeCamMode)
         {
             if (KeyboardState.IsKeyDown(Keys.D))
-                m_world.Player.Pitch -= 1;
-            else if (KeyboardState.IsKeyDown(Keys.A))
                 m_world.Player.Pitch += 1;
+            else if (KeyboardState.IsKeyDown(Keys.A))
+                m_world.Player.Pitch -= 1;
 
             if (KeyboardState.IsKeyDown(Keys.W))
                 rigidBody.Speed += rigidBody.Acceleration * timeDelta * (rigidBody.Speed < 0 ? 5 : 1);

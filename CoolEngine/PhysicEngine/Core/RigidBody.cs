@@ -74,5 +74,7 @@ public class RigidBody
 
         if (!GlobalSettings.PhysicsEnable && VerticalSpeed < PhysicsConstants.MaxFreeFallingSpeed)
             VerticalSpeed += PhysicsConstants.g * timeDelta;
+
+        // VerticalSpeed = 0.1f;
     }
 }

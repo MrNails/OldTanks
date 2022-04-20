@@ -11,9 +11,10 @@ namespace OldTanks.Models;
 public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
 {
     private Scene m_scene;
-    private Vector3 m_size;
     private Vector3 m_position;
     private Vector3 m_direction;
+    
+    protected Vector3 m_size;
 
     private bool m_haveTransformation;
 
@@ -38,7 +39,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
     public RigidBody RigidBody { get; set; }
     public Collision Collision { get; set; }
 
-    public Vector3 Size
+    public virtual Vector3 Size
     {
         get => m_size;
         set
@@ -104,7 +105,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         }
     }
 
-    public float Width
+    public virtual float Width
     {
         get => m_size.X;
         set
@@ -115,7 +116,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         }
     }
 
-    public float Height
+    public virtual float Height
     {
         get => m_size.Y;
         set
@@ -127,7 +128,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         }
     }
 
-    public float Length
+    public virtual float Length
     {
         get => m_size.Z;
         set
@@ -204,8 +205,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
 
         RigidBody.OnTick(timeDelta);
 
-        Position += (Matrix3.CreateRotationX(MathHelper.DegreesToRadians(Direction.X)) *
-                    Vector3.UnitZ * RigidBody.Speed + 
+        Position += (Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) *
+                    -Vector3.UnitZ * RigidBody.Speed + 
                     PhysicsConstants.GravityDirection * RigidBody.VerticalSpeed) * timeDelta;
     }
 

@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine;
+using CoolEngine.PhysicEngine.Core.Collision;
 using OldTanks.Services.Misc;
 using OpenTK.Mathematics;
 
@@ -81,6 +82,7 @@ public class World
                 if (haveCollision)
                 {
                     var dot = Vector3.Dot(normal, PhysicsConstants.GravityDirection);
+
                     if (first.RigidBody.IsStatic)
                     {
                         second.Position += normal * depth;
