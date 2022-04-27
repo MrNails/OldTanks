@@ -15,5 +15,5 @@ public interface IMovable
     float Yaw { get; set; }
     float Roll { get; set; }
 
-    void Move(float timeDelta);
+    void Move(float timeDelta, int collisionIteration = -1);
 }

@@ -1,8 +1,8 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
@@ -14,7 +14,6 @@ using ImGuiNET;
 using OldTanks.Controls;
 using OldTanks.Models;
 using OldTanks.Services.ImGUI;
-using OldTanks.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -90,6 +89,8 @@ public partial class MainWindow : GameWindow
 
         GlobalSettings.UserSettings.Sensitivity = 0.1f;
 
+        GEGlobalSettings.CollisionIterations = 20;
+
         m_objSLots = new List<Vector3>(20);
 
         m_generateObjectThread = new Thread(GenerateObjects);
@@ -114,17 +115,31 @@ public partial class MainWindow : GameWindow
         var position = System.Numerics.Vector3.Zero;
         var rotation = System.Numerics.Vector3.Zero;
         var size = System.Numerics.Vector3.Zero;
-        var currentSpeed = 0f;
+        var velocity = System.Numerics.Vector3.Zero;
         var maxSpeed = 0f;
         var maxBackSpeed = 0f;
-        var acceleration = 0f;
         var speedMultiplier = 0f;
-        var verticalSpeed = 0f;
+        var weight = 0f;
+        var isStatic = false;
 
         WorldObject? lastObject =
             m_selectedWorldObjectIndex == -1 ? null : m_world.WorldObjects[m_selectedWorldObjectIndex];
 
         ImGui.Begin("Debug");
+        var spawnCube = ImGui.Button("Spawn cube");
+
+        if (spawnCube)
+        {
+            var cube = new Cube();
+            cube.Collision = new Collision(cube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
+
+            foreach (var mesh in cube.Scene.Meshes)
+                mesh.TextureData.Texture = GlobalCache<Texture>.GetItemOrDefault("wall-texture");
+
+            ObjectRenderer.AddDrawable(cube, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
+            
+            m_world.WorldObjects.Add(cube);
+        }
 
         position = VectorExtensions.GLToSystemVector3(m_world.CurrentCamera.Position);
         rotation.X = m_world.CurrentCamera.Yaw;
@@ -181,24 +196,6 @@ public partial class MainWindow : GameWindow
             ChangeCameraMode();
         }
 
-        // for (int i = 0; i < m_testCube.Scene.Meshes.Count; i++)
-        // {
-        //     var mesh = m_testCube.Scene.Meshes[i];
-        //     var expanded = ImGui.TreeNodeEx($"Mesh {i}");
-        //     var scale = VectorExtensions.GLToSystemVector2(mesh.TextureData.Scale);
-        //     var angle = mesh.TextureData.RotationAngle;
-        //
-        //     if (expanded)
-        //     {
-        //         ImGui.DragFloat2($"Mesh texture scale {i}", ref scale);
-        //         ImGui.DragFloat($"Mesh texture angle {i}", ref angle);
-        //         ImGui.TreePop();
-        //     }
-        //
-        //     mesh.TextureData.Scale = VectorExtensions.SystemToGLVector2(scale);
-        //     mesh.TextureData.RotationAngle = angle;
-        // }
-
         ImGui.NextColumn();
 
         ImGui.Text("Selected world object data");
@@ -212,13 +209,15 @@ public partial class MainWindow : GameWindow
         size = selectedWorldObject == null
             ? System.Numerics.Vector3.Zero
             : VectorExtensions.GLToSystemVector3(selectedWorldObject.Size);
-
-        currentSpeed = selectedWorldObject?.RigidBody.Speed ?? 0;
+        velocity = selectedWorldObject == null
+            ? System.Numerics.Vector3.Zero
+            : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.Velocity);
+        
         maxSpeed = selectedWorldObject?.RigidBody.MaxSpeed ?? 0;
         maxBackSpeed = selectedWorldObject?.RigidBody.MaxBackSpeed ?? 0;
-        acceleration = selectedWorldObject?.RigidBody.Acceleration ?? 0;
         speedMultiplier = selectedWorldObject?.RigidBody.MaxSpeedMultiplier ?? 0;
-        verticalSpeed = selectedWorldObject?.RigidBody.VerticalSpeed ?? 0;
+        weight = selectedWorldObject?.RigidBody.Weight ?? 0;
+        isStatic = selectedWorldObject?.RigidBody.IsStatic ?? false;
 
         ImGui.DragFloat3("Position", ref position);
         ImGui.DragFloat3("Rotation", ref rotation);
@@ -229,12 +228,12 @@ public partial class MainWindow : GameWindow
 
         if (rBodyOpened)
         {
-            ImGui.DragFloat("Current speed", ref currentSpeed);
+            ImGui.Checkbox("IsStatic", ref isStatic);
+            ImGui.DragFloat3("Velocity", ref velocity);
             ImGui.DragFloat("Max speed", ref maxSpeed);
             ImGui.DragFloat("Max back speed", ref maxBackSpeed);
-            ImGui.DragFloat("Acceleration", ref acceleration);
             ImGui.DragFloat("Speed multiplier", ref speedMultiplier);
-            ImGui.DragFloat("Vertical speed", ref verticalSpeed);
+            ImGui.DragFloat("Weight", ref weight);
 
             ImGui.TreePop();
         }
@@ -253,10 +252,10 @@ public partial class MainWindow : GameWindow
 
             selectedWorldObject.RigidBody.MaxSpeed = maxSpeed;
             selectedWorldObject.RigidBody.MaxBackSpeed = maxBackSpeed;
-            selectedWorldObject.RigidBody.Speed = currentSpeed;
-            selectedWorldObject.RigidBody.Acceleration = acceleration;
+            selectedWorldObject.RigidBody.Velocity = VectorExtensions.SystemToGLVector3(velocity);
             selectedWorldObject.RigidBody.MaxSpeedMultiplier = speedMultiplier;
-            selectedWorldObject.RigidBody.VerticalSpeed = verticalSpeed;
+            selectedWorldObject.RigidBody.Weight = weight;
+            selectedWorldObject.RigidBody.IsStatic = isStatic;
         }
 
         ImGui.End();
@@ -482,10 +481,8 @@ public partial class MainWindow : GameWindow
             cubeRBody.MaxSpeed = 2;
             cubeRBody.MaxBackSpeed = 2;
             cubeRBody.MaxSpeedMultiplier = 1;
-            cubeRBody.Rotation = MathHelper.DegreesToRadians(30);
-            cubeRBody.Acceleration = 10;
-            cubeRBody.DefaultJumpForce = -10;
-            cubeRBody.BreakMultiplier = 1.5f;
+            cubeRBody.Restitution = 0.4f;
+            cubeRBody.DefaultJumpForce = -250;
 
             wObject.RigidBody = cubeRBody;
             
@@ -505,12 +502,11 @@ public partial class MainWindow : GameWindow
         m_interactionWorker.Start();
     }
 
-    private void HandleCameraMove(in FrameEventArgs args)
+    private void HandleCameraMove(float timeDelta)
     {
         if (!m_freeCamMode)
             return;
-
-        var timeDelta = (float)args.Time;
+        
         var camRBody = m_world.CurrentCamera.RigidBody;
 
         var speedMultiplier = 1f;
@@ -522,29 +518,27 @@ public partial class MainWindow : GameWindow
         if (KeyboardState.IsKeyDown(Keys.D))
             posDelta += Vector3.Normalize(
                             Vector3.Cross(m_world.CurrentCamera.Direction, m_world.CurrentCamera.CameraUp)) *
-                        camRBody.Speed * timeDelta * speedMultiplier;
+                        camRBody.Velocity.X * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.A))
             posDelta -= Vector3.Normalize(
                             Vector3.Cross(m_world.CurrentCamera.Direction, m_world.CurrentCamera.CameraUp)) *
-                        camRBody.Speed * timeDelta * speedMultiplier;
+                        camRBody.Velocity.X * timeDelta * speedMultiplier;
 
         if (KeyboardState.IsKeyDown(Keys.W))
-            posDelta += m_world.CurrentCamera.Direction * camRBody.Speed * timeDelta * speedMultiplier;
+            posDelta += m_world.CurrentCamera.Direction * camRBody.Velocity.Z * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.S))
-            posDelta -= m_world.CurrentCamera.Direction * camRBody.Speed * timeDelta * speedMultiplier;
+            posDelta -= m_world.CurrentCamera.Direction * camRBody.Velocity.Z * timeDelta * speedMultiplier;
 
         if (KeyboardState.IsKeyDown(Keys.Space))
-            posDelta += m_world.CurrentCamera.CameraUp * camRBody.Speed * timeDelta * speedMultiplier;
+            posDelta += m_world.CurrentCamera.CameraUp * camRBody.Velocity.Y * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.LeftShift))
-            posDelta -= m_world.CurrentCamera.CameraUp * camRBody.Speed * timeDelta * speedMultiplier;
+            posDelta -= m_world.CurrentCamera.CameraUp * camRBody.Velocity.Y * timeDelta * speedMultiplier;
 
         m_world.CurrentCamera.Position += posDelta;
     }
 
-    private void HandleObjectMove(in FrameEventArgs args)
+    private void HandleObjectMove(float timeDelta)
     {
-        var timeDelta = (float)args.Time;
-
         if (m_world.Player == null)
             return;
         var rigidBody = m_world.Player.RigidBody;
@@ -557,60 +551,61 @@ public partial class MainWindow : GameWindow
             else if (KeyboardState.IsKeyDown(Keys.A))
                 m_world.Player.Pitch -= 1;
 
-            if (KeyboardState.IsKeyDown(Keys.W))
-                rigidBody.Speed += rigidBody.Acceleration * timeDelta * (rigidBody.Speed < 0 ? 5 : 1);
-            else if (KeyboardState.IsKeyDown(Keys.S))
-                rigidBody.Speed -= rigidBody.Acceleration * timeDelta * (rigidBody.Speed > 0 ? 5 : 1);
+            // if (KeyboardState.IsKeyDown(Keys.W))
+            //     rigidBody.Force += rigidBody.Acceleration * timeDelta * (rigidBody.Speed < 0 ? 5 : 1);
+            // else if (KeyboardState.IsKeyDown(Keys.S))
+            //     rigidBody.Force -= rigidBody.Acceleration * timeDelta * (rigidBody.Speed > 0 ? 5 : 1);
 
-            if (KeyboardState.IsKeyDown(Keys.Space) && rigidBody.VerticalSpeed == 0)
+            if (KeyboardState.IsKeyDown(Keys.W))
+                rigidBody.Force += GlobalSettings.MovementDirectionUnit * 10;
+            else if (KeyboardState.IsKeyDown(Keys.S))
+                rigidBody.Force -= GlobalSettings.MovementDirectionUnit * 10;
+
+            if (KeyboardState.IsKeyDown(Keys.Space) && rigidBody.OnGround)
             {
-                rigidBody.VerticalSpeed = rigidBody.DefaultJumpForce;
+                rigidBody.Force += PhysicsConstants.GravityDirection * rigidBody.DefaultJumpForce;
                 rigidBody.OnGround = false;
             }
         }
 
-        if (GEGlobalSettings.PhysicsEnable && rigidBody.Speed != 0 &&
-            !moved && m_posDelta != Vector3.Zero)
-            if (rigidBody.Speed > 0.1f || rigidBody.Speed < -0.1f)
-                rigidBody.Speed += rigidBody.Acceleration * (rigidBody.Speed > 0 ? -1 : 1) * timeDelta;
-            else
-                rigidBody.Speed = 0;
-        // if (rigidBody.VerticalForce > 2 * PhysicsConstants.g)
-        //     rigidBody.VerticalForce =
-        //         MathHelper.InverseSqrtFast(rigidBody.VerticalForce * rigidBody.VerticalForce - 2 * PhysicsConstants.g);
-        // else
-        //     rigidBody.VerticalForce = 0;
-
-        // m_world.Player.Move(position, timeDelta);
+        // if (GEGlobalSettings.PhysicsEnable && rigidBody.Speed != 0 &&
+        //     !moved && m_posDelta != Vector3.Zero)
+        //     if (rigidBody.Speed > 0.1f || rigidBody.Speed < -0.1f)
+        //         rigidBody.Speed += rigidBody.Acceleration * (rigidBody.Speed > 0 ? -1 : 1) * timeDelta;
+        //     else
+        //         rigidBody.Speed = 0;
     }
     
     private void WorldHandler()
     {
         var stopWatch = new Stopwatch();
         stopWatch.Start();
-
+        
         while (!m_exit)
         {
             try
             {
                 while (!m_exit)
                 {
-                    // count++;
-                    // do
-                    // {
-                    //     Thread.Sleep(1);
-                    // } while (m_renderingScene);
+                    Thread.Sleep(5);
 
-                    var elapsedTime = stopWatch.Elapsed.TotalSeconds;
+                    var elapsedTime = (float)stopWatch.Elapsed.TotalSeconds;
                     stopWatch.Restart();
 
                     // Console.CursorTop = 0;
                     // Console.CursorLeft = 0;
-                    // Console.WriteLine(elapsedTime);
+                    // Console.WriteLine(Math.Round(1 / elapsedTime, MidpointRounding.ToEven));
+
+                    if (m_freeCamMode)
+                        HandleCameraMove(elapsedTime);
+        
+                    HandleObjectMove(elapsedTime);
+
+                    HandleMouseMove();
 
                     // m_collisionCalculation = true;
 
-                    m_world.CollideObjects((float)elapsedTime);
+                    m_world.CollideObjects(elapsedTime);
 
                     // m_collisionCalculation = false;
                 }
@@ -826,15 +821,6 @@ public partial class MainWindow : GameWindow
         if (KeyboardState.IsKeyDown(Keys.Escape))
             Close();
 
-        while (m_collisionCalculation)
-            Thread.Sleep(1);
-        
-        if (m_freeCamMode)
-            HandleCameraMove(args);
-        
-        HandleObjectMove(args);
-
-        HandleMouseMove();
         m_imGuiController.Update(this, (float)args.Time);
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
@@ -844,7 +830,7 @@ public partial class MainWindow : GameWindow
         m_tbZ.Text = m_currentObject.Position.Z.ToString();
         m_tbRotation.Text = m_rotation.ToString();
         m_tbHaveCollision.Text = m_haveCollision.ToString();
-        m_tbCurrentSpeed.Text = m_currentObject.RigidBody.Speed.ToString();
+        m_tbCurrentSpeed.Text = m_currentObject.RigidBody.Velocity.ToString();
 
         base.OnUpdateFrame(args);
     }

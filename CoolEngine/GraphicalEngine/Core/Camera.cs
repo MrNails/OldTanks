@@ -45,7 +45,7 @@ public class Camera : IPhysicObject
             MaxSpeed = 100,
             MaxBackSpeed = 100,
             MaxSpeedMultiplier = 1,
-            Speed = 5,
+            Velocity = new Vector3(5),
         };
     }
 
@@ -239,7 +239,7 @@ public class Camera : IPhysicObject
         m_haveTransformation = false;
     }
 
-    public void Move(float timeDelta) {}
+    public void Move(float timeDelta, int collisionIteration = -1) {}
     
     private void ChangedLookAt()
     {

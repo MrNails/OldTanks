@@ -17,6 +17,20 @@ public static class VectorExtensions
                left.Y < right.Y &&
                left.Z < right.Z;
     }
+    
+    public static bool GreaterOrEqualThan(in Vector3 left, in Vector3 right)
+    {
+        return left.X >= right.X &&
+               left.Y >= right.Y &&
+               left.Z >= right.Z;
+    }
+    
+    public static bool LoverOrEqualThan(in Vector3 left, in Vector3 right)
+    {
+        return left.X <= right.X &&
+               left.Y <= right.Y &&
+               left.Z <= right.Z;
+    }
 
     public static Vector4 SystemToGLVector4(in System.Numerics.Vector4 source) => new (source.X, source.Y, source.Z, source.W);
     public static  System.Numerics.Vector4  GLToSystemVector3(in Vector4 source) => new (source.X, source.Y, source.Z, source.W);

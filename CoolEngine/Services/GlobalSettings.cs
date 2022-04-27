@@ -1,4 +1,5 @@
-﻿using OpenTK.Mathematics;
+﻿using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
 
 namespace CoolEngine.Services;
 
@@ -8,7 +9,21 @@ public static class GlobalSettings
     public static readonly int DefaultFontSize = 20;
 
     public static readonly int MaxInstanceCount = 100;
-    
+
+    private static int s_collisionIterations;
+
+    public static int CollisionIterations
+    {
+        get => s_collisionIterations;
+        set
+        {
+            if (value < 1 || value > 128)
+                throw new ArgumentOutOfRangeException(nameof(value));
+
+            s_collisionIterations = value;
+        }
+    }
+
     public static readonly ReaderWriterLockSlim GlobalLock = new ReaderWriterLockSlim();
 
     public static Matrix4 Projection;
@@ -28,4 +43,12 @@ public static class GlobalSettings
     {
         return WindowHeight - y;
     }
+
+    // public static Vector3 ScreenToWorldCoord(in Matrix4 cameraView, in Vector2 screenCoord)
+    // {
+    //     
+    //     var worldProjection = (cameraView * Projection).Inverted();
+    //     
+    //     return new Vector3();
+    // }
 }

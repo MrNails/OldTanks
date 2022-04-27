@@ -1,7 +1,4 @@
-﻿using System.Collections.ObjectModel;
-using CoolEngine.GraphicalEngine.Core;
-using CoolEngine.Services;
-using CoolEngine.Services.Extensions;
+﻿using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
 using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
 using OpenTK.Mathematics;
@@ -40,9 +37,7 @@ public class Collision
     public void UpdateCollision()
     {
         var transformation = CollisionData.Transformable!.Transform;
-        var rotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(CollisionData.Transformable!.Yaw)) * 
-                       Matrix4.CreateRotationY(MathHelper.DegreesToRadians(CollisionData.Transformable!.Pitch)) * 
-                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(CollisionData.Transformable!.Roll));
+        var rotation = transformation.ClearTranslation().ClearScale();
 
         for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
             m_currentCollision.Vertices[i] =

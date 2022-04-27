@@ -246,7 +246,7 @@ public static class ObjectRenderer
         {
             Color = Colors.White,
             OriginPosition = element.Position,
-            OriginRotation = element.Direction,
+            OriginRotation = new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z),
             Scale = 0.1f
         };
 

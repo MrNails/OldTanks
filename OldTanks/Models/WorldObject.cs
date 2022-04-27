@@ -13,7 +13,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
     private Scene m_scene;
     private Vector3 m_position;
     private Vector3 m_direction;
-    
+
     protected Vector3 m_size;
 
     private bool m_haveTransformation;
@@ -27,6 +27,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         Visible = true;
 
         CameraOffset = new Vector3(0, 0, 0);
+        RigidBody = new RigidBody();
 
         m_scene = scene ??
                   throw new ObjectException(currType, $"Cannot create {currType.Name}. Scene is not exists");
@@ -67,7 +68,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_direction;
         set
         {
-            m_direction = value;
+            m_direction = new Vector3(value.X % 360, value.Y % 360, value.Z % 360);
             m_haveTransformation = true;
         }
     }
@@ -145,7 +146,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_direction.X;
         set
         {
-            m_direction.X = value;
+            m_direction.X = value % 360;
             m_haveTransformation = true;
         }
     }
@@ -155,7 +156,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_direction.Y;
         set
         {
-            m_direction.Y = value;
+            m_direction.Y = value % 360;
             m_haveTransformation = true;
         }
     }
@@ -165,7 +166,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_direction.Z;
         set
         {
-            m_direction.Z = value;
+            m_direction.Z = value % 360;
             m_haveTransformation = true;
         }
     }
@@ -189,7 +190,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
 
         m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
                       Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Yaw)) *
-                      Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Pitch)) *
+                      Matrix4.CreateRotationY(MathHelper.DegreesToRadians(-Pitch)) *
                       Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
                       Matrix4.CreateTranslation(Position);
 
@@ -198,16 +199,17 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         m_haveTransformation = false;
     }
 
-    public void Move(float timeDelta)
+    public void Move(float timeDelta, int collisionIteration = -1)
     {
         if (RigidBody == null || RigidBody.IsStatic)
             return;
 
-        RigidBody.OnTick(timeDelta);
+        RigidBody.OnTick(timeDelta, collisionIteration);
 
-        Position += (Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) *
-                    -Vector3.UnitZ * RigidBody.Speed + 
-                    PhysicsConstants.GravityDirection * RigidBody.VerticalSpeed) * timeDelta;
+        Position += Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) * RigidBody.Velocity * timeDelta;
+
+        if (Camera != null)
+            Camera.Yaw = Direction.Y;
     }
 
     private void SetCameraData()
