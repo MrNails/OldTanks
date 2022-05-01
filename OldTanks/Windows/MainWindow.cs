@@ -9,6 +9,7 @@ using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Loaders;
+using CoolEngine.Services.Misc;
 using CoolEngine.Services.Renderers;
 using ImGuiNET;
 using OldTanks.Controls;
@@ -38,11 +39,16 @@ public partial class MainWindow : GameWindow
     private ImGuiController m_imGuiController;
 
     private readonly Thread m_generateObjectThread;
+
+    private Font m_font;
+    
     private Thread m_interactionWorker;
 
     private World m_world;
 
     private double m_fps;
+
+    private int m_cubeCount;
 
     private bool m_debugView;
     private bool m_drawNormals;
@@ -53,6 +59,8 @@ public partial class MainWindow : GameWindow
     private bool m_collisionCalculation;
     private bool m_renderingScene;
 
+    private System.Numerics.Vector3 m_force;
+    
     private IPhysicObject m_currentObject;
     private int m_selectedWorldObjectIndex;
 
@@ -62,6 +70,8 @@ public partial class MainWindow : GameWindow
     private bool m_firstMouseMove;
 
     private Vector3 m_rotation;
+
+    private float m_camHeightDegree;
 
     public MainWindow(string caption)
         : this(800, 600, caption)
@@ -116,6 +126,7 @@ public partial class MainWindow : GameWindow
         var rotation = System.Numerics.Vector3.Zero;
         var size = System.Numerics.Vector3.Zero;
         var velocity = System.Numerics.Vector3.Zero;
+        var jumpForce = 0f;
         var maxSpeed = 0f;
         var maxBackSpeed = 0f;
         var speedMultiplier = 0f;
@@ -128,9 +139,11 @@ public partial class MainWindow : GameWindow
         ImGui.Begin("Debug");
         var spawnCube = ImGui.Button("Spawn cube");
 
+        ImGui.NewLine(); ImGui.DragFloat3("Push force", ref m_force); ImGui.NewLine();
+
         if (spawnCube)
         {
-            var cube = new Cube();
+            var cube = new Cube() { Name = $"Cube {m_cubeCount++}"};
             cube.Collision = new Collision(cube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
 
             foreach (var mesh in cube.Scene.Meshes)
@@ -212,11 +225,12 @@ public partial class MainWindow : GameWindow
         velocity = selectedWorldObject == null
             ? System.Numerics.Vector3.Zero
             : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.Velocity);
-        
+
         maxSpeed = selectedWorldObject?.RigidBody.MaxSpeed ?? 0;
         maxBackSpeed = selectedWorldObject?.RigidBody.MaxBackSpeed ?? 0;
         speedMultiplier = selectedWorldObject?.RigidBody.MaxSpeedMultiplier ?? 0;
         weight = selectedWorldObject?.RigidBody.Weight ?? 0;
+        jumpForce = selectedWorldObject?.RigidBody.DefaultJumpForce ?? 0;
         isStatic = selectedWorldObject?.RigidBody.IsStatic ?? false;
 
         ImGui.DragFloat3("Position", ref position);
@@ -230,6 +244,7 @@ public partial class MainWindow : GameWindow
         {
             ImGui.Checkbox("IsStatic", ref isStatic);
             ImGui.DragFloat3("Velocity", ref velocity);
+            ImGui.DragFloat("Jump force", ref jumpForce);
             ImGui.DragFloat("Max speed", ref maxSpeed);
             ImGui.DragFloat("Max back speed", ref maxBackSpeed);
             ImGui.DragFloat("Speed multiplier", ref speedMultiplier);
@@ -255,6 +270,7 @@ public partial class MainWindow : GameWindow
             selectedWorldObject.RigidBody.Velocity = VectorExtensions.SystemToGLVector3(velocity);
             selectedWorldObject.RigidBody.MaxSpeedMultiplier = speedMultiplier;
             selectedWorldObject.RigidBody.Weight = weight;
+            selectedWorldObject.RigidBody.DefaultJumpForce = jumpForce;
             selectedWorldObject.RigidBody.IsStatic = isStatic;
         }
 
@@ -425,9 +441,10 @@ public partial class MainWindow : GameWindow
         m_world.SkyBox.Texture = GlobalCache<Texture>.GetItemOrDefault("SkyBox2");
 
         var tempObjects = new List<WorldObject>();
+        Sphere sphere = null;
         
         #region Static objects
-        
+
         var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10)};
         wall.Collision = new Collision(wall, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(wall);
@@ -446,16 +463,17 @@ public partial class MainWindow : GameWindow
 
         FillObject(floor, GlobalCache<Texture>.GetItemOrDefault("FloorTile"));
         
-        var sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1) };
+        sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1) };
         sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
         tempObjects.Add(sphere);
-        
+
         FillObject(sphere, GlobalCache<Texture>.GetItemOrDefault("Brick"));
         
         foreach (var wObject in tempObjects)
         {
             var rBody = new RigidBody();
             rBody.IsStatic = true;
+            rBody.Restitution = 0.5f;
 
             wObject.RigidBody = rBody;
         }
@@ -466,13 +484,18 @@ public partial class MainWindow : GameWindow
 
         #region Dynamic objects
 
-        var dynamicCube = new Cube { Size = new Vector3(5, 1, 10), Position = new Vector3(0, 5, 0) };
+        var dynamicCube = new Cube
+        {
+            Size = new Vector3(5, 1, 10), 
+            Position = new Vector3(0, 5, 0), 
+            Name = $"Cube {m_cubeCount++}"
+        };
         dynamicCube.Collision = new Collision(dynamicCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(dynamicCube);
         
-        sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(2, 0, -1) };
-        sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
-        tempObjects.Add(sphere);
+        // sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(2, 0, -1) };
+        // sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
+        // tempObjects.Add(sphere);
         
         foreach (var wObject in tempObjects)
         {
@@ -557,9 +580,9 @@ public partial class MainWindow : GameWindow
             //     rigidBody.Force -= rigidBody.Acceleration * timeDelta * (rigidBody.Speed > 0 ? 5 : 1);
 
             if (KeyboardState.IsKeyDown(Keys.W))
-                rigidBody.Force += GlobalSettings.MovementDirectionUnit * 10;
+                rigidBody.Force += GlobalSettings.MovementDirectionUnit * 15;
             else if (KeyboardState.IsKeyDown(Keys.S))
-                rigidBody.Force -= GlobalSettings.MovementDirectionUnit * 10;
+                rigidBody.Force -= GlobalSettings.MovementDirectionUnit * 15;
 
             if (KeyboardState.IsKeyDown(Keys.Space) && rigidBody.OnGround)
             {
@@ -575,6 +598,25 @@ public partial class MainWindow : GameWindow
         //     else
         //         rigidBody.Speed = 0;
     }
+
+    private void HandleKeyboardInputs(float timeDelta)
+    {
+        if (!m_freeCamMode)
+        {
+            if (KeyboardState.IsKeyDown(Keys.E))
+                m_world.Player.CameraOffsetAngle += new Vector2(0, 1);
+            
+            if (KeyboardState.IsKeyDown(Keys.Q))
+                m_world.Player.CameraOffsetAngle += new Vector2(0, -1);
+
+            if (KeyboardState.IsKeyDown(Keys.C))
+            {
+                m_world.Player.Camera.Pitch = m_world.Player.Pitch;
+
+                m_world.Player.CameraOffset = new Vector3(-1, 1, 0);
+            }
+        }
+    }   
     
     private void WorldHandler()
     {
@@ -592,9 +634,9 @@ public partial class MainWindow : GameWindow
                     var elapsedTime = (float)stopWatch.Elapsed.TotalSeconds;
                     stopWatch.Restart();
 
-                    // Console.CursorTop = 0;
-                    // Console.CursorLeft = 0;
-                    // Console.WriteLine(Math.Round(1 / elapsedTime, MidpointRounding.ToEven));
+                    HandleKeyboardInputs(elapsedTime);
+                    
+                    m_tbCollidingPS.Text = Math.Round(1 / elapsedTime, MidpointRounding.ToEven).ToString();
 
                     if (m_freeCamMode)
                         HandleCameraMove(elapsedTime);
@@ -673,6 +715,8 @@ public partial class MainWindow : GameWindow
         ObjectRenderer.AddDrawables(m_world.WorldObjects, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
         CollisionRenderer.AddCollisions(m_world.WorldObjects);
 
+        m_font = new Font("Arial", 16);
+        
         // m_generateObjectThread.Start();
         // }
         // catch (Exception e)
@@ -747,6 +791,10 @@ public partial class MainWindow : GameWindow
             case Keys.F:
                 GEGlobalSettings.PhysicsEnable = !GEGlobalSettings.PhysicsEnable;
                 break;
+            case Keys.T:
+                if (m_world.Player != null)
+                    m_world.Player.RigidBody.Force += VectorExtensions.SystemToGLVector3(m_force);
+                break;
             case Keys.N:
                 m_drawNormals = !m_drawNormals;
                 break;
@@ -789,8 +837,6 @@ public partial class MainWindow : GameWindow
         ObjectRenderer.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
         GL.DepthFunc(DepthFunction.Less);
 
-        GEGlobalSettings.GlobalLock.EnterReadLock();
-
         if (!m_debugView)
             ObjectRenderer.DrawElements(m_world.CurrentCamera, m_drawFaceNumber, m_drawNormals);
         else
@@ -804,9 +850,23 @@ public partial class MainWindow : GameWindow
         foreach (var control in m_controls)
             control.Draw();
 
-        GEGlobalSettings.GlobalLock.ExitReadLock();
+        foreach (var worldObject in m_world.WorldObjects)
+            if (!string.IsNullOrEmpty(worldObject.Name)) 
+                TextRenderer.DrawText3D(m_font, worldObject.Name, m_world.CurrentCamera, 
+                    new TextDrawInformation
+                    {
+                        Color = Colors.Red, 
+                        OriginPosition = worldObject.Position,
+                        SelfPosition = new Vector3(0, worldObject.Size.Y / 2, 0),
+                        Scale = 0.05f,
+                    }, true);
+
+        GEGlobalSettings.GlobalLock.EnterWriteLock();
 
         HandleImGUI();
+
+        GEGlobalSettings.GlobalLock.ExitWriteLock();
+        
         m_imGuiController.Render();
 
         m_renderingScene = false;
@@ -824,10 +884,9 @@ public partial class MainWindow : GameWindow
         m_imGuiController.Update(this, (float)args.Time);
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
+        m_tbSubIterationAmount.Text = GEGlobalSettings.CollisionIterations.ToString();
         m_tbCamRotation.Text = m_currentObject.Direction.ToString();
-        m_tbX.Text = m_currentObject.Position.X.ToString();
-        m_tbY.Text = m_currentObject.Position.Y.ToString();
-        m_tbZ.Text = m_currentObject.Position.Z.ToString();
+        m_tbPosition.Text = m_currentObject.Position.ToString();
         m_tbRotation.Text = m_rotation.ToString();
         m_tbHaveCollision.Text = m_haveCollision.ToString();
         m_tbCurrentSpeed.Text = m_currentObject.RigidBody.Velocity.ToString();

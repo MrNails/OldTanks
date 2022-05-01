@@ -2,6 +2,7 @@
 using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
+using CoolEngine.Services;
 using CoolEngine.Services.Exceptions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
@@ -20,13 +21,15 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
 
     protected Matrix4 m_transform;
     private Vector3 m_cameraOffset;
+    private Vector2 m_cameraOffsetAngle;
 
     protected WorldObject(Scene scene)
     {
         var currType = GetType();
         Visible = true;
 
-        CameraOffset = new Vector3(0, 0, 0);
+        CameraOffset = new Vector3(-1, 1, 0);
+
         RigidBody = new RigidBody();
 
         m_scene = scene ??
@@ -39,6 +42,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
 
     public RigidBody RigidBody { get; set; }
     public Collision Collision { get; set; }
+    
+    public string Name { get; set; }
 
     public virtual Vector3 Size
     {
@@ -47,7 +52,6 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_size = value;
             m_haveTransformation = true;
-            CameraOffset = new Vector3(0, m_size.Y / 2 + 1, 0);
             SetCameraData();
         }
     }
@@ -111,7 +115,6 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_size.X;
         set
         {
-            m_size.X = value;
             m_haveTransformation = true;
             SetCameraData();
         }
@@ -124,7 +127,6 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_size.Y = value;
             m_haveTransformation = true;
-            m_cameraOffset.Y = m_size.Y / 2 + 1;
             SetCameraData();
         }
     }
@@ -136,7 +138,6 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_size.Z = value;
             m_haveTransformation = true;
-            m_cameraOffset.Z = m_size.Z / 2;
             SetCameraData();
         }
     }
@@ -168,6 +169,18 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_direction.Z = value % 360;
             m_haveTransformation = true;
+        }
+    }
+
+    public Vector2 CameraOffsetAngle
+    {
+        get => m_cameraOffsetAngle;
+        set
+        {
+            value.Y = Math.Clamp(value.Y, -40, 40);
+            value.X %= 360;
+
+            m_cameraOffsetAngle = value;
         }
     }
 
@@ -206,10 +219,19 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
 
         RigidBody.OnTick(timeDelta, collisionIteration);
 
-        Position += Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) * RigidBody.Velocity * timeDelta;
-
+        var rotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y));
+        
+        GlobalSettings.GlobalLock.EnterWriteLock();
+        
+        Position += rotation * RigidBody.Velocity * timeDelta;
+        
         if (Camera != null)
-            Camera.Yaw = Direction.Y;
+        {
+            Camera.Yaw = m_direction.Y;
+
+            Camera.Pitch = -MathHelper.RadiansToDegrees((float)Math.Acos(Vector3.Dot(Camera.CameraUp, (Camera.Position - m_position).Normalized())));
+        }
+        GlobalSettings.GlobalLock.ExitWriteLock();
     }
 
     private void SetCameraData()
@@ -217,6 +239,11 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         if (Camera == null)
             return;
 
-        Camera.Position = Position + CameraOffset;
+        var camOffset = new Vector3(m_cameraOffset.X * (float)Math.Sin(m_cameraOffsetAngle.X), 
+            m_cameraOffset.Y * (float)Math.Cos(m_cameraOffset.Y), 
+            m_cameraOffset.Z);
+
+        Camera.Position = m_position + new Vector3(0, m_size.Y / 2, 0) +
+                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) * camOffset;
     }
 }

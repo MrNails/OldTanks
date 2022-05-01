@@ -6,7 +6,7 @@ namespace CoolEngine.PhysicEngine.Core;
 
 public class RigidBody
 {
-    public static readonly float MinDensity = 0.5f;    
+    public static readonly float MinDensity = 0.5f;
     public static readonly float MaxDensity = 21.4f;
 
     private float m_speed;
@@ -17,13 +17,13 @@ public class RigidBody
 
     private Vector3 m_force;
     private float m_weight;
+    private float m_restitution;
 
     public RigidBody()
     {
         Weight = 1;
-        Restitution = float.MaxValue;
     }
-    
+
     public float MaxSpeed { get; set; }
     public float MaxBackSpeed { get; set; }
     public float MaxSpeedMultiplier { get; set; }
@@ -36,7 +36,11 @@ public class RigidBody
     }
 
     //Восстановление
-    public float Restitution { get; set; }
+    public float Restitution
+    {
+        get => m_restitution;
+        set => m_restitution = Math.Clamp(value, 0, 1);
+    }
 
     public Vector3 Velocity
     {
@@ -50,7 +54,7 @@ public class RigidBody
                 value.X = MaxSpeed * MaxSpeedMultiplier;
             else if (value.X < -MaxBackSpeed)
                 value.X = -MaxBackSpeed;
-            
+
             m_velocity = value;
         }
     }
@@ -62,13 +66,13 @@ public class RigidBody
         {
             if (IsStatic)
                 return;
-            
+
             m_force = value;
         }
     }
 
     public float DefaultJumpForce { get; set; }
-    
+
     public Vector3 CenterOfMass { get; set; }
 
     public float Weight
@@ -78,7 +82,7 @@ public class RigidBody
         {
             if (value <= 0)
                 throw new ArgumentException("Weight cannot be less or equal 0");
-            
+
             m_weight = value;
         }
     }
@@ -90,13 +94,19 @@ public class RigidBody
     }
 
     public bool IsStatic { get; set; }
-    
+
     public virtual void OnTick(float timeDelta, int collisionIteration = 1)
     {
         if (IsStatic)
             return;
 
-        Velocity += (Force / Weight + PhysicsConstants.GravityDirection * PhysicsConstants.FreeFallingAcceleration) * timeDelta;
+        m_velocity.X -= m_velocity.X * 0.6f * timeDelta;
+        
+        if (m_velocity.X is > -0.01f and < 0.01f)
+            m_velocity.X = 0;
+        
+        Velocity += (Force / Weight + PhysicsConstants.GravityDirection * PhysicsConstants.FreeFallingAcceleration) *
+                    timeDelta;
 
         if (collisionIteration == -1 || collisionIteration == GlobalSettings.CollisionIterations - 1)
         {

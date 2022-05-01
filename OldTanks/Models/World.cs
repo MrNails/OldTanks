@@ -126,31 +126,23 @@ public class World
     private void ResolveColliding(WorldObject o1, WorldObject o2, in Vector3 normal)
     {
         var relativeSpeed = o1.RigidBody.Velocity - o2.RigidBody.Velocity;
-        
-        if (o2.RigidBody.IsStatic && o1.RigidBody.OnGround)
-            o1.RigidBody.Velocity += relativeSpeed * PhysicsConstants.GravityDirection;
-        if (!o2.RigidBody.IsStatic && o2.RigidBody.OnGround)
-            o2.RigidBody.Velocity -= relativeSpeed * PhysicsConstants.GravityDirection;
 
-        // var relativeSpeed = o1.RigidBody.Velocity - o2.RigidBody.Velocity;
+        if (o1.RigidBody.OnGround)
+            o1.RigidBody.Velocity += relativeSpeed * PhysicsConstants.GravityDirection;
+        if (o2.RigidBody.OnGround)
+            o2.RigidBody.Velocity -= relativeSpeed * PhysicsConstants.GravityDirection;
+        
         // var dotProduct = Vector3.Dot(relativeSpeed, normal);
         //
         // if (dotProduct > 0)
         //     return;
         //
-        // var e = Math.Min(o1.RigidBody.Restitution, o2.RigidBody.Restitution);
+        // var minRestitution = Math.Min(o1.RigidBody.Restitution, o2.RigidBody.Restitution);
         //
-        // var j = -(1f + e) * dotProduct;
-        // j /= 1 / (o1.RigidBody.Weight + o2.RigidBody.Weight);
+        // var j = -(1f + minRestitution) * dotProduct;
+        // j /= 1 / o1.RigidBody.Weight + 1 / o2.RigidBody.Weight;
         //
         // var impulse = j * normal;
-        //
-        // Console.CursorTop = 0;
-        // Console.CursorLeft = 0;
-        //
-        // Console.WriteLine(impulse);
-        // Console.WriteLine(dotProduct);
-        // Console.WriteLine(j);
         //
         // o1.RigidBody.Velocity -= impulse * 1 / o1.RigidBody.Weight;
         // o2.RigidBody.Velocity += impulse * 1 / o2.RigidBody.Weight;
