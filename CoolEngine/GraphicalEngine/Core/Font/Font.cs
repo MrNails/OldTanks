@@ -23,6 +23,7 @@ public class CharacterInfo
     /// </summary>
     public int Position { get; }
     public Vector2 Size { get; }
+
     public Vector2 Bearing { get; }
 
 
@@ -39,6 +40,8 @@ public class CharacterInfo
 
 public class Font
 {
+    private static readonly int s_sidesPadding = 2;
+    
     private string m_name;
 
     private float m_fontSize;
@@ -124,18 +127,18 @@ public class Font
 
                         data.LoadedImage = tmpImg;
 
+                        charPosition += s_sidesPadding;
+
                         character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
                             new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
                             new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), charPosition);
 
-                        charPosition += data.Width;
+                        charPosition += data.Width + s_sidesPadding;
                     }
                     else
                         character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
                             new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
                             new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), -1);
-
-
 
                     if (maxHeight < face.GlyphBitmap.rows)
                         maxHeight = (int)face.GlyphBitmap.rows;
@@ -144,22 +147,28 @@ public class Font
                 }
             }
 
-            imgLength = (int)charsResult.Sum(p => p.Value.Size.X * maxHeight);
+            imgLength = (int)charsResult.Sum(p => (p.Value.Size.X + s_sidesPadding * 2) * maxHeight);
             
             var img = ArrayPool<byte>.Shared.Rent(imgLength);
             
-            for (int i = 0; i < maxHeight; i ++)
+            for (int row = 0; row < maxHeight; row ++)
             {
                 for (int k = 0, imgOffset = 0; k < fontLoadDatas.Length; k++)
                 {
                     var imgData = fontLoadDatas[k];
-            
-                    if (i < imgData.Height)
-                        for (int j = 0; j < imgData.Width; j++, imgOffset++)
-                            img[i * (imgLength / maxHeight) + imgOffset] = imgData.LoadedImage[i * imgData.Width + j];
+
+                    for (int paddingLeft = 0; paddingLeft < s_sidesPadding; paddingLeft++, imgOffset++)
+                        img[row * (imgLength / maxHeight) + imgOffset] = 0; 
+
+                    if (row < imgData.Height)
+                        for (int column = 0; column < imgData.Width; column++, imgOffset++)
+                            img[row * (imgLength / maxHeight) + imgOffset] = imgData.LoadedImage[row * imgData.Width + column];
                     else
-                        for (int j = 0; j < imgData.Width; j++, imgOffset++)
-                            img[i * (imgLength / maxHeight) + imgOffset] = 0;
+                        for (int column = 0; column < imgData.Width; column++, imgOffset++)
+                            img[row * (imgLength / maxHeight) + imgOffset] = 0;
+                    
+                    for (int paddingRight = 0; paddingRight < s_sidesPadding; paddingRight++, imgOffset++)
+                        img[row * (imgLength / maxHeight) + imgOffset] = 0; 
                 }
             }
 
