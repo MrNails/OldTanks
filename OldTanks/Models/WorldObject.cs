@@ -177,7 +177,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_cameraOffsetAngle;
         set
         {
-            value.Y = Math.Clamp(value.Y, -40, 40);
+            value.Y = Math.Clamp(value.Y, -20, 40);
             value.X %= 360;
 
             m_cameraOffsetAngle = value;
@@ -225,12 +225,20 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         
         Position += rotation * RigidBody.Velocity * timeDelta;
         
+        //TODO: Implement rotation around object center
         if (Camera != null)
         {
-            Camera.Yaw = m_direction.Y;
+            // Camera.Pitch = -MathHelper.RadiansToDegrees((float)Math.Acos(Vector3.Dot(Camera.CameraUp, (Camera.Position - m_position).Normalized())));
+            var normalizedDirection = (Camera.Position - m_position).Normalized();
 
-            Camera.Pitch = -MathHelper.RadiansToDegrees((float)Math.Acos(Vector3.Dot(Camera.CameraUp, (Camera.Position - m_position).Normalized())));
+            Camera.Pitch = -MathHelper.RadiansToDegrees(normalizedDirection.Y);
+            Camera.Yaw = MathHelper.RadiansToDegrees(normalizedDirection.Z);
+
+            // Console.CursorLeft = 0;
+            // Console.CursorTop = 0;
+            // Console.WriteLine(normalizedDirection);
         }
+        
         GlobalSettings.GlobalLock.ExitWriteLock();
     }
 
@@ -239,9 +247,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         if (Camera == null)
             return;
 
-        var camOffset = new Vector3(m_cameraOffset.X * (float)Math.Sin(m_cameraOffsetAngle.X), 
-            m_cameraOffset.Y * (float)Math.Cos(m_cameraOffset.Y), 
-            m_cameraOffset.Z);
+        var camOffset = Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(m_cameraOffsetAngle.Y)) * m_cameraOffset * 
+                        Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X));
 
         Camera.Position = m_position + new Vector3(0, m_size.Y / 2, 0) +
                           Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) * camOffset;

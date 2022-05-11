@@ -128,6 +128,8 @@ public partial class MainWindow : GameWindow
         var size = System.Numerics.Vector3.Zero;
         var velocity = System.Numerics.Vector3.Zero;
         var centerOfMass = System.Numerics.Vector3.Zero;
+        var cameraOffset = System.Numerics.Vector3.Zero;
+        var cameraOffsetAngle = System.Numerics.Vector2.Zero;
         var jumpForce = 0f;
         var maxSpeed = 0f;
         var maxBackSpeed = 0f;
@@ -232,6 +234,12 @@ public partial class MainWindow : GameWindow
         centerOfMass = selectedWorldObject == null
             ? System.Numerics.Vector3.Zero
             : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.CenterOfMass);
+        cameraOffset = selectedWorldObject == null
+            ? System.Numerics.Vector3.Zero
+            : VectorExtensions.GLToSystemVector3(selectedWorldObject.CameraOffset);
+        cameraOffsetAngle = selectedWorldObject == null
+            ? System.Numerics.Vector2.Zero
+            : VectorExtensions.GLToSystemVector2(selectedWorldObject.CameraOffsetAngle);
 
         maxSpeed = selectedWorldObject?.RigidBody.MaxSpeed ?? 0;
         maxBackSpeed = selectedWorldObject?.RigidBody.MaxBackSpeed ?? 0;
@@ -243,6 +251,8 @@ public partial class MainWindow : GameWindow
         ImGui.DragFloat3("Position", ref position);
         ImGui.DragFloat3("Rotation", ref rotation);
         ImGui.DragFloat3("Size", ref size);
+        ImGui.DragFloat3("Camera offset", ref cameraOffset);
+        ImGui.DragFloat2("Camera offset angle", ref cameraOffsetAngle);
 
         ImGui.NewLine();
         var rBodyOpened = ImGui.TreeNodeEx("Rigid body");
@@ -263,6 +273,9 @@ public partial class MainWindow : GameWindow
 
         if (selectedWorldObject != null)
         {
+            selectedWorldObject.CameraOffset = VectorExtensions.SystemToGLVector3(cameraOffset);
+            selectedWorldObject.CameraOffsetAngle = VectorExtensions.SystemToGLVector2(cameraOffsetAngle);
+            
             selectedWorldObject.X = position.X;
             selectedWorldObject.Y = position.Y;
             selectedWorldObject.Z = position.Z;
@@ -617,10 +630,16 @@ public partial class MainWindow : GameWindow
         if (!m_freeCamMode)
         {
             if (KeyboardState.IsKeyDown(Keys.E))
-                m_world.Player.CameraOffsetAngle += new Vector2(0, 1);
+                m_world.Player.CameraOffsetAngle -= new Vector2(0, 1);
 
             if (KeyboardState.IsKeyDown(Keys.Q))
-                m_world.Player.CameraOffsetAngle += new Vector2(0, -1);
+                m_world.Player.CameraOffsetAngle += new Vector2(0, 1);
+            
+            if (KeyboardState.IsKeyDown(Keys.Z))
+                m_world.Player.CameraOffsetAngle -= new Vector2(1, 0);
+
+            if (KeyboardState.IsKeyDown(Keys.X))
+                m_world.Player.CameraOffsetAngle += new Vector2(1, 0);
 
             if (KeyboardState.IsKeyDown(Keys.C))
             {
