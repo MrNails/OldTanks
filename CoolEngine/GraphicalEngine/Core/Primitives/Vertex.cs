@@ -1,4 +1,6 @@
-﻿using OpenTK.Mathematics;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using OpenTK.Mathematics;
 
 namespace CoolEngine.GraphicalEngine.Core.Primitives;
 
@@ -74,4 +76,6 @@ public struct Vertex
         get => m_texturePosition.Y;
         set => m_texturePosition.Y = value;
     }
+    
+    public static int SizeInBytes => Marshal.SizeOf<Vertex>();
 }

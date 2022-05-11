@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Buffers;
+using System.Diagnostics;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Texture;
@@ -41,7 +42,7 @@ public partial class MainWindow : GameWindow
     private readonly Thread m_generateObjectThread;
 
     private Font m_font;
-    
+
     private Thread m_interactionWorker;
 
     private World m_world;
@@ -60,7 +61,7 @@ public partial class MainWindow : GameWindow
     private bool m_renderingScene;
 
     private System.Numerics.Vector3 m_force;
-    
+
     private IPhysicObject m_currentObject;
     private int m_selectedWorldObjectIndex;
 
@@ -109,7 +110,7 @@ public partial class MainWindow : GameWindow
 
         m_selectedWorldObjectIndex = -1;
 
-        m_interactionWorker = new Thread(WorldHandler) {IsBackground = true};
+        m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
     }
 
     private void ChangeCameraMode()
@@ -126,6 +127,7 @@ public partial class MainWindow : GameWindow
         var rotation = System.Numerics.Vector3.Zero;
         var size = System.Numerics.Vector3.Zero;
         var velocity = System.Numerics.Vector3.Zero;
+        var centerOfMass = System.Numerics.Vector3.Zero;
         var jumpForce = 0f;
         var maxSpeed = 0f;
         var maxBackSpeed = 0f;
@@ -139,18 +141,20 @@ public partial class MainWindow : GameWindow
         ImGui.Begin("Debug");
         var spawnCube = ImGui.Button("Spawn cube");
 
-        ImGui.NewLine(); ImGui.DragFloat3("Push force", ref m_force); ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.DragFloat3("Push force", ref m_force);
+        ImGui.NewLine();
 
         if (spawnCube)
         {
-            var cube = new Cube() { Name = $"Cube {m_cubeCount++}"};
+            var cube = new Cube() { Name = $"Cube {m_cubeCount++}" };
             cube.Collision = new Collision(cube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
 
             foreach (var mesh in cube.Scene.Meshes)
                 mesh.TextureData.Texture = GlobalCache<Texture>.GetItemOrDefault("wall-texture");
 
             ObjectRenderer.AddDrawable(cube, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
-            
+
             m_world.WorldObjects.Add(cube);
         }
 
@@ -225,6 +229,9 @@ public partial class MainWindow : GameWindow
         velocity = selectedWorldObject == null
             ? System.Numerics.Vector3.Zero
             : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.Velocity);
+        centerOfMass = selectedWorldObject == null
+            ? System.Numerics.Vector3.Zero
+            : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.CenterOfMass);
 
         maxSpeed = selectedWorldObject?.RigidBody.MaxSpeed ?? 0;
         maxBackSpeed = selectedWorldObject?.RigidBody.MaxBackSpeed ?? 0;
@@ -243,6 +250,7 @@ public partial class MainWindow : GameWindow
         if (rBodyOpened)
         {
             ImGui.Checkbox("IsStatic", ref isStatic);
+            ImGui.DragFloat3("Center of mass", ref centerOfMass);
             ImGui.DragFloat3("Velocity", ref velocity);
             ImGui.DragFloat("Jump force", ref jumpForce);
             ImGui.DragFloat("Max speed", ref maxSpeed);
@@ -268,6 +276,7 @@ public partial class MainWindow : GameWindow
             selectedWorldObject.RigidBody.MaxSpeed = maxSpeed;
             selectedWorldObject.RigidBody.MaxBackSpeed = maxBackSpeed;
             selectedWorldObject.RigidBody.Velocity = VectorExtensions.SystemToGLVector3(velocity);
+            selectedWorldObject.RigidBody.CenterOfMass = VectorExtensions.SystemToGLVector3(centerOfMass);
             selectedWorldObject.RigidBody.MaxSpeedMultiplier = speedMultiplier;
             selectedWorldObject.RigidBody.Weight = weight;
             selectedWorldObject.RigidBody.DefaultJumpForce = jumpForce;
@@ -415,7 +424,7 @@ public partial class MainWindow : GameWindow
 
         GEGlobalSettings.GlobalLock.EnterWriteLock();
         InitDefaultObjects();
-        
+
         GEGlobalSettings.GlobalLock.ExitWriteLock();
     }
 
@@ -433,7 +442,7 @@ public partial class MainWindow : GameWindow
         foreach (var mesh in drawable.Scene.Meshes)
             mesh.TextureData.Texture = texture;
     }
-    
+
     private void InitDefaultObjects()
     {
         var textures = GlobalCache<List<string>>.GetItemOrDefault("Textures");
@@ -442,33 +451,34 @@ public partial class MainWindow : GameWindow
 
         var tempObjects = new List<WorldObject>();
         Sphere sphere = null;
-        
+
         #region Static objects
 
-        var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10)};
-        wall.Collision = new Collision(wall, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
-        tempObjects.Add(wall);
-
-        FillObject(wall, GlobalCache<Texture>.GetItemOrDefault("wall-texture"));
-        
-        wall = new Cube { Size = new Vector3(20, 5, 0.1f), Position = new Vector3(9.95f, 1, 0), Direction = new Vector3(0, 90, 0)};
+        var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10) };
         wall.Collision = new Collision(wall, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(wall);
 
         FillObject(wall, GlobalCache<Texture>.GetItemOrDefault("wall-texture"));
 
-        var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0 ) };
+        wall = new Cube
+            { Size = new Vector3(20, 5, 0.1f), Position = new Vector3(9.95f, 1, 0), Direction = new Vector3(0, 90, 0) };
+        wall.Collision = new Collision(wall, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
+        tempObjects.Add(wall);
+
+        FillObject(wall, GlobalCache<Texture>.GetItemOrDefault("wall-texture"));
+
+        var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0) };
         floor.Collision = new Collision(floor, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(floor);
 
         FillObject(floor, GlobalCache<Texture>.GetItemOrDefault("FloorTile"));
-        
+
         sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1) };
         sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
         tempObjects.Add(sphere);
 
         FillObject(sphere, GlobalCache<Texture>.GetItemOrDefault("Brick"));
-        
+
         foreach (var wObject in tempObjects)
         {
             var rBody = new RigidBody();
@@ -477,26 +487,28 @@ public partial class MainWindow : GameWindow
 
             wObject.RigidBody = rBody;
         }
-        
+
         m_world.WorldObjects.AddRange(tempObjects);
         tempObjects.Clear();
+
         #endregion
 
         #region Dynamic objects
 
         var dynamicCube = new Cube
         {
-            Size = new Vector3(5, 1, 10), 
-            Position = new Vector3(0, 5, 0), 
+            Size = new Vector3(5, 1, 10),
+            Position = new Vector3(0, 5, 0),
             Name = $"Cube {m_cubeCount++}"
         };
-        dynamicCube.Collision = new Collision(dynamicCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
+        dynamicCube.Collision =
+            new Collision(dynamicCube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(dynamicCube);
-        
+
         // sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(2, 0, -1) };
         // sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
         // tempObjects.Add(sphere);
-        
+
         foreach (var wObject in tempObjects)
         {
             var cubeRBody = new RigidBody();
@@ -508,13 +520,14 @@ public partial class MainWindow : GameWindow
             cubeRBody.DefaultJumpForce = -250;
 
             wObject.RigidBody = cubeRBody;
-            
+
             foreach (var mesh in wObject.Scene.Meshes)
                 mesh.TextureData.Texture =
                     GlobalCache<Texture>.GetItemOrDefault(textures[Random.Shared.Next(0, textures.Count)]);
         }
-        
+
         m_world.WorldObjects.AddRange(tempObjects);
+
         #endregion
 
         m_world.CurrentCamera.FOV = 45;
@@ -529,7 +542,7 @@ public partial class MainWindow : GameWindow
     {
         if (!m_freeCamMode)
             return;
-        
+
         var camRBody = m_world.CurrentCamera.RigidBody;
 
         var speedMultiplier = 1f;
@@ -605,7 +618,7 @@ public partial class MainWindow : GameWindow
         {
             if (KeyboardState.IsKeyDown(Keys.E))
                 m_world.Player.CameraOffsetAngle += new Vector2(0, 1);
-            
+
             if (KeyboardState.IsKeyDown(Keys.Q))
                 m_world.Player.CameraOffsetAngle += new Vector2(0, -1);
 
@@ -616,13 +629,13 @@ public partial class MainWindow : GameWindow
                 m_world.Player.CameraOffset = new Vector3(-1, 1, 0);
             }
         }
-    }   
-    
+    }
+
     private void WorldHandler()
     {
         var stopWatch = new Stopwatch();
         stopWatch.Start();
-        
+
         while (!m_exit)
         {
             try
@@ -635,12 +648,12 @@ public partial class MainWindow : GameWindow
                     stopWatch.Restart();
 
                     HandleKeyboardInputs(elapsedTime);
-                    
+
                     m_tbCollidingPS.Text = Math.Round(1 / elapsedTime, MidpointRounding.ToEven).ToString();
 
                     if (m_freeCamMode)
                         HandleCameraMove(elapsedTime);
-        
+
                     HandleObjectMove(elapsedTime);
 
                     HandleMouseMove();
@@ -683,6 +696,77 @@ public partial class MainWindow : GameWindow
         }
     }
 
+    private void DrawPositionsAndCentersOfMass(Shader shader)
+    {
+        var drawLength = m_world.WorldObjects.Count(w => w.Visible) * 2;
+        var arr = ArrayPool<Vector3>.Shared.Rent(drawLength);
+
+        for (int i = 0, arrIdx = 0; i < m_world.WorldObjects.Count; i++)
+        {
+            var worldObj = m_world.WorldObjects[i];
+            
+            if (worldObj.Visible)
+            {
+                arr[arrIdx++] = worldObj.Position;
+                arr[arrIdx++] = worldObj.Position + worldObj.RigidBody.CenterOfMass;
+            }
+        }
+
+        GL.PointSize(30);
+        
+        ObjectRenderer.DrawPrimitives(PrimitiveType.Points, shader, arr, drawLength);
+        
+        GL.PointSize(1);
+        
+        ArrayPool<Vector3>.Shared.Return(arr);
+    }
+
+    private void DrawNormals(Shader shader)
+    {
+        var drawLength = m_world.WorldObjects.Where(w => w.Visible)
+            .Sum(w => w.Scene.Meshes.Sum(m => m.Faces.Sum(f => f.NormalsIndices.Length) * 2));
+
+        var arr = ArrayPool<Vector3>.Shared.Rent(drawLength);
+
+        for (int i = 0, arrIdx = 0; i < m_world.WorldObjects.Count; i++)
+        {
+            var worldObj = m_world.WorldObjects[i];
+            
+            if (worldObj.Visible)
+            {
+                var scale = worldObj.Size / 2;
+                var rotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Direction.X)) *
+                               Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Direction.Y)) *
+                               Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Direction.Z));
+                
+                for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Count; meshIdx++)
+                {
+                    var mesh = worldObj.Scene.Meshes[meshIdx];
+                    
+                    for (int k = 0; k < mesh.Faces.Count; k++)
+                    {
+                        for (int l = 0; l < mesh.Faces[k].NormalsIndices.Length; l++)
+                        {
+                            arr[arrIdx] = worldObj.Position + mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale * rotation;
+                            arr[arrIdx + 1] =
+                                arr[arrIdx] + mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * rotation;
+
+                            arrIdx += 2;
+                        }
+                    }
+                }
+            }
+        }
+        
+        GL.LineWidth(5);
+        
+        ObjectRenderer.DrawPrimitives(PrimitiveType.Lines, shader, arr, drawLength);
+        
+        GL.LineWidth(1);
+        
+        ArrayPool<Vector3>.Shared.Return(arr);
+    }
+
     #region Overloads
 
     protected override void OnLoad()
@@ -716,7 +800,7 @@ public partial class MainWindow : GameWindow
         CollisionRenderer.AddCollisions(m_world.WorldObjects);
 
         m_font = new Font("Arial", 16);
-        
+
         // m_generateObjectThread.Start();
         // }
         // catch (Exception e)
@@ -827,7 +911,7 @@ public partial class MainWindow : GameWindow
         m_fps = 1.0 / args.Time;
 
         m_renderingScene = true;
-        
+
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
         GL.Enable(EnableCap.DepthTest);
 
@@ -838,12 +922,26 @@ public partial class MainWindow : GameWindow
         GL.DepthFunc(DepthFunction.Less);
 
         if (!m_debugView)
-            ObjectRenderer.DrawElements(m_world.CurrentCamera, m_drawFaceNumber, m_drawNormals);
+            ObjectRenderer.DrawElements(m_world.CurrentCamera);
         else
             CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera, drawVerticesPositions: false);
 
-        // CollisionRenderer.DrawCollision(m_world.Camera, m_world.Camera, false);
+        var primitivesShader = GlobalCache<Shader>.GetItemOrDefault("PrimitivesShader");
 
+        if (primitivesShader != null)
+        {
+            primitivesShader.Use();
+            
+            primitivesShader.SetMatrix4("projection", GEGlobalSettings.Projection);
+            primitivesShader.SetMatrix4("view", m_world.CurrentCamera.LookAt);
+            primitivesShader.SetVector4("color", Colors.Red);
+
+            DrawPositionsAndCentersOfMass(primitivesShader);
+
+            if (m_drawNormals)
+                DrawNormals(primitivesShader);
+        }
+        
         GL.Disable(EnableCap.CullFace);
         GL.Disable(EnableCap.DepthTest);
 
@@ -851,11 +949,11 @@ public partial class MainWindow : GameWindow
             control.Draw();
 
         foreach (var worldObject in m_world.WorldObjects)
-            if (!string.IsNullOrEmpty(worldObject.Name)) 
-                TextRenderer.DrawText3D(m_font, worldObject.Name, m_world.CurrentCamera, 
+            if (!string.IsNullOrEmpty(worldObject.Name))
+                TextRenderer.DrawText3D(m_font, worldObject.Name, m_world.CurrentCamera,
                     new TextDrawInformation
                     {
-                        Color = Colors.Red, 
+                        Color = Colors.Red,
                         OriginPosition = worldObject.Position,
                         SelfPosition = new Vector3(0, worldObject.Size.Y / 2, 0),
                         Scale = 0.05f,
@@ -866,11 +964,11 @@ public partial class MainWindow : GameWindow
         HandleImGUI();
 
         GEGlobalSettings.GlobalLock.ExitWriteLock();
-        
+
         m_imGuiController.Render();
 
         m_renderingScene = false;
-        
+
         Context.SwapBuffers();
 
         base.OnRenderFrame(args);
