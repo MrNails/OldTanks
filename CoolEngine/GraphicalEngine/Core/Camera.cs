@@ -136,16 +136,6 @@ public class Camera : IPhysicObject
         }
     }
 
-    public float Roll
-    {
-        get => m_roll;
-        set
-        {
-            m_roll = value;
-            m_haveTransformation = true;
-        }
-    }
-
     public float Pitch
     {
         get => m_pitch;
@@ -165,6 +155,16 @@ public class Camera : IPhysicObject
         }
     }
 
+    public float Roll
+    {
+        get => m_roll;
+        set
+        {
+            m_roll = value;
+            m_haveTransformation = true;
+        }
+    }
+    
     public float FOV
     {
         get => m_fov;
