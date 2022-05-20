@@ -220,23 +220,17 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         RigidBody.OnTick(timeDelta, collisionIteration);
 
         var rotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y));
-        
+
         GlobalSettings.GlobalLock.EnterWriteLock();
         
         Position += rotation * RigidBody.Velocity * timeDelta;
         
-        //TODO: Implement rotation around object center
         if (Camera != null)
         {
-            // Camera.Pitch = -MathHelper.RadiansToDegrees((float)Math.Acos(Vector3.Dot(Camera.CameraUp, (Camera.Position - m_position).Normalized())));
             var normalizedDirection = (Camera.Position - m_position).Normalized();
 
-            Camera.Pitch = -MathHelper.RadiansToDegrees(normalizedDirection.Y);
-            Camera.Yaw = MathHelper.RadiansToDegrees(normalizedDirection.Z);
-
-            // Console.CursorLeft = 0;
-            // Console.CursorTop = 0;
-            // Console.WriteLine(normalizedDirection);
+            Camera.Yaw = (float)MathHelper.RadiansToDegrees(-Math.Atan2(normalizedDirection.Z, -normalizedDirection.X));
+            Camera.Pitch = (float)MathHelper.RadiansToDegrees(Math.Asin(-normalizedDirection.Y));
         }
         
         GlobalSettings.GlobalLock.ExitWriteLock();
