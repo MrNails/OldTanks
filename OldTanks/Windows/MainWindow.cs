@@ -487,10 +487,10 @@ public partial class MainWindow : GameWindow
         FillObject(floor, GlobalCache<Texture>.GetItemOrDefault("FloorTile"));
 
         sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1) };
-        sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
-        tempObjects.Add(sphere);
+        // sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
+        // tempObjects.Add(sphere);
 
-        FillObject(sphere, GlobalCache<Texture>.GetItemOrDefault("Brick"));
+        // FillObject(sphere, GlobalCache<Texture>.GetItemOrDefault("Brick"));
 
         foreach (var wObject in tempObjects)
         {
@@ -546,7 +546,7 @@ public partial class MainWindow : GameWindow
         m_world.CurrentCamera.FOV = 45;
         m_world.CurrentCamera.Size = new Vector3(1);
         m_world.CurrentCamera.Collision = new Collision(m_world.CurrentCamera,
-            GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
+            GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
 
         m_interactionWorker.Start();
     }

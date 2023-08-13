@@ -4,6 +4,20 @@ namespace CoolEngine.Services.Misc;
 
 public struct TextDrawInformation
 {
+    public TextDrawInformation(Vector4 color, Vector3 originPosition, Vector3 originRotation, float scale)
+    {
+        Color = color;
+        OriginPosition = originPosition;
+        OriginRotation = originRotation;
+        Scale = scale;
+    }
+
+    public TextDrawInformation(Vector4 color, float scale)
+    {
+        Color = color;
+        Scale = scale;
+    }
+
     public Vector3 OriginRotation { get; set; }
     public Vector3 OriginPosition { get; set; }
     

@@ -63,11 +63,7 @@ public class CollisionRenderer
         Shader.SetMatrix4("view", useLookAt ? camera.LookAt : Matrix4.Identity);
         Shader.SetVector4("color", Colors.Orange);
 
-        var textDrawInfo = new TextDrawInformation
-        {
-            Color = Colors.Orange,
-            Scale = 0.01f
-        };
+        var textDrawInfo = new TextDrawInformation(color: Colors.Orange, scale: 0.01f);
 
         foreach (var elementPair in m_drawCollisions)
         {

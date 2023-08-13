@@ -333,13 +333,8 @@ public static class ObjectRenderer
     
     private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera)
     {
-        var textDrawInfo = new TextDrawInformation
-        {
-            Color = Colors.White,
-            OriginPosition = element.Position,
-            OriginRotation = new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z),
-            Scale = 0.1f
-        };
+        var textDrawInfo = new TextDrawInformation(color: Colors.White, originPosition: element.Position,
+            originRotation: new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z), scale: 0.1f);
 
         for (int i = 0; i < originalMesh.Faces.Count; i++)
         {
