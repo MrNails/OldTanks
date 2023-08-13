@@ -1,4 +1,4 @@
-﻿using OldTanks.Controls;
+﻿using OldTanks.UI.Controls;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Windows;

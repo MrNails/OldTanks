@@ -1,17 +1,16 @@
-﻿using ImGuiNET;
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.GraphicalEngine.Services;
+using CoolEngine.Services.Exceptions;
+using CoolEngine.Services.Extensions;
+using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common.Input;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
-namespace OldTanks.Services.ImGUI;
+namespace OldTanks.UI.Services.ImGUI;
 
 /// <summary>
 /// A modified version of Veldrid.ImGui's ImGuiRenderer.
@@ -45,6 +44,8 @@ void main()
 }";
 
     private readonly Queue<char> m_pressedChars = new Queue<char>();
+    private readonly Vector2 m_scaleFactor = Vector2.One;
+    
     private bool m_frameBegun;
 
     private IntPtr m_imGuiContext;
@@ -61,8 +62,6 @@ void main()
     private int m_windowHeight;
     
     private Matrix4 m_imGuiProjection;
-
-    private System.Numerics.Vector2 m_scaleFactor = System.Numerics.Vector2.One;
 
     /// <summary>
     /// Constructs a new ImGuiController.
@@ -179,7 +178,7 @@ void main()
 
     public void PressChar(char keyChar) => m_pressedChars.Enqueue(keyChar);
 
-    public void MouseScroll(in Vector2 offset)
+    public void MouseScroll(in  Vector2 offset)
     {
         var io = ImGui.GetIO();
 
@@ -207,7 +206,7 @@ void main()
         io.DisplaySize = new System.Numerics.Vector2(
             m_windowWidth / m_scaleFactor.X,
             m_windowHeight / m_scaleFactor.Y);
-        io.DisplayFramebufferScale = m_scaleFactor;
+        io.DisplayFramebufferScale = VectorExtensions.GLToSystemVector2(m_scaleFactor);
         io.DeltaTime = deltaSeconds; // DeltaTime is in seconds.
     }
 

@@ -1,7 +1,6 @@
-﻿using System.Collections;
-using ImGuiNET;
+﻿using ImGuiNET;
 
-namespace OldTanks.ImGuiControls;
+namespace OldTanks.UI.ImGuiControls;
 
 public class ImGuiTreeNode : ImGuiControl
 {

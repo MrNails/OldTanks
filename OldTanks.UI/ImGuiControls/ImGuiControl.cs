@@ -1,4 +1,4 @@
-﻿namespace OldTanks.ImGuiControls;
+﻿namespace OldTanks.UI.ImGuiControls;
 
 public abstract class ImGuiControl
 {

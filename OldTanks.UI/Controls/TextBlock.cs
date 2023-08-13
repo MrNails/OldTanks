@@ -1,10 +1,8 @@
-﻿using System.Drawing;
-using CoolEngine.Services;
+﻿using CoolEngine.Services;
 using CoolEngine.Services.Renderers;
-using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
-namespace OldTanks.Controls;
+namespace OldTanks.UI.Controls;
 
 public class TextBlock : TextControl
 {

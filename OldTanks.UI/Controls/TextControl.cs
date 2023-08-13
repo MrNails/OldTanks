@@ -2,7 +2,7 @@
 using CoolEngine.Services;
 using OpenTK.Mathematics;
 
-namespace OldTanks.Controls;
+namespace OldTanks.UI.Controls;
 
 public enum VerticalTextAlignment
 {

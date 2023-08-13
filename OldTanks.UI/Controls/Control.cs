@@ -1,6 +1,6 @@
 ﻿using OpenTK.Mathematics;
 
-namespace OldTanks.Controls;
+namespace OldTanks.UI.Controls;
 
 public abstract class Control
 {
