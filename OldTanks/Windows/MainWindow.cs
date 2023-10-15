@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
+using Common.Extensions;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Texture;
@@ -12,9 +13,9 @@ using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Loaders;
 using CoolEngine.Services.Misc;
 using CoolEngine.Services.Renderers;
-using ImGuiNET;
 using OldTanks.UI.Controls;
 using OldTanks.Models;
+using OldTanks.UI.Services;
 using OldTanks.UI.Services.ImGUI;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -35,7 +36,6 @@ public partial class MainWindow : GameWindow
     private readonly int m_renderRadius;
 
     private bool m_exit;
-    private bool m_haveCollision;
 
     private ImGuiController m_imGuiController;
 
@@ -56,23 +56,15 @@ public partial class MainWindow : GameWindow
     private bool m_drawFaceNumber;
     private bool m_mouseDown;
     private bool m_freeCamMode;
-    private bool m_activeCamPhysics;
-    private bool m_collisionCalculation;
-    private bool m_renderingScene;
-
-    private System.Numerics.Vector3 m_force;
 
     private IPhysicObject m_currentObject;
-    private int m_selectedWorldObjectIndex;
-
-    private Vector3 m_posDelta;
 
     private Vector2 m_lastMousePos;
     private bool m_firstMouseMove;
 
     private Vector3 m_rotation;
 
-    private float m_camHeightDegree;
+    private ControlHandler m_controlHandler;
 
     public MainWindow(string caption)
         : this(800, 600, caption)
@@ -108,9 +100,11 @@ public partial class MainWindow : GameWindow
 
         m_rotation = new Vector3(0, 0, 0);
 
-        m_selectedWorldObjectIndex = -1;
-
         m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
+        m_controlHandler = new ControlHandler
+        {
+            MainControl = new UI.ImGuiUI.MainWindow("DebugWindow", m_world) { Title = "Debug window"}
+        };
     }
 
     private void ChangeCameraMode()
@@ -119,184 +113,6 @@ public partial class MainWindow : GameWindow
 
         if (!m_freeCamMode && m_currentObject is IWatchable watchable)
             watchable.Camera = m_world.CurrentCamera;
-    }
-
-    private void HandleImGUI()
-    {
-        var position = System.Numerics.Vector3.Zero;
-        var rotation = System.Numerics.Vector3.Zero;
-        var size = System.Numerics.Vector3.Zero;
-        var velocity = System.Numerics.Vector3.Zero;
-        var centerOfMass = System.Numerics.Vector3.Zero;
-        var cameraOffset = System.Numerics.Vector3.Zero;
-        var cameraOffsetAngle = System.Numerics.Vector2.Zero;
-        var jumpForce = 0f;
-        var maxSpeed = 0f;
-        var maxBackSpeed = 0f;
-        var speedMultiplier = 0f;
-        var weight = 0f;
-        var isStatic = false;
-
-        WorldObject? lastObject =
-            m_selectedWorldObjectIndex == -1 ? null : m_world.WorldObjects[m_selectedWorldObjectIndex];
-
-        ImGui.Begin("Debug");
-        var spawnCube = ImGui.Button("Spawn cube");
-
-        ImGui.NewLine();
-        ImGui.DragFloat3("Push force", ref m_force);
-        ImGui.NewLine();
-
-        if (spawnCube)
-        {
-            var cube = new Cube() { Name = $"Cube {m_cubeCount++}" };
-            cube.Collision = new Collision(cube, GlobalCache<CollisionData>.GetItemOrDefault("CubeCollision"));
-
-            foreach (var mesh in cube.Scene.Meshes)
-                mesh.TextureData.Texture = GlobalCache<Texture>.GetItemOrDefault("wall-texture");
-
-            ObjectRenderer.AddDrawable(cube, GlobalCache<Shader>.GetItemOrDefault("DefaultShader"));
-
-            m_world.WorldObjects.Add(cube);
-        }
-
-        position = VectorExtensions.GLToSystemVector3(m_world.CurrentCamera.Position);
-        rotation.X = m_world.CurrentCamera.Yaw;
-        rotation.Y = m_world.CurrentCamera.Pitch;
-        rotation.Z = m_world.CurrentCamera.Roll;
-        size = VectorExtensions.GLToSystemVector3(m_world.CurrentCamera.Size);
-
-        ImGui.Text("Camera data");
-        ImGui.DragFloat3("CPosition", ref position);
-        ImGui.DragFloat3("CRotation", ref rotation);
-        ImGui.DragFloat3("CSize", ref size);
-
-        m_world.CurrentCamera.Position = VectorExtensions.SystemToGLVector3(position);
-        m_world.CurrentCamera.Yaw = rotation.X;
-        m_world.CurrentCamera.Pitch = rotation.Y;
-        m_world.CurrentCamera.Roll = rotation.Z;
-        m_world.CurrentCamera.Size = VectorExtensions.SystemToGLVector3(size);
-
-        ImGui.Checkbox("Camera free mode", ref m_freeCamMode);
-
-        m_freeCamMode = m_world.Player == null || m_freeCamMode;
-
-        m_currentObject = m_freeCamMode ? m_world.CurrentCamera : m_world.Player;
-
-        ImGui.Columns(2);
-
-        ImGui.Text("World objects");
-
-        var arr = new string[m_world.WorldObjects.Count];
-
-        for (int i = 0; i < m_world.WorldObjects.Count; i++)
-            arr[i] = m_world.WorldObjects[i].GetType().Name;
-
-        ImGui.ListBox(string.Empty, ref m_selectedWorldObjectIndex, arr, m_world.WorldObjects.Count);
-
-        var pressed = ImGui.Button("Clear selection");
-
-        if (pressed)
-            m_selectedWorldObjectIndex = -1;
-
-        WorldObject? selectedWorldObject;
-        if (m_selectedWorldObjectIndex != -1)
-            selectedWorldObject = m_world.WorldObjects[m_selectedWorldObjectIndex];
-        else
-            selectedWorldObject = null;
-
-        if (selectedWorldObject != null)
-        {
-            if (lastObject != null)
-                lastObject.Camera = null;
-
-            m_world.Player = selectedWorldObject;
-
-            ChangeCameraMode();
-        }
-
-        ImGui.NextColumn();
-
-        ImGui.Text("Selected world object data");
-
-        position = selectedWorldObject == null
-            ? System.Numerics.Vector3.Zero
-            : VectorExtensions.GLToSystemVector3(selectedWorldObject.Position);
-        rotation = selectedWorldObject == null
-            ? System.Numerics.Vector3.Zero
-            : VectorExtensions.GLToSystemVector3(selectedWorldObject.Direction);
-        size = selectedWorldObject == null
-            ? System.Numerics.Vector3.Zero
-            : VectorExtensions.GLToSystemVector3(selectedWorldObject.Size);
-        velocity = selectedWorldObject == null
-            ? System.Numerics.Vector3.Zero
-            : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.Velocity);
-        centerOfMass = selectedWorldObject == null
-            ? System.Numerics.Vector3.Zero
-            : VectorExtensions.GLToSystemVector3(selectedWorldObject.RigidBody.CenterOfMass);
-        cameraOffset = selectedWorldObject == null
-            ? System.Numerics.Vector3.Zero
-            : VectorExtensions.GLToSystemVector3(selectedWorldObject.CameraOffset);
-        cameraOffsetAngle = selectedWorldObject == null
-            ? System.Numerics.Vector2.Zero
-            : VectorExtensions.GLToSystemVector2(selectedWorldObject.CameraOffsetAngle);
-
-        maxSpeed = selectedWorldObject?.RigidBody.MaxSpeed ?? 0;
-        maxBackSpeed = selectedWorldObject?.RigidBody.MaxBackSpeed ?? 0;
-        speedMultiplier = selectedWorldObject?.RigidBody.MaxSpeedMultiplier ?? 0;
-        weight = selectedWorldObject?.RigidBody.Weight ?? 0;
-        jumpForce = selectedWorldObject?.RigidBody.DefaultJumpForce ?? 0;
-        isStatic = selectedWorldObject?.RigidBody.IsStatic ?? false;
-
-        ImGui.DragFloat3("Position", ref position);
-        ImGui.DragFloat3("Rotation", ref rotation);
-        ImGui.DragFloat3("Size", ref size);
-        ImGui.DragFloat3("Camera offset", ref cameraOffset);
-        ImGui.DragFloat2("Camera offset angle", ref cameraOffsetAngle);
-
-        ImGui.NewLine();
-        var rBodyOpened = ImGui.TreeNodeEx("Rigid body");
-
-        if (rBodyOpened)
-        {
-            ImGui.Checkbox("IsStatic", ref isStatic);
-            ImGui.DragFloat3("Center of mass", ref centerOfMass);
-            ImGui.DragFloat3("Velocity", ref velocity);
-            ImGui.DragFloat("Jump force", ref jumpForce);
-            ImGui.DragFloat("Max speed", ref maxSpeed);
-            ImGui.DragFloat("Max back speed", ref maxBackSpeed);
-            ImGui.DragFloat("Speed multiplier", ref speedMultiplier);
-            ImGui.DragFloat("Weight", ref weight);
-
-            ImGui.TreePop();
-        }
-
-        if (selectedWorldObject != null)
-        {
-            selectedWorldObject.CameraOffset = VectorExtensions.SystemToGLVector3(cameraOffset);
-            selectedWorldObject.CameraOffsetAngle = VectorExtensions.SystemToGLVector2(cameraOffsetAngle);
-            
-            selectedWorldObject.X = position.X;
-            selectedWorldObject.Y = position.Y;
-            selectedWorldObject.Z = position.Z;
-
-            selectedWorldObject.Yaw = rotation.X;
-            selectedWorldObject.Pitch = rotation.Y;
-            selectedWorldObject.Roll = rotation.Z;
-
-            selectedWorldObject.Size = VectorExtensions.SystemToGLVector3(size);
-
-            selectedWorldObject.RigidBody.MaxSpeed = maxSpeed;
-            selectedWorldObject.RigidBody.MaxBackSpeed = maxBackSpeed;
-            selectedWorldObject.RigidBody.Velocity = VectorExtensions.SystemToGLVector3(velocity);
-            selectedWorldObject.RigidBody.CenterOfMass = VectorExtensions.SystemToGLVector3(centerOfMass);
-            selectedWorldObject.RigidBody.MaxSpeedMultiplier = speedMultiplier;
-            selectedWorldObject.RigidBody.Weight = weight;
-            selectedWorldObject.RigidBody.DefaultJumpForce = jumpForce;
-            selectedWorldObject.RigidBody.IsStatic = isStatic;
-        }
-
-        ImGui.End();
     }
 
     private void GenerateObjects()
@@ -502,6 +318,7 @@ public partial class MainWindow : GameWindow
         }
 
         m_world.WorldObjects.AddRange(tempObjects);
+        
         tempObjects.Clear();
 
         #endregion
@@ -894,10 +711,6 @@ public partial class MainWindow : GameWindow
             case Keys.F:
                 GEGlobalSettings.PhysicsEnable = !GEGlobalSettings.PhysicsEnable;
                 break;
-            case Keys.T:
-                if (m_world.Player != null)
-                    m_world.Player.RigidBody.Force += VectorExtensions.SystemToGLVector3(m_force);
-                break;
             case Keys.N:
                 m_drawNormals = !m_drawNormals;
                 break;
@@ -928,8 +741,6 @@ public partial class MainWindow : GameWindow
     protected override void OnRenderFrame(FrameEventArgs args)
     {
         m_fps = 1.0 / args.Time;
-
-        m_renderingScene = true;
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
         GL.Enable(EnableCap.DepthTest);
@@ -968,7 +779,9 @@ public partial class MainWindow : GameWindow
             control.Draw();
 
         foreach (var worldObject in m_world.WorldObjects)
+        {
             if (!string.IsNullOrEmpty(worldObject.Name))
+            {
                 TextRenderer.DrawText3D(m_font, worldObject.Name, m_world.CurrentCamera,
                     new TextDrawInformation
                     {
@@ -977,17 +790,17 @@ public partial class MainWindow : GameWindow
                         SelfPosition = new Vector3(0, worldObject.Size.Y / 2, 0),
                         Scale = 0.05f,
                     }, true);
+            }
+        }
 
         GEGlobalSettings.GlobalLock.EnterWriteLock();
-
-        HandleImGUI();
+        
+        m_controlHandler.MainControl.Draw();
 
         GEGlobalSettings.GlobalLock.ExitWriteLock();
 
         m_imGuiController.Render();
-
-        m_renderingScene = false;
-
+        
         Context.SwapBuffers();
 
         base.OnRenderFrame(args);
@@ -1005,7 +818,7 @@ public partial class MainWindow : GameWindow
         m_tbCamRotation.Text = m_currentObject.Direction.ToString();
         m_tbPosition.Text = m_currentObject.Position.ToString();
         m_tbRotation.Text = m_rotation.ToString();
-        m_tbHaveCollision.Text = m_haveCollision.ToString();
+        m_tbHaveCollision.Text = "<empty>";
         m_tbCurrentSpeed.Text = m_currentObject.RigidBody.Velocity.ToString();
 
         base.OnUpdateFrame(args);

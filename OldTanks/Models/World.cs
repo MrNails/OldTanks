@@ -1,8 +1,8 @@
 ﻿using System.Collections;
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine;
-using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using OldTanks.Services.Misc;
 using OpenTK.Mathematics;
@@ -14,7 +14,7 @@ public class World
     private readonly ConcurrentQueue<TransformableAction> m_transformableActions;
 
     private readonly Camera m_defaultCamera;
-    private readonly List<WorldObject> m_objects;
+    private readonly ObservableCollection<WorldObject> m_objects;
     private readonly CamerasCollection m_cameras;
 
     private readonly SkyBox m_skyBox;
@@ -27,7 +27,7 @@ public class World
 
         m_currentCamera = m_defaultCamera;
 
-        m_objects = new List<WorldObject>();
+        m_objects = new ObservableCollection<WorldObject>();
 
         m_skyBox = new SkyBox();
 
@@ -35,7 +35,7 @@ public class World
         m_transformableActions = new ConcurrentQueue<TransformableAction>();
     }
 
-    public List<WorldObject> WorldObjects => m_objects;
+    public ObservableCollection<WorldObject> WorldObjects => m_objects;
     public ConcurrentQueue<TransformableAction> TransformableActions => m_transformableActions;
     public CamerasCollection Cameras => m_cameras;
 
@@ -65,9 +65,9 @@ public class World
 
         for (int itr = 0; itr < GlobalSettings.CollisionIterations; itr++)
         {
-            for (int i = 0; i < WorldObjects.Count; i++)
+            for (int i = 0; i < m_objects.Count; i++)
             {
-                var wObj = WorldObjects[i];
+                var wObj = m_objects[i];
 
                 wObj.Move(timeDelta, itr);
 
@@ -77,12 +77,12 @@ public class World
                 wObj.AcceptTransform();
             }
 
-            for (int i = 0; i < WorldObjects.Count - 1; i++)
+            for (int i = 0; i < m_objects.Count - 1; i++)
             {
-                for (int j = i + 1; j < WorldObjects.Count; j++)
+                for (int j = i + 1; j < m_objects.Count; j++)
                 {
-                    var first = WorldObjects[i];
-                    var second = WorldObjects[j];
+                    var first = m_objects[i];
+                    var second = m_objects[j];
 
                     if (first.RigidBody.IsStatic && second.RigidBody.IsStatic)
                         continue;

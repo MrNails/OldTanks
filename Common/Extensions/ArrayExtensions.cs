@@ -1,0 +1,21 @@
+﻿namespace Common.Extensions;
+
+public static class ArrayExtensions
+{
+    public static void FillDefaultsUntil<T>(this T[] array, T defaultValue, Func<T, bool> fillFilter, int startIndex = 0)
+    {
+        for (int i = startIndex; i < array.Length; i++)
+        {
+            if (fillFilter(array[i]))
+                array[i] = defaultValue;
+        }
+    }
+    
+    public static void FillDefaults<T>(this T[] array, T defaultValue, int startIndex = 0)
+    {
+        for (int i = startIndex; i < array.Length; i++)
+        {
+            array[i] = defaultValue;
+        }
+    }
+}

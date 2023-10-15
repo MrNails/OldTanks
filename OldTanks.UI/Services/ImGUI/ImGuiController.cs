@@ -153,12 +153,11 @@ void main()
     /// </summary>
     public void Render()
     {
-        if (m_frameBegun)
-        {
-            m_frameBegun = false;
-            ImGui.Render();
-            RenderImDrawData(ImGui.GetDrawData());
-        }
+        if (!m_frameBegun) return;
+        
+        m_frameBegun = false;
+        ImGui.Render();
+        RenderImDrawData(ImGui.GetDrawData());
     }
 
     /// <summary>
@@ -244,7 +243,7 @@ void main()
 
     private static void SetKeyMappings()
     {
-        ImGuiIOPtr io = ImGui.GetIO();
+        var io = ImGui.GetIO();
         io.KeyMap[(int)ImGuiKey.Tab] = (int)Keys.Tab;
         io.KeyMap[(int)ImGuiKey.LeftArrow] = (int)Keys.Left;
         io.KeyMap[(int)ImGuiKey.RightArrow] = (int)Keys.Right;
@@ -281,7 +280,7 @@ void main()
 
         for (int i = 0; i < drawData.CmdListsCount; i++)
         {
-            var cmd_list = drawData.CmdListsRange[i];
+            var cmd_list = drawData.CmdLists[i];
 
             int vertexSize = cmd_list.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>();
             if (vertexSize > m_vertexBufferSize)
@@ -314,7 +313,7 @@ void main()
 
         for (int n = 0; n < drawData.CmdListsCount; n++)
         {
-            var cmd_list = drawData.CmdListsRange[n];
+            var cmd_list = drawData.CmdLists[n];
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, m_drawObjectInfo.VertexBufferObject);
             GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, 

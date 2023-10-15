@@ -1,5 +1,4 @@
-﻿using CoolEngine.Services;
-using CoolEngine.Services.Renderers;
+﻿using CoolEngine.Services.Renderers;
 using OpenTK.Mathematics;
 
 namespace OldTanks.UI.Controls;
@@ -11,6 +10,6 @@ public class TextBlock : TextControl
 
     public override void Draw()
     {
-        TextRenderer.DrawText2D(Text, Font, new Vector2(Position.X, GlobalSettings.GetWindowY(Position.Y)), Color, Rotation);
+        TextRenderer.DrawText2D(Text, Font, new Vector2(Position.X, CoolEngine.Services.GlobalSettings.GetWindowY(Position.Y)), Color, Rotation);
     }
 }

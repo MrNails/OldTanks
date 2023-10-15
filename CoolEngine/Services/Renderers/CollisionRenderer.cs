@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Collections.ObjectModel;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.Services.Interfaces;
@@ -36,7 +37,7 @@ public class CollisionRenderer
         collisionRenderGroup.Add(collisionable);
     }
 
-    public static void AddCollisions<T>(List<T> collisionables)
+    public static void AddCollisions<T>(IList<T> collisionables)
         where T : ICollisionable
     {
         if (collisionables == null)
