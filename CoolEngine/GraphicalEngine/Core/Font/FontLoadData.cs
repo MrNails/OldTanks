@@ -12,6 +12,6 @@ internal class FontLoadData
     public IntPtr FontDataPtr { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
-    
-    public byte[]? LoadedImage { get; set; }
+
+    public byte[] LoadedImage { get; set; } = null!;
 }

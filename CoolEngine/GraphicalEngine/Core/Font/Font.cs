@@ -5,10 +5,11 @@ using FreeTypeSharp;
 using FreeTypeSharp.Native;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core.Font;
 
-public class CharacterInfo
+public readonly struct CharacterInfo
 {
     public CharacterInfo(int advance, Vector2 size, Vector2 bearing, int position)
     {
@@ -22,6 +23,7 @@ public class CharacterInfo
     /// X position in font texture
     /// </summary>
     public int Position { get; }
+
     public Vector2 Size { get; }
 
     public Vector2 Bearing { get; }
@@ -41,159 +43,197 @@ public class CharacterInfo
 public class Font
 {
     private static readonly int s_sidesPadding = 2;
-    
-    private string m_name;
 
-    private float m_fontSize;
-
-    public Font(string name, float size)
+    public Font(string name, float size, FontInformation fontInformation)
     {
-        m_name = name;
-        m_fontSize = size;
-
-        FontInformation = GlobalCache<FontInformation>.GetItemOrDefault(name) ??
-                          throw new ArgumentException($"Unregistered font {name}", nameof(name));
+        Name = name;
+        FontSize = size;
+        FontInformation = fontInformation;
     }
 
-    public string Name => m_name;
-    public float FontSize => m_fontSize;
+    public string Name { get; }
+
+    public float FontSize { get; }
+
     public FontInformation FontInformation { get; }
 
-    public static FontInformation? CreateFont(string path)
+    public static async Task<FontInformation?> CreateFont(string path, ILogger logger)
     {
         var lib = new FreeTypeLibrary();
-        var charsResult = new Dictionary<char, CharacterInfo>();
         var pixelHeight = 32;
 
-        IntPtr facePtr = IntPtr.Zero;
+        var facePtr = IntPtr.Zero;
 
         try
         {
-            var newFaceResp = FT.FT_New_Face(lib.Native, path, 0, out facePtr);
-
-            if (newFaceResp != FT_Error.FT_Err_Ok)
-                return null;
-
-            var face = new FreeTypeFaceFacade(lib, facePtr);
-
-            var pixelSizeResp = FT.FT_Set_Pixel_Sizes(facePtr, 0, (uint)pixelHeight);
-
-            if (pixelSizeResp != FT_Error.FT_Err_Ok)
-                return null;
-
-            var chars = new List<KeyValuePair<uint, uint>>
-            {
-                new KeyValuePair<uint, uint>(' ', '~'),
-                new KeyValuePair<uint, uint>('А', 'я')
-            };
-
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
-
-            var fontLoadDatas = new FontLoadData[('~' - ' ') + ('я' - 'А') + 1];
-            var imgLength = 0;
-            var maxHeight = 0;
-            var charPosition = 0;
-            var idx = 0;
-
-            foreach (var charRange in chars)
-            {
-                for (uint i = charRange.Key; i <= charRange.Value; i++)
-                {
-                    if (FT.FT_Load_Char(facePtr, i, FT.FT_LOAD_RENDER) != FT_Error.FT_Err_Ok)
-                        continue;
-
-                    CharacterInfo character;
-
-                    if (i != ' ')
-                    {
-                        var data = new FontLoadData(face.GlyphBitmap.buffer, (int)face.GlyphBitmap.width,
-                            (int)face.GlyphBitmap.rows);
-                        fontLoadDatas[idx++] = data;
-
-                        var tmpImg = new byte[data.Width * pixelHeight];
-
-                        for (int j = 0; j < data.Height; j++)
-                        {
-                            for (int k = 0; k < data.Width; k++)
-                            {
-                                var index = j * data.Width + k;
-                                tmpImg[index] = Marshal.ReadByte(data.FontDataPtr, index);
-                            }
-                        }
-
-                        for (int j = data.Height; j < pixelHeight; j++)
-                        for (int k = 0; k < data.Width; k++)
-                            tmpImg[j * data.Width + k] = 0;
-
-                        data.LoadedImage = tmpImg;
-
-                        charPosition += s_sidesPadding;
-
-                        character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
-                            new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
-                            new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), charPosition);
-
-                        charPosition += data.Width + s_sidesPadding;
-                    }
-                    else
-                        character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
-                            new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
-                            new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), -1);
-
-                    if (maxHeight < face.GlyphBitmap.rows)
-                        maxHeight = (int)face.GlyphBitmap.rows;
-
-                    charsResult.Add((char)i, character);
-                }
-            }
-
-            imgLength = (int)charsResult.Sum(p => (p.Value.Size.X + s_sidesPadding * 2) * maxHeight);
             
-            var img = ArrayPool<byte>.Shared.Rent(imgLength);
-            
-            for (int row = 0; row < maxHeight; row ++)
+            var loadedData = await Task.Run(() =>
             {
-                for (int k = 0, imgOffset = 0; k < fontLoadDatas.Length; k++)
+                var newFaceResp = FT.FT_New_Face(lib.Native, path, 0, out facePtr);
+
+                if (newFaceResp != FT_Error.FT_Err_Ok)
                 {
-                    var imgData = fontLoadDatas[k];
-
-                    for (int paddingLeft = 0; paddingLeft < s_sidesPadding; paddingLeft++, imgOffset++)
-                        img[row * (imgLength / maxHeight) + imgOffset] = 0; 
-
-                    if (row < imgData.Height)
-                        for (int column = 0; column < imgData.Width; column++, imgOffset++)
-                            img[row * (imgLength / maxHeight) + imgOffset] = imgData.LoadedImage[row * imgData.Width + column];
-                    else
-                        for (int column = 0; column < imgData.Width; column++, imgOffset++)
-                            img[row * (imgLength / maxHeight) + imgOffset] = 0;
-                    
-                    for (int paddingRight = 0; paddingRight < s_sidesPadding; paddingRight++, imgOffset++)
-                        img[row * (imgLength / maxHeight) + imgOffset] = 0; 
+                    logger.Warning("Error creating new face. {Error} ({ErrorCode:X})", 
+                        newFaceResp, (int)newFaceResp);
+                    return (null, null);
                 }
-            }
 
-            var texture = Texture.Texture.CreateFontTexture(img, imgLength / maxHeight, maxHeight, TextureWrapMode.ClampToEdge);
+                var face = new FreeTypeFaceFacade(lib, facePtr);
 
-            ArrayPool<byte>.Shared.Return(img);
+                var pixelSizeResp = FT.FT_Set_Pixel_Sizes(facePtr, 0, (uint)pixelHeight);
+
+                if (pixelSizeResp != FT_Error.FT_Err_Ok)
+                {
+                    logger.Warning("Error setting pixel size. {Error} ({ErrorCode:X})", 
+                        newFaceResp, (int)newFaceResp);
+                    return (null, null);
+                }
+
+                var (fontLoadDatas, charsResult) = CreateFontDatas(facePtr, face, pixelHeight, logger, out var maxHeight);
+                var imgLength = (int)charsResult.Sum(p => (p.Value.Size.X + s_sidesPadding * 2) * maxHeight);
+            
+                var img = CreateFontImage(imgLength, maxHeight, fontLoadDatas, out var width);
+                var pixelDto = new Texture.Texture.PixelDto(PixelInternalFormat.CompressedRed, PixelFormat.Red, PixelType.UnsignedByte);
+                
+                var texture = UI.UIInvoke(() => 
+                    Texture.Texture.CreateTexture2D(img, (width, maxHeight), ref pixelDto, TextureWrapMode.ClampToEdge));
+
+                ArrayPool<byte>.Shared.Return(img);
+
+                return (texture, charsResult);
+            });
 
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
 
-            return new FontInformation(pixelHeight, Path.GetFileNameWithoutExtension(path), charsResult, texture);
+            if (loadedData.texture == null)
+            {
+                return null;
+            }
+
+            return new FontInformation(pixelHeight, Path.GetFileNameWithoutExtension(path), loadedData.charsResult!, loadedData.texture);
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            logger.Error(e, "Error loading font {FontName}", Path.GetFileNameWithoutExtension(path));
         }
         finally
         {
             if (facePtr != IntPtr.Zero)
             {
                 FT.FT_Done_Face(facePtr);
-                lib?.Dispose();
+                lib.Dispose();
             }
         }
 
         return null;
+    }
+    private static (FontLoadData[], Dictionary<char, CharacterInfo>) CreateFontDatas(IntPtr facePtr, FreeTypeFaceFacade face, 
+        int pixelHeight, ILogger logger, out int maxHeight)
+    {
+        var chars = new List<KeyValuePair<uint, uint>>
+        {
+            new KeyValuePair<uint, uint>(' ', '~'),
+            new KeyValuePair<uint, uint>('А', 'я')
+        };
+        var charsResult = new Dictionary<char, CharacterInfo>();
+        
+        var fontLoadDatas = new FontLoadData[('~' - ' ') + ('я' - 'А') + 1];
+        var imgLength = 0;
+        maxHeight = 0;
+        var charPosition = 0;
+        var idx = 0;
+
+        foreach (var charRange in chars)
+        {
+            for (uint i = charRange.Key; i <= charRange.Value; i++)
+            {
+                var loadCharResult = FT.FT_Load_Char(facePtr, i, FT.FT_LOAD_RENDER);
+                if (loadCharResult != FT_Error.FT_Err_Ok)
+                {
+                    logger.Warning("Error loading character {Character} with error {Error} ({ErrorCode:X})", 
+                        (char)i, loadCharResult, (int)loadCharResult);
+                    continue;
+                }
+
+                CharacterInfo character;
+
+                if (i != ' ')
+                {
+                    var data = new FontLoadData(face.GlyphBitmap.buffer, (int)face.GlyphBitmap.width,
+                        (int)face.GlyphBitmap.rows);
+                    fontLoadDatas[idx] = data;
+                    idx++;
+
+                    var tmpImg = new byte[data.Width * pixelHeight];
+
+                    for (int j = 0; j < data.Height; j++)
+                    {
+                        for (int k = 0; k < data.Width; k++)
+                        {
+                            var index = j * data.Width + k;
+                            tmpImg[index] = Marshal.ReadByte(data.FontDataPtr, index);
+                        }
+                    }
+
+                    for (int j = data.Height; j < pixelHeight; j++)
+                    for (int k = 0; k < data.Width; k++)
+                        tmpImg[j * data.Width + k] = 0;
+
+                    data.LoadedImage = tmpImg;
+
+                    charPosition += s_sidesPadding;
+
+                    character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
+                        new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
+                        new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), charPosition);
+
+                    charPosition += data.Width + s_sidesPadding;
+                }
+                else
+                {
+                    character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
+                        new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
+                        new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), -1);
+                }
+
+                if (maxHeight < face.GlyphBitmap.rows)
+                    maxHeight = (int)face.GlyphBitmap.rows;
+
+                charsResult.Add((char)i, character);
+            }
+        }
+
+        return (fontLoadDatas, charsResult);
+    }
+    
+    private static byte[] CreateFontImage(int imgLength, int maxHeight, FontLoadData[] fontLoadDatas, out int width)
+    {
+        var img = ArrayPool<byte>.Shared.Rent(imgLength);
+        width = imgLength / maxHeight;
+
+        for (int row = 0; row < maxHeight; row++)
+        {
+            for (int k = 0, imgOffset = 0; k < fontLoadDatas.Length; k++)
+            {
+                var imgData = fontLoadDatas[k];
+
+                for (int paddingLeft = 0; paddingLeft < s_sidesPadding; paddingLeft++, imgOffset++)
+                    img[row * width + imgOffset] = 0;
+
+                if (row < imgData.Height)
+                    for (int column = 0; column < imgData.Width; column++, imgOffset++)
+                        img[row * width + imgOffset] = imgData.LoadedImage[row * imgData.Width + column];
+                else
+                    for (int column = 0; column < imgData.Width; column++, imgOffset++)
+                        img[row * width + imgOffset] = 0;
+
+                for (int paddingRight = 0; paddingRight < s_sidesPadding; paddingRight++, imgOffset++)
+                    img[row * width + imgOffset] = 0;
+            }
+        }
+
+        return img;
     }
 }
 

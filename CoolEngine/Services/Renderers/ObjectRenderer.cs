@@ -18,8 +18,6 @@ public static class ObjectRenderer
 
     private static readonly uint[] s_quadIndices = new uint[] { 0, 1, 3, 1, 2, 3 };
 
-    private static readonly Font DefaultFont = new Font("Arial", 14);
-
     private static int m_currentPrimitivesIndices = 100;
 
     public static bool RegisterScene(Type type, Shader shader)
@@ -331,7 +329,7 @@ public static class ObjectRenderer
         return new DrawObjectInfo(vao, vbo, ebo);
     }
     
-    private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera)
+    private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera, Font font)
     {
         var textDrawInfo = new TextDrawInformation(color: Colors.White, originPosition: element.Position,
             originRotation: new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z), scale: 0.1f);
@@ -350,7 +348,7 @@ public static class ObjectRenderer
                     norm.X != 0 ? norm.X * 90 : 0,
                     norm.Z < 0 ? 180 : 0);
 
-                TextRenderer.DrawText3D(DefaultFont, i.ToString(), camera, textDrawInfo);
+                TextRenderer.DrawText3D(font, i.ToString(), camera, textDrawInfo);
             }
         }
     }

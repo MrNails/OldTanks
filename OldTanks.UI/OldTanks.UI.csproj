@@ -8,7 +8,7 @@
 
     <ItemGroup>
       <PackageReference Include="ImGui.NET" Version="1.89.9.2" />
-      <PackageReference Include="OpenTK" Version="4.8.0" />
+      <PackageReference Include="OpenTK" Version="4.8.1" />
     </ItemGroup>
 
     <ItemGroup>

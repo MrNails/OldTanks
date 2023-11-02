@@ -1,40 +1,19 @@
 ﻿using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class Shader : IDisposable
+public sealed class Shader : IDisposable
 {
-    private Dictionary<string, int> m_uniforms;
-    private Dictionary<string, int> m_attributes;
+    private readonly Dictionary<string, int> m_uniforms;
+    private readonly Dictionary<string, int> m_attributes;
 
-    public Shader(string vertexShaderText, string fragmentShaderText, string name)
+    public Shader(string name, int handle)
     {
         Name = name;
-
-        var vertexShader = CreateShader(ShaderType.VertexShader, vertexShaderText);
-        var fragmentShader = CreateShader(ShaderType.FragmentShader, fragmentShaderText);
-
-        var shaderCompilingText = CompileShader(vertexShader);
-        if (shaderCompilingText != string.Empty)
-            Console.WriteLine($"Error compiling shader {name}.\n{shaderCompilingText}");
-
-        shaderCompilingText = CompileShader(fragmentShader);
-        if (shaderCompilingText != string.Empty)
-            Console.WriteLine($"Error compiling shader {name}.\n{shaderCompilingText}");
-
-        Handle = GL.CreateProgram();
-
-        GL.AttachShader(Handle, vertexShader);
-        GL.AttachShader(Handle, fragmentShader);
-
-        GL.LinkProgram(Handle);
-
-        GL.DetachShader(Handle, vertexShader);
-        GL.DetachShader(Handle, fragmentShader);
-        GL.DeleteShader(vertexShader);
-        GL.DeleteShader(fragmentShader);
-
+        Handle = handle;
+        
         m_uniforms = new Dictionary<string, int>();
         m_attributes = new Dictionary<string, int>();
         LoadShaderUniforms();
@@ -109,9 +88,9 @@ public class Shader : IDisposable
         for (int i = 0; i < output; i++)
         {
             var size = 0;
-            var ut = ActiveUniformType.FloatMat4;
+            var uniformType = ActiveUniformType.FloatMat4;
 
-            var key = GL.GetActiveUniform(Handle, i, out size, out ut);
+            var key = GL.GetActiveUniform(Handle, i, out size, out uniformType);
 
             m_uniforms[key] = GL.GetUniformLocation(Handle, key);
         }
@@ -132,21 +111,6 @@ public class Shader : IDisposable
             m_attributes[key] = GL.GetAttribLocation(Handle, key);
         }
     }
-    
-    private static int CreateShader(ShaderType shaderType, string source)
-    {
-        var shader = GL.CreateShader(shaderType);
-        GL.ShaderSource(shader, source);
-
-        return shader;
-    }
-
-    private static string CompileShader(int shader)
-    {
-        GL.CompileShader(shader);
-
-        return GL.GetShaderInfoLog(shader);
-    }
 
     private void ReleaseUnmanagedResources()
     {
@@ -166,5 +130,52 @@ public class Shader : IDisposable
     ~Shader()
     {
         ReleaseUnmanagedResources();
+    }
+    
+    public static Shader Create(string vertexShaderText, string fragmentShaderText, string name, ILogger logger)
+    {
+        var vertexShader = CreateShader(ShaderType.VertexShader, vertexShaderText);
+        var fragmentShader = CreateShader(ShaderType.FragmentShader, fragmentShaderText);
+
+        var shaderCompilingText = CompileShader(vertexShader);
+        if (shaderCompilingText != string.Empty)
+            logger.Error("Error compiling shader {Shader}.\n{ShaderCompilingText}", name, shaderCompilingText);
+        else
+            logger.Information("Vertex part of shader {Shader} compiled successfully", name);
+
+        shaderCompilingText = CompileShader(fragmentShader);
+        if (shaderCompilingText != string.Empty)
+            logger.Error("Error compiling shader {Shader}.\n{ShaderCompilingText}", name, shaderCompilingText);
+        else
+            logger.Information("Fragment part of shader {Shader} compiled successfully", name);
+
+        var handle = GL.CreateProgram();
+
+        GL.AttachShader(handle, vertexShader);
+        GL.AttachShader(handle, fragmentShader);
+
+        GL.LinkProgram(handle);
+
+        GL.DetachShader(handle, vertexShader);
+        GL.DetachShader(handle, fragmentShader);
+        GL.DeleteShader(vertexShader);
+        GL.DeleteShader(fragmentShader);
+
+        return new Shader(name, handle);
+    }
+    
+    private static int CreateShader(ShaderType shaderType, string source)
+    {
+        var shader = GL.CreateShader(shaderType);
+        GL.ShaderSource(shader, source);
+
+        return shader;
+    }
+
+    private static string CompileShader(int shader)
+    {
+        GL.CompileShader(shader);
+
+        return GL.GetShaderInfoLog(shader);
     }
 }

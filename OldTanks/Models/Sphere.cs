@@ -11,7 +11,7 @@ namespace OldTanks.Models;
 
 public class Sphere : WorldObject
 {
-    public Sphere() : base(GlobalCache<Scene>.GetItemOrDefault("Sphere"))
+    public Sphere() : base(GlobalCache<Scene>.Default.GetItemOrDefault("Sphere"))
     {
     }
 

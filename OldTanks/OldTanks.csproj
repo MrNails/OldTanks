@@ -28,4 +28,8 @@
       <ProjectReference Include="..\OldTanks.UI\OldTanks.UI.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
+    </ItemGroup>
+
 </Project>

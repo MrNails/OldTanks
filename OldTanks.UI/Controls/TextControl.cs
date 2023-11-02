@@ -26,7 +26,6 @@ public abstract class TextControl : Control
     protected TextControl(string name) : base(name)
     {
         Color = Colors.White;
-        Font = new Font("Arial", 14);
         Text = string.Empty;
     }
 
@@ -34,19 +33,21 @@ public abstract class TextControl : Control
     public HorizontalTextAlignment HorizontalTextAlignment { get; set; }
 
     public Vector4 Color { get; set; }
-    
-    public Font Font
+
+    public Font? Font
     {
         get => m_font;
         set
         {
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
-            
+
             m_font = value;
+            
+            EvaluateSize();
         }
     }
-    
+
     public string? Text
     {
         get => m_text;
@@ -56,7 +57,18 @@ public abstract class TextControl : Control
                 value = string.Empty;
 
             m_text = value;
-            Size = new Vector2(m_text.Length * Font.FontSize * (m_font.FontSize / m_font.FontInformation.OriginalFontSize), Font.FontSize + 3);
+
+            EvaluateSize();
         }
+    }
+
+    private void EvaluateSize()
+    {
+        if (Text == null || Font == null)
+            return;
+        
+        Size = new Vector2(
+            Text.Length * Font.FontSize * (m_font.FontSize / m_font.FontInformation.OriginalFontSize),
+            Font.FontSize + 3);
     }
 }

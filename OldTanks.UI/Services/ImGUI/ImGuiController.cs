@@ -9,6 +9,7 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using Serilog;
 
 namespace OldTanks.UI.Services.ImGUI;
 
@@ -105,7 +106,7 @@ void main()
         RecreateFontDeviceTexture();
         int vao = 0, vbo = 0, ebo = 0;
         
-        m_shader = new Shader(VertexSource, FragmentSource, "ImGui");
+        m_shader = Shader.Create(VertexSource, FragmentSource, "ImGui", Log.Logger);
         m_shader.Use();
 
         m_vertexBufferSize = 10000;
@@ -143,7 +144,9 @@ void main()
         var io = ImGui.GetIO();
         io.Fonts.GetTexDataAsRGBA32(out IntPtr pixels, out int width, out int height, out int bytesPerPixel);
 
-        m_fontTexture = Texture.CreateTexture(pixels, width, height, TextureWrapMode.ClampToEdge);
+        var pixelDto = new Texture.PixelDto(PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
+        
+        m_fontTexture = Texture.CreateTexture2D(pixels, (width, height), ref pixelDto, TextureWrapMode.ClampToEdge);
 
         io.Fonts.SetTexID((IntPtr)m_fontTexture.Handle);
     }

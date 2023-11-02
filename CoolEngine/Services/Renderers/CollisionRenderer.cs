@@ -14,11 +14,10 @@ public class CollisionRenderer
     private static readonly Dictionary<Type, CollisionRenderGroup> m_drawCollisions = new();
     private static readonly Dictionary<ICollisionable, DrawSceneInfo> m_collisionInfo = new();
 
-    private static readonly Font DefaultFont = new Font("Arial", 32);
-
     private static DrawObjectInfo s_normalObjInfo;
 
     public static Shader? Shader { get; set; }
+
 
     public static void AddCollision(ICollisionable collisionable)
     {
@@ -47,7 +46,7 @@ public class CollisionRenderer
             AddCollision(collisionable);
     }
 
-    public static void DrawElementsCollision(Camera camera, int lineWidth = 3,
+    public static void DrawElementsCollision(Camera camera, Font font, int lineWidth = 3,
         bool useLookAt = true, bool drawVerticesPositions = true, bool drawNormals = true)
     {
         if (Shader == null)
@@ -91,7 +90,7 @@ public class CollisionRenderer
                     var pos = element.Vertices[j];
                     textDrawInfo.SelfPosition = pos;
 
-                    TextRenderer.DrawText3D(DefaultFont, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
+                    TextRenderer.DrawText3D(font, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
                 }
             }
 

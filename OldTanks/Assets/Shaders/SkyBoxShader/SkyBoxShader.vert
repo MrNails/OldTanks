@@ -5,7 +5,6 @@ out vec3 textureCoord;
 
 uniform mat4 projection;
 uniform mat3 view;
-//uniform mat4 model;
 
 mat4 transformedView;
 

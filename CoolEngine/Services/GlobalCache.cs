@@ -1,111 +1,128 @@
-﻿namespace CoolEngine.Services;
+﻿using Serilog;
 
-public static class GlobalCache<T>
+namespace CoolEngine.Services;
+
+public class GlobalCache<T>
 {
-    private static readonly ReaderWriterLockSlim s_cacheLock;
-    private static readonly Dictionary<string, T> s_cache;
+    private static GlobalCache<T>? s_instance;
 
-    static GlobalCache()
-    {
-        s_cacheLock = new ReaderWriterLockSlim();
-        s_cache = new Dictionary<string, T>();
-    }
-
-    public static int Count
+    public static GlobalCache<T> Default
     {
         get
         {
-            s_cacheLock.EnterReadLock();
+            lock (typeof(GlobalCache<T>))
+            {
+                s_instance ??= new GlobalCache<T>();
+            }
+
+            return s_instance;
+        }
+    }
+
+    private readonly ReaderWriterLockSlim m_cacheLock;
+    private readonly Dictionary<string, T> m_cache;
+
+    private GlobalCache()
+    {
+        m_cacheLock = new ReaderWriterLockSlim();
+        m_cache = new Dictionary<string, T>();
+    }
+
+    public int Count
+    {
+        get
+        {
             try
             {
-                return s_cache.Count;
+                m_cacheLock.EnterReadLock();
+                return m_cache.Count;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Log.Warning(e, "Error attempting get amount of items.");
             }
             finally
             {
-                s_cacheLock.ExitReadLock();
+                m_cacheLock.ExitReadLock();
             }
 
             return -1;
         }
     }
 
-    public static bool AddOrUpdateItem(string name, T item)
+    public bool AddOrUpdateItem(string name, T item)
     {
-        s_cacheLock.EnterWriteLock();
         try
         {
-            s_cache[name] = item;
+            m_cacheLock.EnterWriteLock();
+            m_cache[name] = item;
             return true;
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Warning(e, "Error attempting add or update item.");
         }
         finally
         {
-            s_cacheLock.ExitWriteLock();
+            m_cacheLock.ExitWriteLock();
         }
 
         return false;
     }
 
-    public static bool RemoveItem(string name)
+    public bool RemoveItem(string name)
     {
-        s_cacheLock.EnterWriteLock();
         try
         {
-            return s_cache.Remove(name);
+            m_cacheLock.EnterWriteLock();
+            return m_cache.Remove(name);
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Warning(e, "Error attempting remove item.");
         }
         finally
         {
-            s_cacheLock.ExitWriteLock();
+            m_cacheLock.ExitWriteLock();
         }
 
         return false;
     }
 
-    public static T? GetItemOrDefault(string name)
+    public T? GetItemOrDefault(string name)
     {
-        s_cacheLock.EnterReadLock();
         try
         {
-            T item;
-            if (!s_cache.TryGetValue(name, out item))
+            m_cacheLock.EnterReadLock();
+
+            if (!m_cache.TryGetValue(name, out var item))
                 item = default;
 
             return item;
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Log.Warning(e, "Error attempting get item.");
         }
         finally
         {
-            s_cacheLock.ExitReadLock();
+            m_cacheLock.ExitReadLock();
         }
 
         return default;
     }
 
-    public static bool Dispose()
+    public async Task<bool> Dispose()
     {
-        while (s_cacheLock.WaitingWriteCount > 0 ||
-               s_cacheLock.WaitingReadCount > 0 ||
-               s_cacheLock.WaitingUpgradeCount > 0)
+        while (m_cacheLock.WaitingWriteCount > 0 ||
+               m_cacheLock.WaitingReadCount > 0 ||
+               m_cacheLock.WaitingUpgradeCount > 0)
         {
-            Thread.Sleep(10);
+            await Task.Delay(100);
         }
-        
-        s_cacheLock.Dispose();
-        s_cache.Clear();
+
+        m_cacheLock.Dispose();
+        m_cache.Clear();
 
         return true;
     }

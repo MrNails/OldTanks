@@ -5,7 +5,7 @@ namespace OldTanks.Models;
 
 public class Robot : WorldObject
 {
-    public Robot() : base(GlobalCache<Scene>.GetItemOrDefault("Robot"))
+    public Robot() : base(GlobalCache<Scene>.Default.GetItemOrDefault("Robot"))
     {
     }
 }

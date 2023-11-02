@@ -4,7 +4,7 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public class Scene
 {
-    private List<Mesh> m_meshes;
+    private readonly List<Mesh> m_meshes;
 
     public Scene()
     {
