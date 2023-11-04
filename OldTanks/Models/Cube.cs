@@ -42,7 +42,7 @@ public class Cube : WorldObject
         GlobalCache<CollisionData>.Default.AddOrUpdateItem("CubeCollision", collisionData);
     }
     
-    public Cube() : base(GlobalCache<Scene>.Default.GetItemOrDefault("Cube")?.Copy())
+    public Cube() : base(GlobalCache<Scene>.Default.GetItemOrDefault("Cube_Cube.005")?.Copy())
     {
         
     }

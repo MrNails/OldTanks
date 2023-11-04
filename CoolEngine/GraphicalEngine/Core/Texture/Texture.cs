@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using OpenTK.Graphics.OpenGL4;
+﻿using OpenTK.Graphics.OpenGL4;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 

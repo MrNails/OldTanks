@@ -1,6 +1,6 @@
 ﻿#version 460 core
+out vec4 fragColor;
 in vec2 textureCoord;
-layout(location = 0) out vec4 fragColor;
 
 uniform bool hasTexture;
 uniform vec4 color;

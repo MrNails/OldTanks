@@ -96,6 +96,8 @@ public sealed class WaveFrontLoader : IAssetLoader
                     parseError = !ParseFloatInLine(line, 1, 2, tempArray, 
                         (i, j) => m_logger.Error("Cannot parse texture coord {CoordIdx} float in line {CurrentLine}", 
                                                                  i, currLine));
+                    
+                    textureCoords.Add(new Vector2(tempArray[0], tempArray[1]));
                 }
                 else if (line.StartsWith("vn"))
                 {
@@ -105,6 +107,8 @@ public sealed class WaveFrontLoader : IAssetLoader
                     parseError = !ParseFloatInLine(line, 1, 3, tempArray, 
                         (i, j) => m_logger.Error("Cannot parse normal {CoordIdx} float in line {CurrentLine}", 
                             i, currLine));
+                    
+                    normals.Add(new Vector3(tempArray[0], tempArray[1], tempArray[2]));
                 }
                 else if (line.StartsWith("v"))
                 {
