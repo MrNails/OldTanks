@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Common.Extensions;
 using Common.Services;
 using CoolEngine.GraphicalEngine.Core;
@@ -10,6 +9,7 @@ using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
+using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Misc;
 using CoolEngine.Services.Renderers;
@@ -94,7 +94,9 @@ public partial class MainWindow : GameWindow
     {
         m_settingsService = settingsService;
         m_userSettings = m_settingsService.GetDefaultSettings<Settings>()!;
-
+        
+        Log.Logger.AddGLMessageHandling();
+        
         if (m_userSettings.FullScreen)
         {
             WindowState = WindowState.Fullscreen;
@@ -302,9 +304,9 @@ public partial class MainWindow : GameWindow
         }
 
         GEGlobalSettings.GlobalLock.EnterWriteLock();
-
+        
         m_controlHandler.MainControl.Draw();
-
+        
         GEGlobalSettings.GlobalLock.ExitWriteLock();
 
         m_imGuiController.Render();
@@ -387,11 +389,6 @@ public partial class MainWindow : GameWindow
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        
-        
-        GL.DebugMessageCallback(DebugMessageHandler, IntPtr.Zero);
-        GL.Enable(EnableCap.DebugOutput);
-        GL.Enable(EnableCap.DebugOutputSynchronous);
     }
 
     private void FillObject(IDrawable drawable, Texture texture)
@@ -762,20 +759,5 @@ public partial class MainWindow : GameWindow
 
         if (m_drawNormals)
             DrawNormals(m_primitivesShader);
-    }
-
-    private static DebugProc DebugMessageHandler = OnDebugMessage;
-    
-    private static void OnDebugMessage(
-        DebugSource source,     // Source of the debugging message.
-        DebugType type,         // Type of the debugging message.
-        int id,                 // ID associated with the message.
-        DebugSeverity severity, // Severity of the message.
-        int length,             // Length of the string in pMessage.
-        IntPtr pMessage,        // Pointer to message string.
-        IntPtr pUserParam)      // The pointer you gave to OpenGL, explained later.)
-    {
-        var message = Marshal.PtrToStringAnsi(pMessage, length);
-        Log.Logger.Information("[{0} source={1} type={2} id={3}] {4}", severity, source, type, id, message);
     }
 }
