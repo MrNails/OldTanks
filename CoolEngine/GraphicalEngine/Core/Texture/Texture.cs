@@ -92,7 +92,7 @@ public sealed class Texture : IDisposable
             var part = getSkyBoxPart(idx);
             var pixelDto = part.pixelDto;
 
-            GL.TexImage2D(TextureTarget.TextureCubeMapPositiveX + idx++,
+            GL.TexImage2D(TextureTarget.TextureCubeMapPositiveX + idx,
                 0,
                 pixelDto.PixelInternalFormat,
                 part.Width,

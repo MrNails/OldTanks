@@ -125,7 +125,7 @@ public sealed class GameManager
         {
             await LoadModelsFromDir(modelsSubDirectory, loader);
         }
-        
+
         ModelsLoaded?.Invoke(this, EventArgs.Empty);
     }
 

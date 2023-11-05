@@ -66,8 +66,8 @@ public class Font
 
         try
         {
-            GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
-            
+            UI.UIInvoke(() => GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1));
+
             var loadedData = await Task.Run(() =>
             {
                 var newFaceResp = FT.FT_New_Face(lib.Native, path, 0, out facePtr);
@@ -104,7 +104,7 @@ public class Font
                 return (texture, charsResult);
             });
 
-            GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+            UI.UIInvoke(() => GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4));
 
             if (loadedData.texture == null)
             {

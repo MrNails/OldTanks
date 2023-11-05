@@ -17,9 +17,9 @@ public sealed class WaveFrontLoader : IAssetLoader
         MtlLibName,
         SmoothShading
     }
-    
+
     private static readonly char s_splitSeparator = ' ';
-    
+
     private struct FaceData
     {
         public uint[] VertexIndices;
@@ -35,12 +35,12 @@ public sealed class WaveFrontLoader : IAssetLoader
     }
 
     private readonly ILogger m_logger;
-    
+
     public WaveFrontLoader(ILogger logger)
     {
         m_logger = logger;
     }
-    
+
     public async Task LoadAsset(string path)
     {
         var fInfo = new FileInfo(path);
@@ -49,7 +49,7 @@ public sealed class WaveFrontLoader : IAssetLoader
         var name = string.Empty;
 
         var scene = new Scene();
-        
+
         var lastOffset = new uint[3];
 
         var faceData = new List<FaceData>(fSizeInKb < 5 ? 200 : 500);
@@ -92,22 +92,22 @@ public sealed class WaveFrontLoader : IAssetLoader
                 {
                     if (!textureStarted)
                         textureStarted = true;
-                    
-                    parseError = !ParseFloatInLine(line, 1, 2, tempArray, 
-                        (i, j) => m_logger.Error("Cannot parse texture coord {CoordIdx} float in line {CurrentLine}", 
-                                                                 i, currLine));
-                    
+
+                    parseError = !ParseFloatInLine(line, 1, 2, tempArray,
+                        (i, j) => m_logger.Error("Cannot parse texture coord {CoordIdx} float in line {CurrentLine}",
+                            i, currLine));
+
                     textureCoords.Add(new Vector2(tempArray[0], tempArray[1]));
                 }
                 else if (line.StartsWith("vn"))
                 {
                     if (!normalsStarted)
                         normalsStarted = true;
-                    
-                    parseError = !ParseFloatInLine(line, 1, 3, tempArray, 
-                        (i, j) => m_logger.Error("Cannot parse normal {CoordIdx} float in line {CurrentLine}", 
+
+                    parseError = !ParseFloatInLine(line, 1, 3, tempArray,
+                        (i, j) => m_logger.Error("Cannot parse normal {CoordIdx} float in line {CurrentLine}",
                             i, currLine));
-                    
+
                     normals.Add(new Vector3(tempArray[0], tempArray[1], tempArray[2]));
                 }
                 else if (line.StartsWith("v"))
@@ -133,11 +133,11 @@ public sealed class WaveFrontLoader : IAssetLoader
 
                     if (!verticesStarted)
                         verticesStarted = true;
-                    
-                    parseError = !ParseFloatInLine(line, 1, 3, tempArray, 
-                        (i, j) => m_logger.Error("Cannot parse vertex {CoordIdx} float in line {CurrentLine}", 
+
+                    parseError = !ParseFloatInLine(line, 1, 3, tempArray,
+                        (i, j) => m_logger.Error("Cannot parse vertex {CoordIdx} float in line {CurrentLine}",
                             i, currLine));
-                    
+
                     vertices.Add(new Vector3(tempArray[0], tempArray[1], tempArray[2]));
                 }
                 else if (line.StartsWith("f"))
@@ -178,7 +178,8 @@ public sealed class WaveFrontLoader : IAssetLoader
 
                             if (!uint.TryParse(fData[j], out var outUintValue))
                             {
-                                m_logger.Error("Cannot parse index (uint) [{i};{j}] in line {CurrentLine}", i, j, currLine);
+                                m_logger.Error("Cannot parse index (uint) [{i};{j}] in line {CurrentLine}", i, j,
+                                    currLine);
                                 break;
                             }
 
@@ -226,7 +227,8 @@ public sealed class WaveFrontLoader : IAssetLoader
     /// <param name="destinationArray">Array that used as parsed values storage</param>
     /// <param name="errorHandler">Error handler with params (<see cref="line"/> index; <see cref="destinationArray"/> index)</param>
     /// <returns>Return true if array parsed successfully; either false</returns>
-    private bool ParseFloatInLine(string line, int startIndex, int length, float[] destinationArray, Action<int, int> errorHandler)
+    private bool ParseFloatInLine(string line, int startIndex, int length, float[] destinationArray,
+        Action<int, int> errorHandler)
     {
         var noErrors = true;
 
@@ -235,7 +237,8 @@ public sealed class WaveFrontLoader : IAssetLoader
 
         for (int lineIdx = 0; lineIdx < line.Length && parsedItemIdx < startIndex + length; lineIdx++)
         {
-            if (line[lineIdx] != s_splitSeparator)
+            if (line[lineIdx] != s_splitSeparator &&
+                lineIdx != line.Length - 1)
             {
                 continue;
             }
@@ -246,7 +249,7 @@ public sealed class WaveFrontLoader : IAssetLoader
                 {
                     parsedItemIdx++;
                 }
-                
+
                 tokenStartIdx = lineIdx;
                 continue;
             }
@@ -257,10 +260,10 @@ public sealed class WaveFrontLoader : IAssetLoader
                 parsedItemIdx++;
                 continue;
             }
-            
+
             var token = line.AsSpan(tokenStartIdx, lineIdx - tokenStartIdx);
             var destinationArrayIdx = parsedItemIdx - startIndex;
-                
+
             if (float.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var outFloatValue))
             {
                 destinationArray[destinationArrayIdx] = outFloatValue;
@@ -270,7 +273,7 @@ public sealed class WaveFrontLoader : IAssetLoader
                 errorHandler(parsedItemIdx, destinationArrayIdx);
                 noErrors = false;
             }
-                
+
             tokenStartIdx = lineIdx;
             parsedItemIdx++;
         }
@@ -290,7 +293,7 @@ public sealed class WaveFrontLoader : IAssetLoader
     {
         data = string.Empty;
         headerDataType = HeaderDataType.None;
-        
+
         if (line.StartsWith("mtllib"))
         {
             headerDataType = HeaderDataType.MtlLibName;
