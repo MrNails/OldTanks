@@ -17,7 +17,16 @@ public abstract class ImGuiFloatDragTextBoxBase<TValue> : ImGuiControl
     public TValue Value
     {
         get => m_value;
-        set => m_value = value;
+        set
+        {
+            if (m_value.Equals(value)) 
+                return;
+            
+            var oldValue = m_value;
+            m_value = value;
+                
+            ValueChanged?.Invoke(this, new ValueChangedEventArgs<TValue>(oldValue, value));
+        }
     }
 
     public override void Draw()

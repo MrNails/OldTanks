@@ -15,16 +15,14 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Reference Include="System.Drawing" />
-    </ItemGroup>
-
-    <ItemGroup>
       <Folder Include="Assets\Models" />
       <Folder Include="Assets\Textures\SkyBoxes" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\CoolEngine\CoolEngine.csproj" />
+      <ProjectReference Include="..\OldTanks.UI.SourceGenerators\OldTanks.UI.SourceGenerators.csproj" 
+                        OutputItemType="Analyzer" />
       <ProjectReference Include="..\OldTanks.UI\OldTanks.UI.csproj" />
     </ItemGroup>
 

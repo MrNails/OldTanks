@@ -1,23 +1,23 @@
 ﻿using CoolEngine.Services;
-using CoolEngine.Services.Extensions;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core;
 
-public class RigidBody
+public class RigidBody : ObservableObject
 {
     public static readonly float MinDensity = 0.5f;
     public static readonly float MaxDensity = 21.4f;
 
-    private float m_speed;
     private bool m_onGround;
     private float m_density;
-    private float m_verticalSpeed;
     private Vector3 m_velocity;
 
     private Vector3 m_force;
     private float m_weight;
     private float m_restitution;
+    private float _defaultJumpForce;
+    private Vector3 _centerOfMass;
+    private bool _isStatic;
 
     public RigidBody()
     {
@@ -32,14 +32,14 @@ public class RigidBody
     public float Density
     {
         get => m_density;
-        set => m_density = Math.Clamp(value, MinDensity, MaxDensity);
+        set => SetField(ref m_density, Math.Clamp(value, MinDensity, MaxDensity));
     }
 
     //Восстановление
     public float Restitution
     {
         get => m_restitution;
-        set => m_restitution = Math.Clamp(value, 0, 1);
+        set => SetField(ref m_restitution, Math.Clamp(value, 0, 1));
     }
 
     public Vector3 Velocity
@@ -56,6 +56,8 @@ public class RigidBody
                 value.X = -MaxBackSpeed;
 
             m_velocity = value;
+
+            OnPropertyChanged();
         }
     }
 
@@ -68,12 +70,21 @@ public class RigidBody
                 return;
 
             m_force = value;
+            OnPropertyChanged();
         }
     }
 
-    public float DefaultJumpForce { get; set; }
+    public float DefaultJumpForce
+    {
+        get => _defaultJumpForce;
+        set => SetField(ref _defaultJumpForce, value);
+    }
 
-    public Vector3 CenterOfMass { get; set; }
+    public Vector3 CenterOfMass
+    {
+        get => _centerOfMass;
+        set => SetField(ref _centerOfMass, value);
+    }
 
     public float Weight
     {
@@ -84,16 +95,21 @@ public class RigidBody
                 throw new ArgumentException("Weight cannot be less or equal 0");
 
             m_weight = value;
+            OnPropertyChanged();
         }
     }
 
     public bool OnGround
     {
         get => m_onGround;
-        set => m_onGround = value;
+        set => SetField(ref m_onGround, value);
     }
 
-    public bool IsStatic { get; set; }
+    public bool IsStatic
+    {
+        get => _isStatic;
+        set => SetField(ref _isStatic, value);
+    }
 
     public virtual void OnTick(float timeDelta, int collisionIteration = 1)
     {
@@ -101,10 +117,10 @@ public class RigidBody
             return;
 
         m_velocity.X -= m_velocity.X * 0.6f * timeDelta;
-        
+
         if (m_velocity.X is > -0.01f and < 0.01f)
             m_velocity.X = 0;
-        
+
         Velocity += (Force / Weight + PhysicsConstants.GravityDirection * PhysicsConstants.FreeFallingAcceleration) *
                     timeDelta;
 

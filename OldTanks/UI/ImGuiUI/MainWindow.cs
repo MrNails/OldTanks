@@ -1,14 +1,13 @@
-﻿using System.Numerics;
+﻿using System.Collections.Specialized;
 using OldTanks.Models;
 using OldTanks.UI.ImGuiControls;
-using OldTanks.UI.Services.EventArgs;
 
 namespace OldTanks.UI.ImGuiUI;
 
 public partial class MainWindow : ImGuiWindow
 {
     private World m_world;
-    
+
     public MainWindow(string name, World world) : base(name)
     {
         Initialize();
@@ -16,23 +15,45 @@ public partial class MainWindow : ImGuiWindow
         m_world = world;
         m_worldObjectsListBox!.Items = m_world.WorldObjects;
         m_worldObjectsListBox.BindingFunction = w => w.Name ?? w.GetType().Name;
+
+        m_world.WorldObjects.CollectionChanged += WorldObjectsCollectionChanged;
+        InitWorldObjectsBindings();
     }
-    
-    private void SpawnCubeBtnOnClick(ImGuiButton sender, EventArgs e)
+
+    private void InitWorldObjectsBindings()
     {
-        //Not implemented
+        foreach (var worldObject in m_world.WorldObjects)
+        {
+            worldObject.PropertyChanged += __SelectedItemGeneratedBindingMethodToObject;
+            worldObject.RigidBody.PropertyChanged += __RigidBodyGeneratedBindingMethodToObject;
+        }
     }
-    
+
     private void ClearObjectsSelectionButtonOnClick(ImGuiButton sender, EventArgs e)
     {
         m_worldObjectsListBox.ClearSelection();
     }
-    
-    private void DragFloat3TextBoxValueChanged(ImGuiFloatDragTextBoxBase<Vector3> sender, ValueChangedEventArgs<Vector3> e)
+
+    private void WorldObjectsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        switch (sender.Name)
+        switch (e.Action)
         {
-            
+            case NotifyCollectionChangedAction.Add:
+                foreach (WorldObject worldObject in e.NewItems!)
+                {
+                    worldObject.PropertyChanged += __SelectedItemGeneratedBindingMethodToObject;
+                    worldObject.RigidBody.PropertyChanged += __RigidBodyGeneratedBindingMethodToObject;
+                }
+                break;
+            case NotifyCollectionChangedAction.Remove:
+                foreach (WorldObject worldObject in e.OldItems!)
+                {
+                    worldObject.PropertyChanged -= __SelectedItemGeneratedBindingMethodToObject;
+                    worldObject.RigidBody.PropertyChanged -= __RigidBodyGeneratedBindingMethodToObject;
+                }
+                break;
+            default:
+                break;
         }
     }
 }

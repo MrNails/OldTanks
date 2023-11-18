@@ -1,5 +1,5 @@
-﻿using CoolEngine.GraphicalEngine.Core;
-using CoolEngine.PhysicEngine;
+﻿using System.ComponentModel;
+using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
@@ -9,7 +9,7 @@ using OpenTK.Mathematics;
 
 namespace OldTanks.Models;
 
-public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
+public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, IWatchable, INotifyPropertyChanged
 {
     private Scene m_scene;
     private Vector3 m_position;
@@ -22,7 +22,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
     protected Matrix4 m_transform;
     private Vector3 m_cameraOffset;
     private Vector2 m_cameraOffsetAngle;
-
+    
     protected WorldObject(Scene scene)
     {
         var currType = GetType();
@@ -50,7 +50,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_size;
         set
         {
-            m_size = value;
+            SetField(ref m_size, value);
             m_haveTransformation = true;
             SetCameraData();
         }
@@ -61,7 +61,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_position;
         set
         {
-            m_position = value;
+            SetField(ref m_position, value);
             m_haveTransformation = true;
             SetCameraData();
         }
@@ -72,7 +72,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_direction;
         set
         {
-            m_direction = new Vector3(value.X % 360, value.Y % 360, value.Z % 360);
+            SetField(ref m_direction, new Vector3(value.X % 360, value.Y % 360, value.Z % 360));
             m_haveTransformation = true;
         }
     }
@@ -85,6 +85,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_position.X = value;
             m_haveTransformation = true;
             SetCameraData();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Position));
         }
     }
 
@@ -96,6 +98,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_position.Y = value;
             m_haveTransformation = true;
             SetCameraData();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Position));
         }
     }
 
@@ -107,6 +111,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_position.Z = value;
             m_haveTransformation = true;
             SetCameraData();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Position));
         }
     }
 
@@ -115,8 +121,11 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         get => m_size.X;
         set
         {
+            m_size.X = value;
             m_haveTransformation = true;
             SetCameraData();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Size));
         }
     }
 
@@ -128,6 +137,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_size.Y = value;
             m_haveTransformation = true;
             SetCameraData();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Size));
         }
     }
 
@@ -139,6 +150,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             m_size.Z = value;
             m_haveTransformation = true;
             SetCameraData();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Size));
         }
     }
 
@@ -149,6 +162,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_direction.X = value % 360;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Direction));
         }
     }
 
@@ -159,6 +174,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_direction.Y = value % 360;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Direction));
         }
     }
 
@@ -169,6 +186,8 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         {
             m_direction.Z = value % 360;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Direction));
         }
     }
 
@@ -181,6 +200,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
             value.X %= 360;
 
             m_cameraOffsetAngle = value;
+            OnPropertyChanged();
         }
     }
 
@@ -189,7 +209,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
     public Vector3 CameraOffset
     {
         get => m_cameraOffset;
-        set => m_cameraOffset = value;
+        set => SetField(ref m_cameraOffset, value);
     }
 
     public Matrix4 Transform => m_transform;
@@ -235,7 +255,7 @@ public abstract class WorldObject : IDrawable, IPhysicObject, IWatchable
         
         GlobalSettings.GlobalLock.ExitWriteLock();
     }
-
+    
     private void SetCameraData()
     {
         if (Camera == null)

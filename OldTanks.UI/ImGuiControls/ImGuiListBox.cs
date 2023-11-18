@@ -5,8 +5,12 @@ using System.ComponentModel;
 using Common.Extensions;
 using Common.Models;
 using ImGuiNET;
+using OldTanks.UI.Services;
+using OldTanks.UI.Services.EventArgs;
 
 namespace OldTanks.UI.ImGuiControls;
+
+public record struct SelectionChangedArgs<T>(int Index, T? Item);
 
 public class ImGuiListBox<T> : ImGuiControl, IDisposable
 {
@@ -21,6 +25,8 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
     private ObservableCollection<T>? m_items;
     private Func<T, string> m_bindingFunction;
 
+    public event EventHandler<ImGuiListBox<T>, ValueChangedEventArgs<SelectionChangedArgs<T>>>? SelectionChanged; 
+    
     public ImGuiListBox(string name, ArrayPool<string> arrayPool) : base(name)
     {
         m_arrayPool = arrayPool;
@@ -81,17 +87,37 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
         get => m_selectedIndex;
         set
         {
-            if (value < -1 || value > (m_items?.Count ?? 0))
-                throw new ArgumentOutOfRangeException("Selected index must be in range {0-Items.Count-1}");
+            if (value == m_selectedIndex)
+            {
+                return;
+            }
 
+            if (value < -1 || value > (m_items?.Count ?? 0))
+                throw new ArgumentOutOfRangeException("Selected index must be in range {-1;Items.Count-1}");
+
+            var oldItem = SelectedItem;
+            var oldIndex = m_selectedIndex;
+            
             m_selectedIndex = value;
+            
+            SelectionChanged?.Invoke(this, new ValueChangedEventArgs<SelectionChangedArgs<T>>(
+                new SelectionChangedArgs<T>(oldIndex, oldItem),
+                new SelectionChangedArgs<T>(m_selectedIndex, SelectedItem)));
         }
     }
 
     public T? SelectedItem
     {
         get => m_selectedIndex == -1 || m_items == null ? default : m_items[m_selectedIndex];
-        set => SelectedIndex = m_items?.IndexOf(value) ?? -1;
+        set
+        {
+            if (value?.Equals(SelectedItem) ?? false)
+            {
+                return;
+            }
+
+            SelectedIndex = m_items?.IndexOf(value) ?? -1;
+        }
     }
 
     public override void Draw()
@@ -99,7 +125,10 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
         if (!IsVisible || m_items == null)
             return;
 
-        ImGui.ListBox(Label ?? string.Empty, ref m_selectedIndex, m_valuesToDraw, m_items!.Count);
+        var index = m_selectedIndex;
+        ImGui.ListBox(Label ?? string.Empty, ref index, m_valuesToDraw, m_items!.Count);
+
+        SelectedIndex = index;
     }
 
     public void ClearSelection()

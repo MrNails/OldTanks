@@ -25,7 +25,7 @@ public sealed class ControlHandler
     }
     
     public IControl MainControl { get; set; }
-
+    
     internal void RegisterControl(IControl control)
     {
         if (!_controls.Add(control)) 

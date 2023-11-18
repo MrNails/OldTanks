@@ -1,12 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks", "OldTanks\OldTanks.csproj", "{8EFBB5C2-4874-4288-A6A6-0AFF352D0798}"
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33829.357
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OldTanks", "OldTanks\OldTanks.csproj", "{8EFBB5C2-4874-4288-A6A6-0AFF352D0798}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoolEngine", "CoolEngine\CoolEngine.csproj", "{04C2EE22-BF44-46BC-B25E-9BD7FE4FAD48}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CoolEngine", "CoolEngine\CoolEngine.csproj", "{04C2EE22-BF44-46BC-B25E-9BD7FE4FAD48}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks.UI", "OldTanks.UI\OldTanks.UI.csproj", "{B6D0CC18-6D13-4E09-A89A-6F4823377567}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OldTanks.UI", "OldTanks.UI\OldTanks.UI.csproj", "{B6D0CC18-6D13-4E09-A89A-6F4823377567}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Common\Common.csproj", "{7AB03874-B4BA-4272-9A7B-2BD65D0CFF4D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Common", "Common\Common.csproj", "{7AB03874-B4BA-4272-9A7B-2BD65D0CFF4D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks.UI.SourceGenerators", "OldTanks.UI.SourceGenerators\OldTanks.UI.SourceGenerators.csproj", "{1FF73113-7AED-4E30-B711-8224AE0D728E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,5 +35,15 @@ Global
 		{7AB03874-B4BA-4272-9A7B-2BD65D0CFF4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7AB03874-B4BA-4272-9A7B-2BD65D0CFF4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7AB03874-B4BA-4272-9A7B-2BD65D0CFF4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {27902F3C-9C4A-4686-AB28-B12D9B9EA896}
 	EndGlobalSection
 EndGlobal

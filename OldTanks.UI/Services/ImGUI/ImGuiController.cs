@@ -208,7 +208,7 @@ void main()
         io.DisplaySize = new System.Numerics.Vector2(
             m_windowWidth / m_scaleFactor.X,
             m_windowHeight / m_scaleFactor.Y);
-        io.DisplayFramebufferScale = VectorExtensions.GLToSystemVector2(m_scaleFactor);
+        io.DisplayFramebufferScale = VectorExtensions.ToSystemVector2(m_scaleFactor);
         io.DeltaTime = deltaSeconds; // DeltaTime is in seconds.
     }
 
