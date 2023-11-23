@@ -1,11 +1,12 @@
 ﻿using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
+using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class Camera : IPhysicObject
+public class Camera : ObservableObject, IPhysicObject
 {
     private bool m_isLookAtChanged;
 
@@ -59,6 +60,7 @@ public class Camera : IPhysicObject
             m_position = value;
             m_isLookAtChanged = true;
             m_haveTransformation = true;
+            OnPropertyChanged();
         }
     }
 
@@ -71,7 +73,16 @@ public class Camera : IPhysicObject
     public RigidBody RigidBody
     {
         get => m_rigidBody;
-        set => m_rigidBody = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            if (m_rigidBody == value)
+            {
+                return;
+            }
+
+            m_rigidBody = value ?? throw new ArgumentNullException(nameof(value));
+            OnPropertyChanged();
+        }
     }
 
     public Matrix4 LookAt
@@ -90,9 +101,16 @@ public class Camera : IPhysicObject
         get => m_position.X;
         set
         {
+            if (m_position.X == value)
+            {
+                return;
+            }
+
             m_position.X = value;
             m_isLookAtChanged = true;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Position));
         }
     }
 
@@ -101,9 +119,16 @@ public class Camera : IPhysicObject
         get => m_position.Y;
         set
         {
+            if (m_position.Y == value)
+            {
+                return;
+            }
+
             m_position.Y = value;
             m_isLookAtChanged = true;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Position));
         }
     }
 
@@ -112,9 +137,16 @@ public class Camera : IPhysicObject
         get => m_position.Z;
         set
         {
+            if (m_position.Z == value)
+            {
+                return;
+            }
+
             m_position.Z = value;
             m_isLookAtChanged = true;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Position));
         }
     }
 
@@ -123,6 +155,11 @@ public class Camera : IPhysicObject
         get => m_yaw;
         set
         {
+            if (m_yaw == value)
+            {
+                return;
+            }
+
             m_yaw = value;
 
             m_direction.X = (float)Math.Cos(MathHelper.DegreesToRadians(m_pitch)) *
@@ -133,6 +170,9 @@ public class Camera : IPhysicObject
 
             m_isLookAtChanged = true;
             m_haveTransformation = true;
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Direction));
         }
     }
 
@@ -141,6 +181,11 @@ public class Camera : IPhysicObject
         get => m_pitch;
         set
         {
+            if (m_pitch == value)
+            {
+                return;
+            }
+
             m_pitch = MathHelper.Clamp(value, -80, 80);
 
             m_direction.X = (float)Math.Cos(MathHelper.DegreesToRadians(m_pitch)) *
@@ -152,6 +197,9 @@ public class Camera : IPhysicObject
 
             m_isLookAtChanged = true;
             m_haveTransformation = true;
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Direction));
         }
     }
 
@@ -160,15 +208,32 @@ public class Camera : IPhysicObject
         get => m_roll;
         set
         {
+            if (m_roll == value)
+            {
+                return;
+            }
+
             m_roll = value;
             m_haveTransformation = true;
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Direction));
         }
     }
     
     public float FOV
     {
         get => m_fov;
-        set => m_fov = MathHelper.Clamp(value, 20, 90);
+        set
+        {
+            if (m_fov == value)
+            {
+                return;
+            }
+
+            m_fov = MathHelper.Clamp(value, 20, 90);
+            OnPropertyChanged();
+        }
     }
 
     public Collision? Collision
@@ -176,10 +241,16 @@ public class Camera : IPhysicObject
         get => m_collision;
         set
         {
+            if (value == m_collision)
+            {
+                return;
+            }
+
             if (value == null)
                 throw new ArgumentNullException(nameof(value));
             
             m_collision = value;
+            OnPropertyChanged();
         }
     }
 
@@ -188,8 +259,14 @@ public class Camera : IPhysicObject
         get => m_size;
         set
         {
+            if (m_size == value)
+            {
+                return;
+            }
+
             m_size = value;
             m_haveTransformation = true;
+            OnPropertyChanged();
         }
     }
 
@@ -198,8 +275,16 @@ public class Camera : IPhysicObject
         get => m_size.X;
         set
         {
+            if (m_size.X == value)
+            {
+                return;
+            }
+
             m_size.X = value;
             m_haveTransformation = true;
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Size));
         }
     }
 
@@ -208,8 +293,15 @@ public class Camera : IPhysicObject
         get => m_size.Y;
         set
         {
+            if (m_size.Y == value)
+            {
+                return;
+            }
+
             m_size.Y = value;
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Size));
         }
     }
 
@@ -218,8 +310,15 @@ public class Camera : IPhysicObject
         get => m_size.Z;
         set
         {
+            if (m_size.Z == value)
+            {
+                return;
+            }
+
             m_size.Z = value; 
             m_haveTransformation = true;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Size));
         }
     }
 

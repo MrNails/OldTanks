@@ -96,24 +96,38 @@ internal static class SyntaxNodeExtensions
         var fieldsWithAttributeParams = FindAllFieldsWithAttributeParams(typeof(TAttribute).Name, node);
 
         var result = new FieldAttributeParams[fieldsWithAttributeParams.Count];
-        for (int j = 0; j < fieldsWithAttributeParams.Count; j++)
+        var idx = 0;
+        foreach (var fieldWithAttributeParams in fieldsWithAttributeParams)
         {
-            var fieldWithAttributeParams = fieldsWithAttributeParams[j];
             var fieldAttrParams = new FieldAttributeParams
             {
-                FieldName = fieldWithAttributeParams.fieldName,
-                AttributeValues = new Dictionary<string, string>()
+                FieldName = fieldWithAttributeParams.Key,
+                AttributeValues = new List<Dictionary<string, string>>()
             };
 
-            for (int i = 0; i < fieldWithAttributeParams.args.Length && i < ctorParams.Length; i++)
+            foreach (var fieldParams in fieldWithAttributeParams.Value)
             {
-                var ctorParam = ctorParams[i];
-                var attributeParam = fieldWithAttributeParams.args[i];
+                var dictionary = new Dictionary<string, string>();
+                for (int i = 0; i < fieldParams.Length && i < ctorParams.Length; i++)
+                {
+                    var ctorParam = ctorParams[i];
+                    var attributeParam = fieldParams[i];
 
-                fieldAttrParams.AttributeValues[ctorParam] = attributeParam;
+                    if (attributeParam.Contains(':'))
+                    {
+                        var name = attributeParam.Split(':');
+                        dictionary[name[0]] = name[1].Trim(' ');
+                    }
+                    else
+                    {
+                        dictionary[ctorParam] = attributeParam;
+                    }
+                }
+
+                fieldAttrParams.AttributeValues.Add(dictionary);
             }
 
-            result[j] = fieldAttrParams;
+            result[idx++] = fieldAttrParams;
         }
 
         return result;
@@ -162,14 +176,15 @@ internal static class SyntaxNodeExtensions
         return null;
     }
 
-    private static List<(string fieldName, string[] args)> FindAllFieldsWithAttributeParams(string attributeName,
+    private static Dictionary<string, List<string[]>> FindAllFieldsWithAttributeParams(string attributeName,
         SyntaxNode node)
     {
         var nodeStack = new Stack<(SyntaxNode Parent, IEnumerator<SyntaxNode> ChildsEnumerator)>(100);
-        var result = new List<(string fieldName, string[] args)>();
+        var result = new Dictionary<string, List<string[]>>();
 
         var tmpNode = node;
         var nodesEnumerator = tmpNode.ChildNodes().GetEnumerator();
+        var isAttrListSyntaxLayer = false;
 
         //Needs to avoid if statement for code below
         nodeStack.Push((tmpNode, nodesEnumerator));
@@ -180,12 +195,15 @@ internal static class SyntaxNodeExtensions
 
             StartFieldsAttributeFindingTraversal:
 
+            isAttrListSyntaxLayer = false;
+
             while (nodesEnumerator.MoveNext())
             {
                 var child = nodesEnumerator.Current;
 
                 if (child is AttributeListSyntax { Parent: FieldDeclarationSyntax fds } als)
                 {
+                    isAttrListSyntaxLayer = true;
                     var attribute = als.Attributes.FirstOrDefault(a => AttributeNamePredicate(a, attributeName));
 
                     if (attribute != null)
@@ -195,19 +213,28 @@ internal static class SyntaxNodeExtensions
                         var innerVariableSyntax = outerVariableSyntax?.ChildNodes()
                             .FirstOrDefault(n => n is VariableDeclaratorSyntax) as VariableDeclaratorSyntax;
 
-                        result.Add((innerVariableSyntax?.ToString() ?? string.Empty, attributeParams));
+                        if (innerVariableSyntax != null)
+                        {
+                            var innerVariableSyntaxStr = innerVariableSyntax.ToString();
+                            if (!result.TryGetValue(innerVariableSyntaxStr, out var values))
+                            {
+                                values = new List<string[]>();
+                                result.Add(innerVariableSyntaxStr, values);
+                            }
+
+                            values.Add(attributeParams);
+                        }
                     }
-
-                    (tmpNode, nodesEnumerator) = nodeStack.Pop();
-
-                    goto StartFieldsAttributeFindingTraversal;
                 }
 
-                nodeStack.Push((tmpNode, nodesEnumerator));
+                if (!isAttrListSyntaxLayer)
+                {
+                    nodeStack.Push((tmpNode, nodesEnumerator));
 
-                tmpNode = child;
-                nodesEnumerator = child.ChildNodes().GetEnumerator();
-                goto StartFieldsAttributeFindingTraversal;
+                    tmpNode = child;
+                    nodesEnumerator = child.ChildNodes().GetEnumerator();
+                    goto StartFieldsAttributeFindingTraversal;
+                }
             }
         } while (nodeStack.Count != 0);
 
@@ -232,6 +259,10 @@ internal static class SyntaxNodeExtensions
             if (nodes.FirstOrDefault() is LiteralExpressionSyntax les)
             {
                 result[idx] = les.Token.ValueText;
+            }
+            else if (nodes.FirstOrDefault() is NameColonSyntax)
+            {
+                result[idx] = attributeArgumentSyntax.ToString();
             }
             else
             {

@@ -69,30 +69,33 @@ namespace {classDeclaration.NameSpace}
         {
             var triggerUpdatedOnAttrParam = triggerUpdatedOnParams[i];
 
-            updateMethodStr.AppendFormat("{0}private void __{1}UpdateBindingsHandler({2})\n{0}{{\n{3}__{1}UpdateBindings();\n{0}}}\n\n{0}private void __{1}UpdateBindings()\n{0}{{\n",
-                IntendLevel_, 
+            foreach (var attrValues in triggerUpdatedOnAttrParam.AttributeValues)
+            {
+                updateMethodStr.AppendFormat("{0}private void __{1}UpdateBindingsHandler({2})\n{0}{{\n{3}__{1}UpdateBindings();\n{0}}}\n\n{0}private void __{1}UpdateBindings()\n{0}{{\n",
+                IntendLevel_,
                 triggerUpdatedOnAttrParam.FieldName,
-                triggerUpdatedOnAttrParam.AttributeValues["eventParams"],
+                attrValues["eventParams"],
                 MethodBodyIntendLevel_);
 
-            if (triggerUpdatedOnAttrParam.AttributeValues.TryGetValue("checkOnNullElement", out var elementToCheck))
-            {
-                updateMethodStr.AppendFormat("{0}if ({1} is null) return;\n", MethodBodyIntendLevel_, elementToCheck);
+                if (attrValues.TryGetValue("checkOnNullElement", out var elementToCheck))
+                {
+                    updateMethodStr.AppendFormat("{0}if ({1} is null) return;\n", MethodBodyIntendLevel_, elementToCheck);
+                }
+
+                for (int j = 0; j < bindableElementParams.Length; j++)
+                {
+                    var bindableElementParam = bindableElementParams[j];
+
+                    CreateObjectToSourceAssignment(bindableElementParam, updateMethodStr);
+                }
+
+                updateMethodStr.AppendFormat("{0}}}", IntendLevel_);
+
+                generatedBindsIntializerBuilder.AppendFormat("{0}{1}.{2} += __{1}UpdateBindingsHandler;\n{0}__{1}UpdateBindings();\n",
+                    MethodBodyIntendLevel_,
+                    triggerUpdatedOnAttrParam.FieldName,
+                    attrValues["triggeredFromEvent"]);
             }
-
-            for (int j = 0; j < bindableElementParams.Length; j++)
-            {
-                var bindableElementParam = bindableElementParams[j];
-
-                CreateObjectToSourceAssignment(bindableElementParam, updateMethodStr);
-            }
-
-            updateMethodStr.AppendFormat("{0}}}", IntendLevel_);
-            
-            generatedBindsIntializerBuilder.AppendFormat("{0}{1}.{2} += __{1}UpdateBindingsHandler;\n{0}__{1}UpdateBindings();\n", 
-                MethodBodyIntendLevel_, 
-                triggerUpdatedOnAttrParam.FieldName,
-                triggerUpdatedOnAttrParam.AttributeValues["triggeredFromEvent"]);
         }
 
         return updateMethodStr.ToString();
@@ -102,40 +105,51 @@ namespace {classDeclaration.NameSpace}
     {
         var objectToSourceBuilders = new Dictionary<string, StringBuilder>();
         var sourceToObjectMethodBuilder = new StringBuilder();
-        
+
         for (var i = 0; i < bindableElementParams.Length; i++)
         {
             var fieldAttrParam = bindableElementParams[i];
-            var obj = fieldAttrParam.AttributeValues["toObject"];
 
-            if (!objectToSourceBuilders.TryGetValue(obj, out var objectToSourceBuilder))
+            foreach (var attrValues in fieldAttrParam.AttributeValues)
             {
-                objectToSourceBuilder = new StringBuilder($@"
+                var obj = attrValues["toObject"];
+                var bindingWay = GetBindingWayFromDictionary(attrValues);
+
+                if (bindingWay is BindingWay.TwoWay or BindingWay.OneWayToSource)
+                {
+                    generatedBindsIntializerBuilder.AppendFormat("{0}{1}.{2} += __{1}GeneratedBindingMethod;\n",
+                    MethodBodyIntendLevel_,
+                    fieldAttrParam.FieldName,
+                    attrValues["sourceTrigger"]);
+
+                    CreateSourceToObjectMethod(fieldAttrParam, sourceToObjectMethodBuilder);
+                }
+
+                if (bindingWay is BindingWay.OneWay or BindingWay.TwoWay)
+                {
+                    if (!objectToSourceBuilders.TryGetValue(obj, out var objectToSourceBuilder))
+                    {
+                        objectToSourceBuilder = new StringBuilder($@"
 {IntendLevel_}[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 {IntendLevel_}private void __{obj.Substring(obj.LastIndexOf('.') + 1)}GeneratedBindingMethodToObject(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 {IntendLevel_}{{
-{MethodBodyIntendLevel_}var tmpObject = sender as {fieldAttrParam.AttributeValues["castObjectAs"]};
+{MethodBodyIntendLevel_}var tmpObject = sender as {attrValues["castObjectAs"]};
 {MethodBodyIntendLevel_}if (!tmpObject.Equals({AsNullableSafeObject(obj)}) || tmpObject is null) return;
 {MethodBodyIntendLevel_}switch(e.PropertyName)
 {MethodBodyIntendLevel_}{{
 ");
-                objectToSourceBuilders.Add(obj, objectToSourceBuilder);
+                        objectToSourceBuilders.Add(obj, objectToSourceBuilder);
+                    }
+
+                    objectToSourceBuilder.AppendFormat("{0}case \"{1}\":\n",
+                        MethodBodyIntendLevel_,
+                        attrValues["toProperty"]);
+
+                    CreateObjectToSourceAssignment(fieldAttrParam, objectToSourceBuilder, "tmpObject");
+
+                    objectToSourceBuilder.AppendFormat("{0}\tbreak;\n", MethodBodyIntendLevel_);
+                }
             }
-
-            generatedBindsIntializerBuilder.AppendFormat("{0}{1}.{2} += __{1}GeneratedBindingMethod;\n",
-                MethodBodyIntendLevel_,
-                fieldAttrParam.FieldName,
-                fieldAttrParam.AttributeValues["sourceTrigger"]);
-
-            CreateSourceToObjectMethod(fieldAttrParam, sourceToObjectMethodBuilder);
-            
-            objectToSourceBuilder.AppendFormat("{0}case \"{1}\":\n",
-                MethodBodyIntendLevel_, 
-                fieldAttrParam.AttributeValues["toProperty"]);
-            
-            CreateObjectToSourceAssignment(fieldAttrParam, objectToSourceBuilder, "tmpObject");
-            
-            objectToSourceBuilder.AppendFormat("{0}\tbreak;\n", MethodBodyIntendLevel_);
         }
         
         foreach (var builder in objectToSourceBuilders)
@@ -152,68 +166,92 @@ namespace {classDeclaration.NameSpace}
 
     private void CreateObjectToSourceAssignment(FieldAttributeParams bindableElementParams, StringBuilder stringBuilder, string newSourceObject = null)
     {
-        if (bindableElementParams.AttributeValues.TryGetValue("converterTo", out var converterTo))
+        foreach (var attrValues in bindableElementParams.AttributeValues)
         {
-            stringBuilder.AppendFormat("{0}\t{1}.{3} = {2}({4}.{5});\n",
-                MethodBodyIntendLevel_,
-                bindableElementParams.FieldName,
-                converterTo,
-                bindableElementParams.AttributeValues["fromProperty"],
-                newSourceObject ?? bindableElementParams.AttributeValues["toObject"],
-                bindableElementParams.AttributeValues["toProperty"]);
-        }
-        else
-        {
-            stringBuilder.AppendFormat("{0}\t{1}.{2} = {3}.{4};\n",
-                MethodBodyIntendLevel_,
-                bindableElementParams.FieldName,
-                bindableElementParams.AttributeValues["fromProperty"],
-                newSourceObject ?? bindableElementParams.AttributeValues["toObject"],
-                bindableElementParams.AttributeValues["toProperty"]);
+            var bindingWay = GetBindingWayFromDictionary(attrValues);
+
+            if (bindingWay is BindingWay.OneWayToSource)
+                continue;
+
+            if (attrValues.TryGetValue("converterTo", out var converterTo))
+            {
+                stringBuilder.AppendFormat("{0}\t{1}.{3} = {2}({4}.{5});\n",
+                    MethodBodyIntendLevel_,
+                    bindableElementParams.FieldName,
+                    converterTo,
+                    attrValues["fromProperty"],
+                    newSourceObject ?? attrValues["toObject"],
+                    attrValues["toProperty"]);
+            }
+            else
+            {
+                stringBuilder.AppendFormat("{0}\t{1}.{2} = {3}.{4};\n",
+                    MethodBodyIntendLevel_,
+                    bindableElementParams.FieldName,
+                    attrValues["fromProperty"],
+                    newSourceObject ?? attrValues["toObject"],
+                    attrValues["toProperty"]);
+            }
         }
     }
 
     private void CreateSourceToObjectMethod(FieldAttributeParams bindableElementParams, StringBuilder stringBuilder)
     {
-        stringBuilder.AppendFormat(@"
+        foreach (var attrValues in bindableElementParams.AttributeValues)
+        {
+            stringBuilder.AppendFormat(@"
 {0}[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
 {0}private void __{1}GeneratedBindingMethod{2}
 {0}{{
 {3}if ({4} is null) return;
-", 
+",
             IntendLevel_,
-            bindableElementParams.FieldName, 
-            bindableElementParams.AttributeValues["sourceTriggerArgs"],
+            bindableElementParams.FieldName,
+            attrValues["sourceTriggerArgs"],
             MethodBodyIntendLevel_,
-            AsNullableSafeObject(bindableElementParams.AttributeValues["toObject"]));
+            AsNullableSafeObject(attrValues["toObject"]));
 
-        if (bindableElementParams.AttributeValues.TryGetValue("converterFrom", out var converterFrom))
-        {
-            stringBuilder.AppendFormat("{0}{4}.{5} = {2}({1}.{3});\n",
-                MethodBodyIntendLevel_,
-                bindableElementParams.FieldName,
-                converterFrom,
-                bindableElementParams.AttributeValues["fromProperty"],
-                bindableElementParams.AttributeValues["toObject"],
-                bindableElementParams.AttributeValues["toProperty"]);
-        }
-        else
-        {
-            stringBuilder.AppendFormat("{0}{3}.{4} = {1}.{2};\n",
-                MethodBodyIntendLevel_,
-                bindableElementParams.FieldName,
-                bindableElementParams.AttributeValues["fromProperty"],
-                bindableElementParams.AttributeValues["toObject"],
-                bindableElementParams.AttributeValues["toProperty"]);
-        }
+            if (attrValues.TryGetValue("converterFrom", out var converterFrom))
+            {
+                stringBuilder.AppendFormat("{0}{4}.{5} = {2}({1}.{3});\n",
+                    MethodBodyIntendLevel_,
+                    bindableElementParams.FieldName,
+                    converterFrom,
+                    attrValues["fromProperty"],
+                    attrValues["toObject"],
+                    attrValues["toProperty"]);
+            }
+            else
+            {
+                stringBuilder.AppendFormat("{0}{3}.{4} = {1}.{2};\n",
+                    MethodBodyIntendLevel_,
+                    bindableElementParams.FieldName,
+                    attrValues["fromProperty"],
+                    attrValues["toObject"],
+                    attrValues["toProperty"]);
+            }
 
-        stringBuilder.AppendFormat("{0}}}\n",
-            IntendLevel_);
+            stringBuilder.AppendFormat("{0}}}\n",
+                IntendLevel_);
+        }
     }
 
     private string AsNullableSafeObject(string objectData)
     {
         return objectData.Count(c => c == '.') > 1 ? objectData.Replace(".", "?.") : objectData;
+    }
+
+    private BindingWay GetBindingWayFromDictionary(Dictionary<string, string> attrValues)
+    {
+        attrValues.TryGetValue("bindingWay", out var bindingWayStr);
+
+        var bindingWay = BindingWay.TwoWay;
+        if (!string.IsNullOrWhiteSpace(bindingWayStr))
+        {
+            Enum.TryParse(bindingWayStr.Substring(bindingWayStr.LastIndexOf('.') + 1), out bindingWay);
+        }
+
+        return bindingWay;
     }
 }
 

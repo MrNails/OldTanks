@@ -4,14 +4,7 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public class Scene
 {
-    private readonly List<Mesh> m_meshes;
-
-    public Scene()
-    {
-        m_meshes = new List<Mesh>();
-    }
-
-    public List<Mesh> Meshes => m_meshes;
+    public List<Mesh> Meshes { get; } = new();
 
     public Vector3 Center { get; private set; }
     
@@ -46,7 +39,7 @@ public class Scene
             Center = Center
         };
 
-        foreach (var mesh in m_meshes)
+        foreach (var mesh in Meshes)
             newScene.Meshes.Add(mesh.Copy());
 
         return newScene;

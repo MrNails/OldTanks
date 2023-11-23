@@ -1,4 +1,6 @@
 ﻿using System.Collections.Specialized;
+using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.Services.Extensions;
 using OldTanks.Models;
 using OldTanks.UI.ImGuiControls;
 
@@ -18,8 +20,11 @@ public partial class MainWindow : ImGuiWindow
 
         m_world.WorldObjects.CollectionChanged += WorldObjectsCollectionChanged;
         InitWorldObjectsBindings();
-    }
 
+        m_world.CurrentCamera.PropertyChanged += CurrentCameraPropertyChanged;
+        m_world.CurrentCamera.PropertyChanged += __CurrentCameraGeneratedBindingMethodToObject;
+    }
+    
     private void InitWorldObjectsBindings()
     {
         foreach (var worldObject in m_world.WorldObjects)
@@ -55,5 +60,23 @@ public partial class MainWindow : ImGuiWindow
             default:
                 break;
         }
+    }
+
+    private void CurrentCameraPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        var cam = sender as Camera;
+
+        if (cam == null)
+            return;
+
+        if (e.PropertyName == nameof(Camera.Direction))
+        {
+            m_cameraRotationDragTextBox.Value = cam.Direction.ToSystemVector3();
+        }
+    }
+    
+    private void ShowTextureWindowOnClick(ImGuiButton sender, EventArgs e)
+    {
+        m_textureWindow.Show();
     }
 }

@@ -1,8 +1,6 @@
 ﻿using System.Buffers;
-using System.Numerics;
 using OldTanks.Models;
 using OldTanks.UI.ImGuiControls;
-using OldTanks.UI.Services.EventArgs;
 using OldTanks.UI.SourceGenerators.Attributes;
 
 namespace OldTanks.UI.ImGuiUI;
@@ -46,6 +44,10 @@ public partial class MainWindow
         m_maxBackSpeedDragTextBox = new ImGuiFloatDragTextBox("Max back speed");
         m_speedMultiplierDragTextBox = new ImGuiFloatDragTextBox("Speed multiplier");
         m_weightDragTextBox = new ImGuiFloatDragTextBox("Weight");
+        
+        m_textureWindow = new TextureWindow("Texture window") { Title = "Texture window" };
+        m_showTextureWindow = new ImGuiButton("Show texture window");
+        m_showTextureWindow.Click += ShowTextureWindowOnClick;
 
         m_rigidBodyTreeNode.Children.Add(m_isStaticCheckBox);
         m_rigidBodyTreeNode.Children.Add(m_centerOfMassDragTextBox);
@@ -83,6 +85,7 @@ public partial class MainWindow
         m_columnsControl.SetColumn(m_rigidBodyTreeNode, 1);
         
         panel.Children.Add(new ImGuiNewLine());
+        panel.Children.Add(m_showTextureWindow);
         panel.Children.Add(m_pushForceDragTextBox);
         panel.Children.Add(new ImGuiNewLine());
         
@@ -98,11 +101,23 @@ public partial class MainWindow
 
         InitGeneratedData();
     }
-    
+
     private ImGuiFloat3DragTextBox m_pushForceDragTextBox;
+
+    [BindableElement("Value", "Position",
+        "m_world.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
+        "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_cameraPositionDragTextBox;
+
     private ImGuiFloat3DragTextBox m_cameraRotationDragTextBox;
+
+    [BindableElement("Value", "Size",
+        "m_world.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
+        "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_cameraSizeDragTextBox;
+
     private ImGuiCheckBox m_cameraFreeModeCheckBox;
     private ImGuiColumnsControl m_columnsControl;
     private ImGuiTextBlock m_textBlock1;
@@ -110,6 +125,11 @@ public partial class MainWindow
     [TriggerUpdateOn("SelectionChanged", 
         "OldTanks.UI.ImGuiControls.ImGuiListBox<OldTanks.Models.WorldObject> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<OldTanks.UI.ImGuiControls.SelectionChangedArgs<OldTanks.Models.WorldObject>> e", 
         "m_worldObjectsListBox.SelectedItem")]
+    [BindableElement("SelectedItem.Scene", "SelectedScene", 
+        "m_textureWindow", "CoolEngine.GraphicalEngine.Core.Scene",
+        "SelectionChanged",
+        "(OldTanks.UI.ImGuiControls.ImGuiListBox<OldTanks.Models.WorldObject> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<OldTanks.UI.ImGuiControls.SelectionChangedArgs<OldTanks.Models.WorldObject>> e)",
+        bindingWay: BindingWay.OneWayToSource)]
     private ImGuiListBox<WorldObject> m_worldObjectsListBox;
     
     private ImGuiButton m_clearObjectsSelectionButton;
@@ -196,4 +216,8 @@ public partial class MainWindow
         "ValueChanged", 
         "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<float> e)")]
     private ImGuiFloatDragTextBox m_weightDragTextBox;
+
+    private ImGuiButton m_showTextureWindow;
+    
+    private TextureWindow m_textureWindow;
 }

@@ -1,11 +1,14 @@
 ﻿using ImGuiNET;
+using OldTanks.UI.Services;
 
 namespace OldTanks.UI.ImGuiControls;
 
-public class ImGuiWindow : ImGuiControlContainer
+public class ImGuiWindow : ImGuiControlContainer, IDisposable
 {
     public ImGuiWindow(string name) : base(name)
     {
+        ControlHandler.Current!.Windows.Add(this);
+        IsVisible = false;
     }
 
     public string Title { get; set; }
@@ -24,5 +27,25 @@ public class ImGuiWindow : ImGuiControlContainer
             Child?.Draw();
 
         ImGui.End();
+    }
+
+    public void Show()
+    {
+        IsVisible = true;
+    }
+
+    public void Close()
+    {
+        IsVisible = false;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        ControlHandler.Current!.Windows.Remove(this);
     }
 }

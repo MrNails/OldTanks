@@ -26,7 +26,6 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Serilog;
 using GEGlobalSettings = CoolEngine.Services.GlobalSettings;
-using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
 
 namespace OldTanks.Windows;
 
@@ -35,6 +34,7 @@ public partial class MainWindow : GameWindow
     private readonly List<Control> m_controls;
     private readonly SettingsService m_settingsService;
     private readonly ControlHandler m_controlHandler;
+    private readonly UI.ImGuiUI.MainWindow m_imGuiMainWindow;
     private readonly EngineSettings m_engineSettings;
     private readonly Settings m_userSettings;
     private readonly GameManager m_gameManager;
@@ -117,10 +117,8 @@ public partial class MainWindow : GameWindow
         m_rotation = new Vector3(0, 0, 0);
 
         m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
-        m_controlHandler = new ControlHandler
-        {
-            MainControl = new UI.ImGuiUI.MainWindow("DebugWindow", m_world) { Title = "Debug window" }
-        };
+        m_controlHandler = new ControlHandler();
+        m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_world) { Title = "Debug window", IsVisible = true };
     }
 
     #region Overloads
@@ -210,7 +208,6 @@ public partial class MainWindow : GameWindow
         if (e.Key == Keys.LeftControl)
             m_currentObject.RigidBody.MaxSpeedMultiplier = 3;
 
-
         base.OnKeyDown(e);
     }
 
@@ -250,8 +247,7 @@ public partial class MainWindow : GameWindow
                 {
                     WindowState = WindowState != WindowState.Fullscreen ? WindowState.Fullscreen : WindowState.Normal;
                 }
-
-
+                
                 break;
             }
         }
@@ -305,7 +301,7 @@ public partial class MainWindow : GameWindow
 
         GEGlobalSettings.GlobalLock.EnterWriteLock();
         
-        m_controlHandler.MainControl.Draw();
+        m_controlHandler.HandleControls();
         
         GEGlobalSettings.GlobalLock.ExitWriteLock();
 

@@ -1,5 +1,6 @@
 ﻿using OldTanks.UI.Services.CustomExceptions;
 using OldTanks.UI.Services.Interfaces;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace OldTanks.UI.Services;
 
@@ -14,6 +15,7 @@ public sealed class ControlHandler
     {
         _controls = new HashSet<IControl>();
         _linkedControls = new Dictionary<IControl, IControl>();
+        Windows = new HashSet<IControl>();
         
         lock (CurrentInstanceLocker)
         {
@@ -24,8 +26,8 @@ public sealed class ControlHandler
         }
     }
     
-    public IControl MainControl { get; set; }
-    
+    internal HashSet<IControl> Windows { get; }
+
     internal void RegisterControl(IControl control)
     {
         if (!_controls.Add(control)) 
@@ -47,6 +49,14 @@ public sealed class ControlHandler
     internal bool UnRegisterLink(IControl child)
     {
         return _linkedControls.Remove(child);
+    }
+
+    public void HandleControls()
+    {
+        foreach (var window in Windows)
+        {
+            window.Draw();
+        }
     }
 
     public static ControlHandler? Current { get; private set; }

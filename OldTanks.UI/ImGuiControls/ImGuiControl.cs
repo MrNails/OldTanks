@@ -1,9 +1,10 @@
-﻿using OldTanks.UI.Services;
+﻿using Common.Models;
+using OldTanks.UI.Services;
 using OldTanks.UI.Services.Interfaces;
 
 namespace OldTanks.UI.ImGuiControls;
 
-public abstract class ImGuiControl : IControl
+public abstract class ImGuiControl : ObservableObject, IControl
 {
     private string m_name;
 

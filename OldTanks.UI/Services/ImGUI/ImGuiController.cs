@@ -13,6 +13,8 @@ using Serilog;
 
 namespace OldTanks.UI.Services.ImGUI;
 
+//TODO: Refactor this class to more optimized rendering (maybe) and e.t.c
+//Main reason: struggling with Image rendering because it is render only one texture for every time
 /// <summary>
 /// A modified version of Veldrid.ImGui's ImGuiRenderer.
 /// Manages input for ImGui and handles rendering ImGui's DrawLists with Veldrid.
@@ -333,7 +335,14 @@ void main()
             {
                 var pcmd = cmd_list.CmdBuffer[cmd_i];
 
-                m_fontTexture.Use(TextureUnit.Texture0);
+                if (pcmd.TextureId == m_fontTexture.Handle)
+                {
+                    m_fontTexture.Use(TextureUnit.Texture0);
+                }
+                else
+                {
+                    Texture.Use(pcmd.TextureId.ToInt32(), TextureUnit.Texture0);
+                }
 
                 // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
                 var clip = pcmd.ClipRect;

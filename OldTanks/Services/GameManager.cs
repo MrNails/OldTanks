@@ -12,7 +12,7 @@ using Serilog;
 
 namespace OldTanks.Services;
 
-public sealed class GameManager
+public sealed class GameManager : ObservableObject
 {
     private readonly ILogger m_logger;
     private readonly LoggerService m_loggerService;
@@ -25,6 +25,11 @@ public sealed class GameManager
     public EventHandler<GameManager, EventArgs>? SkyBoxesLoaded;
     public EventHandler<GameManager, EventArgs>? ModelsLoaded;
     public EventHandler<GameManager, EventArgs>? FontsLoaded;
+    
+    private bool m_isDebugView;
+    private bool m_freeCameraMode;
+    private bool m_drawNormals;
+    private bool m_drawFaceNumbers;
 
     public GameManager(LoggerService loggerService, SettingsService settingsService, World world)
     {
@@ -49,6 +54,30 @@ public sealed class GameManager
     public IAssetLoader GetTextureLoader() => m_assetLoaders[nameof(TextureLoader)];
     public IAssetLoader GetSkyBoxTextureLoader() => m_assetLoaders[nameof(SkyBoxTextureLoader)];
     public IAssetLoader GetWaveFrontModelLoader() => m_assetLoaders[nameof(WaveFrontLoader)];
+
+    public bool IsDebugView
+    {
+        get => m_isDebugView;
+        set => SetField(ref m_isDebugView, value);
+    }
+
+    public bool FreeCameraMode
+    {
+        get => m_freeCameraMode;
+        set => SetField(ref m_freeCameraMode, value);
+    }
+
+    public bool DrawNormals
+    {
+        get => m_drawNormals;
+        set => SetField(ref m_drawNormals, value);
+    }
+
+    public bool DrawFaceNumbers
+    {
+        get => m_drawFaceNumbers;
+        set => SetField(ref m_drawFaceNumbers, value);
+    }
 
     public async Task LoadShaders()
     {

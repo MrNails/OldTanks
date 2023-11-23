@@ -2,7 +2,7 @@
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 
-public sealed class Texture : IDisposable
+public class Texture : IDisposable
 {
     public static Texture Empty { get; } = new Texture(0, -1, -1);
 
@@ -79,8 +79,9 @@ public sealed class Texture : IDisposable
         return new Texture(handle, imgSize.Width, imgSize.Height);
     }
 
-    public static Texture CreateCubeSkyBoxTexture<T>(Func<int, (T[] Pixels, int Width, int Height, PixelDto pixelDto)> getSkyBoxPart) 
-        where T : unmanaged 
+    public static Texture CreateCubeSkyBoxTexture<T>(
+        Func<int, (T[] Pixels, int Width, int Height, PixelDto pixelDto)> getSkyBoxPart)
+        where T : unmanaged
     {
         int handle = GL.GenTexture();
 
@@ -148,6 +149,12 @@ public sealed class Texture : IDisposable
             GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
         return new Texture(handle, imgSize.Width, imgSize.Height);
+    }
+
+    public static void Use(int handle, TextureUnit unit, TextureTarget textureTarget = TextureTarget.Texture2D)
+    {
+        GL.ActiveTexture(unit);
+        GL.BindTexture(textureTarget, handle);
     }
 
     public readonly struct PixelDto

@@ -1,16 +1,7 @@
-﻿using CoolEngine.GraphicalEngine.Core.Primitives;
-using CoolEngine.GraphicalEngine.Core.Texture;
-using CoolEngine.Services.Interfaces;
+﻿using CoolEngine.GraphicalEngine.Core.Texture;
 using OpenTK.Mathematics;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace CoolEngine.GraphicalEngine.Core;
-
-public struct VertexTextureIndices
-{
-    public uint VertexIndex;
-    public uint TextureIndex;
-}
 
 public class Mesh
 {
