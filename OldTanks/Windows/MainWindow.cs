@@ -118,7 +118,7 @@ public partial class MainWindow : GameWindow
 
         m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
         m_controlHandler = new ControlHandler();
-        m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_world) { Title = "Debug window", IsVisible = true };
+        m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager) { Title = "Debug window", IsVisible = true };
     }
 
     #region Overloads

@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using CoolEngine.Services;
+using OpenTK.Graphics.OpenGL4;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 
@@ -30,7 +31,7 @@ public class Texture : IDisposable
     {
         if (!Disposed)
         {
-            GL.DeleteTexture(Handle);
+            UI.UIInvoke(() => GL.DeleteTexture(Handle));
             Disposed = true;
         }
     }

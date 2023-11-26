@@ -1,33 +1,39 @@
 ﻿using System.Collections.Specialized;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.PhysicEngine.Core.Collision;
+using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
+using CoolEngine.Services.Renderers;
 using OldTanks.Models;
+using OldTanks.Services;
 using OldTanks.UI.ImGuiControls;
+using OpenTK.Mathematics;
 
 namespace OldTanks.UI.ImGuiUI;
 
 public partial class MainWindow : ImGuiWindow
 {
-    private World m_world;
+    private readonly GameManager m_gameManager;
+    private TextureWindow? m_textureWindow;
 
-    public MainWindow(string name, World world) : base(name)
+    public MainWindow(string name, GameManager gameManager) : base(name)
     {
         Initialize();
 
-        m_world = world;
-        m_worldObjectsListBox!.Items = m_world.WorldObjects;
+        m_gameManager = gameManager;
+        m_worldObjectsListBox!.Items = m_gameManager.World.WorldObjects;
         m_worldObjectsListBox.BindingFunction = w => w.Name ?? w.GetType().Name;
 
-        m_world.WorldObjects.CollectionChanged += WorldObjectsCollectionChanged;
+        m_gameManager.World.WorldObjects.CollectionChanged += WorldObjectsCollectionChanged;
         InitWorldObjectsBindings();
 
-        m_world.CurrentCamera.PropertyChanged += CurrentCameraPropertyChanged;
-        m_world.CurrentCamera.PropertyChanged += __CurrentCameraGeneratedBindingMethodToObject;
+        m_gameManager.World.CurrentCamera.PropertyChanged += CurrentCameraPropertyChanged;
+        m_gameManager.World.CurrentCamera.PropertyChanged += __CurrentCameraGeneratedBindingMethodToObject;
     }
     
     private void InitWorldObjectsBindings()
     {
-        foreach (var worldObject in m_world.WorldObjects)
+        foreach (var worldObject in m_gameManager.World.WorldObjects)
         {
             worldObject.PropertyChanged += __SelectedItemGeneratedBindingMethodToObject;
             worldObject.RigidBody.PropertyChanged += __RigidBodyGeneratedBindingMethodToObject;
@@ -77,6 +83,36 @@ public partial class MainWindow : ImGuiWindow
     
     private void ShowTextureWindowOnClick(ImGuiButton sender, EventArgs e)
     {
+        m_textureWindow ??= new TextureWindow("Texture window", m_gameManager) { Title = "Texture window" };
         m_textureWindow.Show();
+    }
+    
+    private void DeleteObjectOnClick(ImGuiButton sender, EventArgs e)
+    {
+        var selectedItem = m_worldObjectsListBox.SelectedItem;
+        
+        if (selectedItem == null) 
+            return;
+        
+        ObjectRenderer.RemoveDrawable(selectedItem);
+        CollisionRenderer.RemoveCollision(selectedItem);
+        m_gameManager.World.WorldObjects.Remove(selectedItem);
+    }
+
+    private void SpawnObjectOnClick(ImGuiButton sender, EventArgs e)
+    {
+        var cube = new Cube
+        {
+            Size = Vector3.One,
+            RigidBody =
+            {
+                IsStatic = true
+            }
+        };
+        cube.Collision = new Collision(cube, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
+
+        m_gameManager.World.WorldObjects.Add(cube);
+        CollisionRenderer.AddCollision(cube);
+        ObjectRenderer.AddDrawable(cube, GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader"));
     }
 }

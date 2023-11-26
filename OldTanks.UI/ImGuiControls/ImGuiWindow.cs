@@ -7,7 +7,7 @@ public class ImGuiWindow : ImGuiControlContainer, IDisposable
 {
     public ImGuiWindow(string name) : base(name)
     {
-        ControlHandler.Current!.Windows.Add(this);
+        ControlHandler.Current!.AddWindow(this);
         IsVisible = false;
     }
 
@@ -46,6 +46,6 @@ public class ImGuiWindow : ImGuiControlContainer, IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        ControlHandler.Current!.Windows.Remove(this);
+        ControlHandler.Current!.RemoveWindow(this);
     }
 }

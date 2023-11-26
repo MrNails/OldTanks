@@ -31,6 +31,7 @@ public static class ObjectRenderer
         return m_sceneBuffers.TryAdd(type, new DrawSceneInfo(shader));
     }
 
+    //TODO: Refactor AddDrawable to make it internal 
     public static bool AddDrawable(IDrawable drawable, Shader shader)
     {
         if (drawable == null)

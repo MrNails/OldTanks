@@ -1,4 +1,5 @@
-﻿using Common.Services;
+﻿using System.Collections.ObjectModel;
+using Common.Services;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
@@ -36,6 +37,8 @@ public sealed class GameManager : ObservableObject
         m_loggerService = loggerService;
         m_logger = m_loggerService.CreateLogger();
         m_settingsService = settingsService;
+
+        Textures = new ObservableCollection<string>();
         
         m_assetLoaders = new Dictionary<string, IAssetLoader>
         {
@@ -50,10 +53,7 @@ public sealed class GameManager : ObservableObject
 
     public World World { get; }
     
-    public IAssetLoader GetShaderLoader() => m_assetLoaders[nameof(ShaderLoader)];
-    public IAssetLoader GetTextureLoader() => m_assetLoaders[nameof(TextureLoader)];
-    public IAssetLoader GetSkyBoxTextureLoader() => m_assetLoaders[nameof(SkyBoxTextureLoader)];
-    public IAssetLoader GetWaveFrontModelLoader() => m_assetLoaders[nameof(WaveFrontLoader)];
+    public ObservableCollection<string> Textures { get; }
 
     public bool IsDebugView
     {
@@ -78,7 +78,12 @@ public sealed class GameManager : ObservableObject
         get => m_drawFaceNumbers;
         set => SetField(ref m_drawFaceNumbers, value);
     }
-
+    
+    public IAssetLoader GetShaderLoader() => m_assetLoaders[nameof(ShaderLoader)];
+    public IAssetLoader GetTextureLoader() => m_assetLoaders[nameof(TextureLoader)];
+    public IAssetLoader GetSkyBoxTextureLoader() => m_assetLoaders[nameof(SkyBoxTextureLoader)];
+    public IAssetLoader GetWaveFrontModelLoader() => m_assetLoaders[nameof(WaveFrontLoader)];
+    
     public async Task LoadShaders()
     {
         var loader = GetShaderLoader();
@@ -99,11 +104,12 @@ public sealed class GameManager : ObservableObject
         var loader = GetTextureLoader();
         var defaultSettings = m_settingsService.GetDefaultSettings<Settings>();
 
-        var shaderDirPath = Path.Combine(Environment.CurrentDirectory, defaultSettings.AssetPath, defaultSettings.TexturesDirectory);
-
-        foreach (var textureFile in Directory.GetFiles(shaderDirPath))
+        var texturesDirPath = Path.Combine(Environment.CurrentDirectory, defaultSettings.AssetPath, defaultSettings.TexturesDirectory);
+        
+        foreach (var textureFile in Directory.GetFiles(texturesDirPath))
         {
             await loader.LoadAsset(textureFile);
+            Textures.Add(Path.GetFileNameWithoutExtension(textureFile));
         }
         
         TexturesLoaded?.Invoke(this, EventArgs.Empty);

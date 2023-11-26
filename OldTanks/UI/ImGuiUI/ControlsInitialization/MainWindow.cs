@@ -14,19 +14,24 @@ public partial class MainWindow
     {
         var panel = new ImGuiPanel($"Panel: {Name}");
 
+        m_spawnObject = new ImGuiButton("Spawn object");
+        m_spawnObject.Click += SpawnObjectOnClick;
+        m_deleteObject = new ImGuiButton("Delete selected object");
+        m_deleteObject.Click += DeleteObjectOnClick;
+        
         m_pushForceDragTextBox = new ImGuiFloat3DragTextBox("Push force");
         m_cameraPositionDragTextBox = new ImGuiFloat3DragTextBox("CPosition");
         m_cameraRotationDragTextBox = new ImGuiFloat3DragTextBox("CRotation");
         m_cameraSizeDragTextBox = new ImGuiFloat3DragTextBox("CSize");
         
         m_cameraFreeModeCheckBox = new ImGuiCheckBox("Camera free mode");
-        m_textBlock1 = new ImGuiTextBlock("World objects");
+        m_textBlock1 = new ImGuiTextBlock("WorldObjectsTextBlock") { Text = "World objects"};
         
         m_worldObjectsListBox = new ImGuiListBox<WorldObject>("WorldObjectsListBox", ArrayPool<string>.Shared);
         m_clearObjectsSelectionButton = new ImGuiButton("Clear selection");
         m_clearObjectsSelectionButton.Click += ClearObjectsSelectionButtonOnClick;
 
-        m_textBlock2 = new ImGuiTextBlock("Selected world object data");
+        m_textBlock2 = new ImGuiTextBlock("SelectedWorldObjectDataTextBlock"){ Text = "Selected world object data"};
 
         m_selectedObjectPositionDragTextBox = new ImGuiFloat3DragTextBox("Position");
         m_selectedObjectRotationDragTextBox = new ImGuiFloat3DragTextBox("Rotation");
@@ -45,7 +50,6 @@ public partial class MainWindow
         m_speedMultiplierDragTextBox = new ImGuiFloatDragTextBox("Speed multiplier");
         m_weightDragTextBox = new ImGuiFloatDragTextBox("Weight");
         
-        m_textureWindow = new TextureWindow("Texture window") { Title = "Texture window" };
         m_showTextureWindow = new ImGuiButton("Show texture window");
         m_showTextureWindow.Click += ShowTextureWindowOnClick;
 
@@ -86,10 +90,13 @@ public partial class MainWindow
         
         panel.Children.Add(new ImGuiNewLine());
         panel.Children.Add(m_showTextureWindow);
+        panel.Children.Add(m_spawnObject);
+        panel.Children.Add(new ImGuiSameLine("SameLine0"));
+        panel.Children.Add(m_deleteObject);
         panel.Children.Add(m_pushForceDragTextBox);
         panel.Children.Add(new ImGuiNewLine());
         
-        panel.Children.Add(new ImGuiTextBlock("Camera data"));
+        panel.Children.Add(new ImGuiTextBlock("CameraData") { Text = "Camera data"});
         panel.Children.Add(m_cameraPositionDragTextBox);
         panel.Children.Add(m_cameraRotationDragTextBox);
         panel.Children.Add(m_cameraSizeDragTextBox);
@@ -102,10 +109,13 @@ public partial class MainWindow
         InitGeneratedData();
     }
 
+    private ImGuiButton m_spawnObject;
+    private ImGuiButton m_deleteObject;
+    
     private ImGuiFloat3DragTextBox m_pushForceDragTextBox;
 
     [BindableElement("Value", "Position",
-        "m_world.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
+        "m_gameManager.World.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
         "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_cameraPositionDragTextBox;
@@ -113,7 +123,7 @@ public partial class MainWindow
     private ImGuiFloat3DragTextBox m_cameraRotationDragTextBox;
 
     [BindableElement("Value", "Size",
-        "m_world.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
+        "m_gameManager.World.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
         "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_cameraSizeDragTextBox;
@@ -218,6 +228,4 @@ public partial class MainWindow
     private ImGuiFloatDragTextBox m_weightDragTextBox;
 
     private ImGuiButton m_showTextureWindow;
-    
-    private TextureWindow m_textureWindow;
 }

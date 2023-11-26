@@ -34,6 +34,8 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
 
         m_valuesToDraw = arrayPool.Rent(16);
         m_valuesToDraw.FillDefaults(string.Empty);
+
+        m_selectedIndex = -1;
     }
 
     public string? Label { get; set; }
@@ -69,6 +71,10 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
             }
 
             m_items = value;
+            OnPropertyChanged();
+            
+            if (m_items != null)
+                FillValuesArray(0, m_items.Count);
         }
     }
     

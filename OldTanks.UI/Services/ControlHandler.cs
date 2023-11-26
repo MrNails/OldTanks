@@ -8,14 +8,15 @@ public sealed class ControlHandler
 {
     private static object CurrentInstanceLocker = new object();
     
-    private HashSet<IControl> _controls;
-    private Dictionary<IControl, IControl> _linkedControls;
+    private readonly HashSet<IControl> m_controls;
+    private readonly Dictionary<IControl, IControl> m_linkedControls;
+    private readonly List<IControl> m_windows;
 
     public ControlHandler()
     {
-        _controls = new HashSet<IControl>();
-        _linkedControls = new Dictionary<IControl, IControl>();
-        Windows = new HashSet<IControl>();
+        m_controls = new HashSet<IControl>();
+        m_linkedControls = new Dictionary<IControl, IControl>();
+        m_windows = new List<IControl>();
         
         lock (CurrentInstanceLocker)
         {
@@ -25,37 +26,52 @@ public sealed class ControlHandler
             Current = this;
         }
     }
-    
-    internal HashSet<IControl> Windows { get; }
 
+    internal bool AddWindow(IControl window)
+    {
+        if (m_windows.Contains(window))
+        {
+            return false;
+        }
+        
+        m_windows.Add(window);
+
+        return true;
+    }
+    
+    internal bool RemoveWindow(IControl window)
+    {
+        return m_windows.Remove(window);
+    }
+    
     internal void RegisterControl(IControl control)
     {
-        if (!_controls.Add(control)) 
+        if (!m_controls.Add(control)) 
             throw new InvalidOperationException($"Control with name {control.Name} already exists.");
     }
 
-    internal bool UnRegisterControl(IControl control) => _controls.Remove(control);
+    internal bool UnRegisterControl(IControl control) => m_controls.Remove(control);
 
     internal void RegisterLink(IControl parent, IControl child)
     {
-        if (_linkedControls.ContainsKey(child) ||
-            _linkedControls.TryGetValue(parent, out var tmpChild) &&
+        if (m_linkedControls.ContainsKey(child) ||
+            m_linkedControls.TryGetValue(parent, out var tmpChild) &&
             tmpChild == child)
             throw new ControlLinkedException($"Cannot link {child.Name} to {parent.Name}");
         
-        _linkedControls.Add(child, parent);
+        m_linkedControls.Add(child, parent);
     }
     
     internal bool UnRegisterLink(IControl child)
     {
-        return _linkedControls.Remove(child);
+        return m_linkedControls.Remove(child);
     }
 
     public void HandleControls()
     {
-        foreach (var window in Windows)
+        for (int i = 0; i < m_windows.Count; i++)
         {
-            window.Draw();
+            m_windows[i].Draw();
         }
     }
 

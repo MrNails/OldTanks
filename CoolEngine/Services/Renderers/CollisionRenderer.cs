@@ -24,10 +24,9 @@ public class CollisionRenderer
         if (collisionable == null || collisionable.Collision == null)
             return;
 
-        CollisionRenderGroup collisionRenderGroup;
         var collisionType = collisionable.GetType();
 
-        if (!m_drawCollisions.TryGetValue(collisionType, out collisionRenderGroup))
+        if (!m_drawCollisions.TryGetValue(collisionType, out var collisionRenderGroup))
         {
             collisionRenderGroup = new CollisionRenderGroup(Shader);
             m_drawCollisions.Add(collisionType, collisionRenderGroup);
@@ -46,6 +45,16 @@ public class CollisionRenderer
             AddCollision(collisionable);
     }
 
+    public static void RemoveCollision(ICollisionable collisionable)
+    {
+        var collisionType = collisionable.GetType();
+        
+        if (m_drawCollisions.TryGetValue(collisionType, out var collisionRenderGroup))
+        {
+            collisionRenderGroup.Remove(collisionable);
+        }
+    }
+    
     public static void DrawElementsCollision(Camera camera, Font font, int lineWidth = 3,
         bool useLookAt = true, bool drawVerticesPositions = true, bool drawNormals = true)
     {

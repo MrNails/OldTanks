@@ -1,4 +1,4 @@
-﻿using Serilog;
+﻿using System.Collections.Concurrent;
 
 namespace CoolEngine.Services;
 
@@ -19,111 +19,35 @@ public class GlobalCache<T>
         }
     }
 
-    private readonly ReaderWriterLockSlim m_cacheLock;
-    private readonly Dictionary<string, T> m_cache;
+    private readonly ConcurrentDictionary<string, T> m_cache;
 
     private GlobalCache()
     {
-        m_cacheLock = new ReaderWriterLockSlim();
-        m_cache = new Dictionary<string, T>();
+        m_cache = new ConcurrentDictionary<string, T>();
     }
 
-    public int Count
-    {
-        get
-        {
-            try
-            {
-                m_cacheLock.EnterReadLock();
-                return m_cache.Count;
-            }
-            catch (Exception e)
-            {
-                Log.Warning(e, "Error attempting get amount of items.");
-            }
-            finally
-            {
-                m_cacheLock.ExitReadLock();
-            }
-
-            return -1;
-        }
-    }
-
+    public int Count => m_cache.Count;
+    
     public bool AddOrUpdateItem(string name, T item)
     {
-        try
-        {
-            m_cacheLock.EnterWriteLock();
-            m_cache[name] = item;
-            return true;
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e, "Error attempting add or update item.");
-        }
-        finally
-        {
-            m_cacheLock.ExitWriteLock();
-        }
-
-        return false;
+        m_cache[name] = item;
+        return true;
     }
 
     public bool RemoveItem(string name)
     {
-        try
-        {
-            m_cacheLock.EnterWriteLock();
-            return m_cache.Remove(name);
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e, "Error attempting remove item.");
-        }
-        finally
-        {
-            m_cacheLock.ExitWriteLock();
-        }
-
-        return false;
+        return m_cache.Remove(name, out _);
     }
 
     public T? GetItemOrDefault(string name)
     {
-        try
-        {
-            m_cacheLock.EnterReadLock();
+        m_cache.TryGetValue(name, out var item);
 
-            if (!m_cache.TryGetValue(name, out var item))
-                item = default;
-
-            return item;
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e, "Error attempting get item.");
-        }
-        finally
-        {
-            m_cacheLock.ExitReadLock();
-        }
-
-        return default;
+        return item;
     }
 
-    public async Task<bool> Dispose()
+    public void Dispose()
     {
-        while (m_cacheLock.WaitingWriteCount > 0 ||
-               m_cacheLock.WaitingReadCount > 0 ||
-               m_cacheLock.WaitingUpgradeCount > 0)
-        {
-            await Task.Delay(100);
-        }
-
-        m_cacheLock.Dispose();
         m_cache.Clear();
-
-        return true;
     }
 }
