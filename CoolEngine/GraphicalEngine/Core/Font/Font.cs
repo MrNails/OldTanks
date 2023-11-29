@@ -66,7 +66,7 @@ public class Font
 
         try
         {
-            UI.UIInvoke(() => GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1));
+            GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 
             var loadedData = await Task.Run(() =>
             {
@@ -96,15 +96,15 @@ public class Font
                 var img = CreateFontImage(imgLength, maxHeight, fontLoadDatas, out var width);
                 var pixelDto = new Texture.Texture.PixelDto(PixelInternalFormat.CompressedRed, PixelFormat.Red, PixelType.UnsignedByte);
                 
-                var texture = UI.UIInvoke(() => 
-                    Texture.Texture.CreateTexture2D(img, (width, maxHeight), ref pixelDto, TextureWrapMode.ClampToEdge));
+                var texture = UI.UIInvoke(() => Texture.Texture.CreateTexture2D(img, (width, maxHeight), ref pixelDto, TextureWrapMode.ClampToEdge));
+                texture.Name = Path.GetFileNameWithoutExtension(path);
 
                 ArrayPool<byte>.Shared.Return(img);
 
                 return (texture, charsResult);
             });
 
-            UI.UIInvoke(() => GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4));
+            GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
 
             if (loadedData.texture == null)
             {

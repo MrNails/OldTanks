@@ -35,8 +35,10 @@ public sealed class TextureLoader : IAssetLoader
             pixels[i * img.Width + j] = img[j, i];
 
         var pixelDto = new Texture.PixelDto(PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
+        var texture = Texture.CreateTexture2D(pixels, (img.Width, img.Height), ref pixelDto);
+        texture.Name = tName;
         
-        GlobalCache<Texture>.Default.AddOrUpdateItem(tName, UI.UIInvoke(() => Texture.CreateTexture2D(pixels, (img.Width, img.Height), ref pixelDto)));
+        GlobalCache<Texture>.Default.AddOrUpdateItem(tName, texture);
         
         img.Dispose();
         ArrayPool<Rgba32>.Shared.Return(pixels);

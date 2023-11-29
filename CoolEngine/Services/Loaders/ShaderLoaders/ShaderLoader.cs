@@ -28,9 +28,7 @@ public sealed class ShaderLoader : IAssetLoader
         var fragShaderText =
             await File.ReadAllTextAsync(Path.Combine(assetPath, $"{Path.GetFileName(assetPath)}.frag"));
         
-        var shader = 
-            UI.UIInvoke(() =>
-                Shader.Create(vertShaderText, fragShaderText, shaderName, m_logger));
+        var shader = Shader.Create(vertShaderText, fragShaderText, shaderName, m_logger);
 
         
         GlobalCache<Shader>.Default.AddOrUpdateItem(shaderName, shader);

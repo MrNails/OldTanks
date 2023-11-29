@@ -23,7 +23,10 @@ public class Application
         Log.Logger.Information("Application thread {ThreadId}", Thread.CurrentThread.ManagedThreadId);
 
         Dispatcher = new Dispatcher();
+        AppSynchronizationContext = new DispatcherSynchronizationContext(Dispatcher);
+        SynchronizationContext.SetSynchronizationContext(AppSynchronizationContext);
     }
 
     public Dispatcher Dispatcher { get; }
+    public SynchronizationContext AppSynchronizationContext { get; }
 }

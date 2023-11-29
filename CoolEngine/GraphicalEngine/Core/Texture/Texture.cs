@@ -1,24 +1,47 @@
-﻿using CoolEngine.Services;
-using OpenTK.Graphics.OpenGL4;
+﻿using OpenTK.Graphics.OpenGL4;
+using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 
-public class Texture : IDisposable
+public class Texture : IDisposable, IEquatable<Texture>
 {
-    public static Texture Empty { get; } = new Texture(0, -1, -1);
-
-    public int Handle { get; }
-
-    public bool Disposed { get; private set; }
-
-    public float Width { get; }
-    public float Height { get; }
+    public static Texture Empty { get; } = new Texture(0, -1, -1) { Name = "Empty" };
 
     private Texture(int handle, float width, float height)
     {
         Handle = handle;
         Width = width;
         Height = height;
+    }
+
+    public int Handle { get; }
+    public string? Name { get; set; }
+    public float Width { get; }
+    public float Height { get; }
+    
+    public bool Disposed { get; private set; }
+    
+    public override string ToString()
+    {
+        return $"Id: {Handle}; Size: [{Width};{Height}]";
+    }
+
+    public override int GetHashCode()
+    {
+        return Handle;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as Texture);
+    }
+    
+    public bool Equals(Texture? other)
+    {
+        if (ReferenceEquals(null, other)) return false;
+        if (ReferenceEquals(this, other)) return true;
+        
+        return Handle == other.Handle;
     }
 
     public void Use(TextureUnit unit, TextureTarget textureTarget = TextureTarget.Texture2D)
@@ -31,7 +54,7 @@ public class Texture : IDisposable
     {
         if (!Disposed)
         {
-            UI.UIInvoke(() => GL.DeleteTexture(Handle));
+            GL.DeleteTexture(Handle);
             Disposed = true;
         }
     }
@@ -44,9 +67,10 @@ public class Texture : IDisposable
 
     ~Texture()
     {
+        Log.Fatal("Abandoned Shader {ShaderName} ({ShaderId})", Name, Handle);
         ReleaseUnmanagedResources();
     }
-
+    
     public static Texture CreateTexture2D<T>(T[] pixels, (int Width, int Height) imgSize,
         ref PixelDto pixelDto,
         TextureWrapMode textureWrapMode = TextureWrapMode.Repeat,
@@ -158,6 +182,16 @@ public class Texture : IDisposable
         GL.BindTexture(textureTarget, handle);
     }
 
+    public static bool operator ==(Texture? left, Texture? right)
+    {
+        return Equals(left, right);
+    }
+
+    public static bool operator !=(Texture? left, Texture? right)
+    {
+        return !Equals(left, right);
+    }
+    
     public readonly struct PixelDto
     {
         public PixelDto(PixelInternalFormat pixelInternalFormat, PixelFormat pixelFormat, PixelType pixelType)

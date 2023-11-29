@@ -114,7 +114,9 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
 
     public T? SelectedItem
     {
-        get => m_selectedIndex == -1 || m_items == null ? default : m_items[m_selectedIndex];
+        get => m_selectedIndex == -1 || m_items == null || m_selectedIndex >= m_items.Count 
+            ? default 
+            : m_items[m_selectedIndex];
         set
         {
             if (value?.Equals(SelectedItem) ?? false)
@@ -160,9 +162,9 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
 
     private void FillValuesArray(int startIndex, int amount)
     {
-        for (int i = startIndex; i < amount; i++)
+        for (int i = 0; i < amount; i++)
         {
-            m_valuesToDraw[i] = BindingFunction(m_items![i]);
+            m_valuesToDraw[startIndex + i] = BindingFunction(m_items![i]);
         }
     }
     
@@ -185,13 +187,22 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
                 m_valuesToDraw[e.NewStartingIndex] = BindingFunction((T)e.NewItems[0]);
                 break;
             case NotifyCollectionChangedAction.Remove:
-                FillValuesArray(e.OldStartingIndex, m_items!.Count - e.OldStartingIndex);
-                m_valuesToDraw.FillDefaultsUntil(string.Empty, FillOption, m_items.Count - 1);
+                if (m_items!.Count != e.OldStartingIndex) 
+                {
+                    FillValuesArray(e.OldStartingIndex, m_items.Count - e.OldStartingIndex);
+                }
+
+                m_valuesToDraw.FillDefaultsUntil(string.Empty, FillOption, m_items.Count);
 
                 item = e.OldItems[0] as ObservableObject;
 
                 if (item != null)
                     item.PropertyChanged -= ItemOnPropertyChanged;
+
+                if (SelectedIndex >= Items.Count)
+                {
+                    SelectedIndex--;
+                }
 
                 break;
             case NotifyCollectionChangedAction.Replace:

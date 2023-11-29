@@ -4,7 +4,7 @@ using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public sealed class Shader : IDisposable
+public sealed class Shader : IDisposable, IEquatable<Shader>
 {
     private readonly Dictionary<string, int> m_uniforms;
     private readonly Dictionary<string, int> m_attributes;
@@ -79,6 +79,24 @@ public sealed class Shader : IDisposable
         
         return location;
     }
+    
+    public bool Equals(Shader? other)
+    {
+        if (ReferenceEquals(null, other)) return false;
+        if (ReferenceEquals(this, other)) return true;
+        
+        return Handle == other.Handle;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return Equals(obj as Shader);
+    }
+
+    public override int GetHashCode()
+    {
+        return Handle;
+    }
 
     private void LoadShaderUniforms()
     {
@@ -129,6 +147,7 @@ public sealed class Shader : IDisposable
 
     ~Shader()
     {
+        Log.Fatal("Abandoned Shader {ShaderName} ({ShaderId})", Name, Handle);
         ReleaseUnmanagedResources();
     }
     
@@ -177,5 +196,15 @@ public sealed class Shader : IDisposable
         GL.CompileShader(shader);
 
         return GL.GetShaderInfoLog(shader);
+    }
+
+    public static bool operator ==(Shader? left, Shader? right)
+    {
+        return Equals(left, right);
+    }
+
+    public static bool operator !=(Shader? left, Shader? right)
+    {
+        return !Equals(left, right);
     }
 }

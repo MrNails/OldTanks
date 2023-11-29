@@ -149,6 +149,7 @@ void main()
         var pixelDto = new Texture.PixelDto(PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
         
         m_fontTexture = Texture.CreateTexture2D(pixels, (width, height), ref pixelDto, TextureWrapMode.ClampToEdge);
+        m_fontTexture.Name = "ImGuiTexture";
 
         io.Fonts.SetTexID((IntPtr)m_fontTexture.Handle);
     }

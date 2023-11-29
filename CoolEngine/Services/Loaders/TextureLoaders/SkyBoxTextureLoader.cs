@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using CoolEngine.GraphicalEngine.Core.Texture;
+﻿using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
 using Serilog;
@@ -43,10 +42,13 @@ public sealed class SkyBoxTextureLoader : IAssetLoader
         }
 
         var tName = Path.GetFileNameWithoutExtension(assetPath);
-        var texture = UI.UIInvoke(() => Texture.CreateCubeSkyBoxTexture((Func<int, (Rgba32[], int, int, Texture.PixelDto)>)PartHandler));
+        var texture = Texture.CreateCubeSkyBoxTexture((Func<int, (Rgba32[], int, int, Texture.PixelDto)>)PartHandler);
+        texture.Name = tName;
         
         GlobalCache<Texture>.Default.AddOrUpdateItem(tName, texture);
         
+        return;
+
         (Rgba32[], int, int, Texture.PixelDto) PartHandler(int partIdx)
         {
             var part = skyBoxPixels[partIdx];
