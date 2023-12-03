@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using CoolEngine.GraphicalEngine.Core;
+﻿using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
@@ -9,20 +8,26 @@ using OpenTK.Mathematics;
 
 namespace OldTanks.Models;
 
-public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, IWatchable, INotifyPropertyChanged
+public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, IWatchable
 {
-    private Scene m_scene;
+    private readonly Scene m_scene;
+    
+    private string m_name;
+    
+    private bool m_haveTransformation;
+    
     private Vector3 m_position;
     private Vector3 m_direction;
-
-    protected Vector3 m_size;
-
-    private bool m_haveTransformation;
-
-    protected Matrix4 m_transform;
     private Vector3 m_cameraOffset;
     private Vector2 m_cameraOffsetAngle;
+    private Vector4 m_color;
     
+    private Collision m_collision;
+    
+    protected Vector3 m_size;
+    
+    protected Matrix4 m_transform;
+
     protected WorldObject(Scene scene)
     {
         var currType = GetType();
@@ -38,12 +43,27 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
     public Scene Scene => m_scene;
 
-    public bool HaveChanged => m_haveTransformation;
+    public bool NeedTransformationApply => m_haveTransformation;
 
-    public RigidBody RigidBody { get; set; }
-    public Collision Collision { get; set; }
+    public string Name
+    {
+        get => m_name;
+        set => SetField(ref m_name, value);
+    }
     
-    public string Name { get; set; }
+    public RigidBody RigidBody { get; }
+
+    public Collision Collision
+    {
+        get => m_collision;
+        set => SetField(ref m_collision, value);
+    }
+
+    public Vector4 Color
+    {
+        get => m_color;
+        set => SetField(ref m_color, value);
+    }
 
     public virtual Vector3 Size
     {
@@ -212,11 +232,11 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         set => SetField(ref m_cameraOffset, value);
     }
 
-    public Matrix4 Transform => m_transform;
+    public Matrix4 Transformation => m_transform;
 
     public bool Visible { get; set; }
 
-    public virtual void AcceptTransform()
+    public virtual void ApplyTransformation()
     {
         if (!m_haveTransformation)
             return;

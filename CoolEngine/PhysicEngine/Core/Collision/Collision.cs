@@ -10,15 +10,15 @@ public class Collision
     private readonly CollisionData m_originalCollision;
     private readonly CollisionData m_currentCollision;
 
-    public Collision(ITransformable transformable, CollisionData originalCollision)
+    public Collision(IPhysicObject physicObject, CollisionData originalCollision)
     {
-        if (transformable == null)
-            throw new ArgumentNullException(nameof(transformable));
+        if (physicObject == null)
+            throw new ArgumentNullException(nameof(physicObject));
         
         if (originalCollision == null)
             throw new ArgumentNullException(nameof(originalCollision));
         
-        m_currentCollision = new CollisionData(originalCollision.CollisionType) { Transformable = transformable };
+        m_currentCollision = new CollisionData(originalCollision.CollisionType) { PhysicObject = physicObject };
 
         m_originalCollision = originalCollision;
 
@@ -36,7 +36,7 @@ public class Collision
 
     public void UpdateCollision()
     {
-        var transformation = CollisionData.Transformable!.Transform;
+        var transformation = CollisionData.PhysicObject!.Transformation;
         var rotation = transformation.ClearTranslation().ClearScale();
 
         for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
@@ -52,7 +52,7 @@ public class Collision
          normal = Vector3.Zero;
          depth = float.MaxValue;
 
-         if (t2 == null || t2.CollisionData.Transformable == null)
+         if (t2 == null || t2.CollisionData.PhysicObject == null)
              return false;
 
          return CollisionData.CollisionType == CollisionType.Sphere ?
@@ -82,12 +82,12 @@ public class Collision
 
     private static bool SphereXSphereCollision(CollisionData sphere1, CollisionData sphere2, out Vector3 normal, out float depth)
     {
-        var distance = Math.Abs(Vector3.Distance(sphere1.Transformable!.Position, sphere2.Transformable!.Position));
-        var radii = (sphere1.Transformable!.Width + sphere2.Transformable!.Width) / 2;
+        var distance = Math.Abs(Vector3.Distance(sphere1.PhysicObject!.Position, sphere2.PhysicObject!.Position));
+        var radii = (sphere1.PhysicObject!.Width + sphere2.PhysicObject!.Width) / 2;
 
-        normal = (sphere2.Transformable.Position - sphere1.Transformable.Position).Normalized();
+        normal = (sphere2.PhysicObject.Position - sphere1.PhysicObject.Position).Normalized();
         
-        depth = Math.Abs(radii - sphere2.Transformable!.Width) / 2;
+        depth = Math.Abs(radii - sphere2.PhysicObject!.Width) / 2;
         
         return distance <= radii;
     }
@@ -122,7 +122,7 @@ public class Collision
             }
         }
 
-        if (Vector3.Dot(polygon2.Transformable!.Position - polygon1.Transformable!.Position, normal) < 0)
+        if (Vector3.Dot(polygon2.PhysicObject!.Position - polygon1.PhysicObject!.Position, normal) < 0)
             normal = -normal;
 
         return true;
@@ -146,7 +146,7 @@ public class Collision
 
             ProjectionMinMaxVertices(mesh.Normal, polygon.Vertices,
                 out currMin, out currMax);
-            SphereProjectionMinMaxVertices(mesh.Normal, sphere.Transformable!.Position, sphere.Transformable.Width / 2,
+            SphereProjectionMinMaxVertices(mesh.Normal, sphere.PhysicObject!.Position, sphere.PhysicObject.Width / 2,
                 out t2Min, out t2Max);
 
             if (currMin >= t2Max || t2Min >= currMax)
@@ -163,17 +163,17 @@ public class Collision
             }
         }
 
-        var cpIdx = ClosestPointIndex(sphere.Transformable!.Position, polygon.Vertices);
+        var cpIdx = ClosestPointIndex(sphere.PhysicObject!.Position, polygon.Vertices);
         
         if (cpIdx == -1)
             return false;
         
-        _normal = polygon.Vertices[cpIdx] - sphere.Transformable!.Position;
+        _normal = polygon.Vertices[cpIdx] - sphere.PhysicObject!.Position;
         _normal.Normalize();
         
         ProjectionMinMaxVertices(_normal, polygon.Vertices,
             out currMin, out currMax);
-        SphereProjectionMinMaxVertices(_normal, sphere.Transformable!.Position, sphere.Transformable!.Width / 2,
+        SphereProjectionMinMaxVertices(_normal, sphere.PhysicObject!.Position, sphere.PhysicObject!.Width / 2,
             out t2Min, out t2Max);
         
         if (currMin >= t2Max || t2Min >= currMax)
@@ -187,7 +187,7 @@ public class Collision
         }
         
         //TODO: Fix collision detection for dynamic sphere
-        if (Vector3.Dot(polygon.Transformable!.Position - sphere.Transformable!.Position, normal) < 0)
+        if (Vector3.Dot(polygon.PhysicObject!.Position - sphere.PhysicObject!.Position, normal) < 0)
             normal = -normal;
         
         return true;

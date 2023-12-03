@@ -36,7 +36,7 @@ public class CollisionData
         }
     }
     
-    public ITransformable? Transformable { get; set; }
+    public IPhysicObject? PhysicObject { get; set; }
     
     public CollisionType CollisionType { get; }
 }

@@ -66,9 +66,9 @@ public class Camera : ObservableObject, IPhysicObject
 
     public Vector3 CameraUp => m_cameraUp;
 
-    public bool HaveChanged => m_haveTransformation;
+    public bool NeedTransformationApply => m_haveTransformation;
     
-    public Matrix4 Transform => m_transform;
+    public Matrix4 Transformation => m_transform;
 
     public RigidBody RigidBody
     {
@@ -322,7 +322,7 @@ public class Camera : ObservableObject, IPhysicObject
         }
     }
 
-    public void AcceptTransform()
+    public void ApplyTransformation()
     {
         if (!m_haveTransformation)
             return;

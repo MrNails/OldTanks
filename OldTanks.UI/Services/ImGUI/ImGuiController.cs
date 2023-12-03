@@ -1,8 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Drawing;
+using System.Runtime.CompilerServices;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.GraphicalEngine.Services;
-using CoolEngine.Services.Exceptions;
 using CoolEngine.Services.Extensions;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
@@ -46,6 +46,7 @@ void main()
     outputColor = color * texture(in_fontTexture, texCoord);
 }";
 
+    private readonly ILogger m_logger;
     private readonly Queue<char> m_pressedChars = new Queue<char>();
     private readonly Vector2 m_scaleFactor = Vector2.One;
     
@@ -54,7 +55,7 @@ void main()
     private IntPtr m_imGuiContext;
 
     private DrawObjectInfo m_drawObjectInfo;
-
+    
     private int m_vertexBufferSize;
     private int m_indexBufferSize;
 
@@ -69,8 +70,9 @@ void main()
     /// <summary>
     /// Constructs a new ImGuiController.
     /// </summary>
-    public ImGuiController(int width, int height)
+    public ImGuiController(int width, int height, ILogger logger)
     {
+        m_logger = logger;
         WindowResized(width, height);
 
         m_imGuiContext = ImGui.CreateContext();
@@ -89,16 +91,18 @@ void main()
         m_frameBegun = true;
     }
 
+    public Rectangle WindowClip { get; set; }
+    
     public void WindowResized(int width, int height)
     {
         m_windowWidth = width;
-        m_windowHeight = height;
+        m_windowHeight = height - 39;
         
         m_imGuiProjection = Matrix4.CreateOrthographicOffCenter(
             0.0f,
             width,
-            height,
-            0.0f,
+            height - 39,
+            -39f,
             -1.0f,
             1.0f);
     }
@@ -108,7 +112,7 @@ void main()
         RecreateFontDeviceTexture();
         int vao = 0, vbo = 0, ebo = 0;
         
-        m_shader = Shader.Create(VertexSource, FragmentSource, "ImGui", Log.Logger);
+        m_shader = Shader.Create(VertexSource, FragmentSource, "ImGui", m_logger);
         m_shader.Use();
 
         m_vertexBufferSize = 10000;
@@ -151,7 +155,7 @@ void main()
         m_fontTexture = Texture.CreateTexture2D(pixels, (width, height), ref pixelDto, TextureWrapMode.ClampToEdge);
         m_fontTexture.Name = "ImGuiTexture";
 
-        io.Fonts.SetTexID((IntPtr)m_fontTexture.Handle);
+        io.Fonts.SetTexID(m_fontTexture.Handle);
     }
 
     /// <summary>
@@ -247,30 +251,6 @@ void main()
         io.KeySuper = keyboardState.IsKeyDown(Keys.LeftSuper) || keyboardState.IsKeyDown(Keys.RightSuper);
     }
 
-    private static void SetKeyMappings()
-    {
-        var io = ImGui.GetIO();
-        io.KeyMap[(int)ImGuiKey.Tab] = (int)Keys.Tab;
-        io.KeyMap[(int)ImGuiKey.LeftArrow] = (int)Keys.Left;
-        io.KeyMap[(int)ImGuiKey.RightArrow] = (int)Keys.Right;
-        io.KeyMap[(int)ImGuiKey.UpArrow] = (int)Keys.Up;
-        io.KeyMap[(int)ImGuiKey.DownArrow] = (int)Keys.Down;
-        io.KeyMap[(int)ImGuiKey.PageUp] = (int)Keys.PageUp;
-        io.KeyMap[(int)ImGuiKey.PageDown] = (int)Keys.PageDown;
-        io.KeyMap[(int)ImGuiKey.Home] = (int)Keys.Home;
-        io.KeyMap[(int)ImGuiKey.End] = (int)Keys.End;
-        io.KeyMap[(int)ImGuiKey.Delete] = (int)Keys.Delete;
-        io.KeyMap[(int)ImGuiKey.Backspace] = (int)Keys.Backspace;
-        io.KeyMap[(int)ImGuiKey.Enter] = (int)Keys.Enter;
-        io.KeyMap[(int)ImGuiKey.Escape] = (int)Keys.Escape;
-        io.KeyMap[(int)ImGuiKey.A] = (int)Keys.A;
-        io.KeyMap[(int)ImGuiKey.C] = (int)Keys.C;
-        io.KeyMap[(int)ImGuiKey.V] = (int)Keys.V;
-        io.KeyMap[(int)ImGuiKey.X] = (int)Keys.X;
-        io.KeyMap[(int)ImGuiKey.Y] = (int)Keys.Y;
-        io.KeyMap[(int)ImGuiKey.Z] = (int)Keys.Z;
-    }
-
     private void RenderImDrawData(in ImDrawDataPtr drawData)
     {
         if (drawData.CmdListsCount == 0)
@@ -296,7 +276,7 @@ void main()
                 GL.BufferData(BufferTarget.ArrayBuffer, newSize,IntPtr.Zero, BufferUsageHint.StreamDraw);
                 m_vertexBufferSize = newSize;
 
-                Console.WriteLine($"Resized dear imgui vertex buffer to new size {m_vertexBufferSize}");
+                m_logger.Information("Resized dear imgui vertex buffer to new size {VertexBufferSize}", m_vertexBufferSize);
             }
 
             int indexSize = cmd_list.IdxBuffer.Size * sizeof(ushort);
@@ -307,7 +287,7 @@ void main()
                 GL.BufferData(BufferTarget.ElementArrayBuffer, newSize, IntPtr.Zero, BufferUsageHint.StaticDraw);
                 m_indexBufferSize = newSize;
 
-                Console.WriteLine($"Resized dear imgui index buffer to new size {m_indexBufferSize}");
+                m_logger.Information("Resized dear imgui index buffer to new size {IndexBufferSize}", m_indexBufferSize);
             }
         }
 
@@ -365,6 +345,30 @@ void main()
         GLSettings.RestoreGLSettings(currentGlSettings);
     }
 
+    private static void SetKeyMappings()
+    {
+        var io = ImGui.GetIO();
+        io.KeyMap[(int)ImGuiKey.Tab] = (int)Keys.Tab;
+        io.KeyMap[(int)ImGuiKey.LeftArrow] = (int)Keys.Left;
+        io.KeyMap[(int)ImGuiKey.RightArrow] = (int)Keys.Right;
+        io.KeyMap[(int)ImGuiKey.UpArrow] = (int)Keys.Up;
+        io.KeyMap[(int)ImGuiKey.DownArrow] = (int)Keys.Down;
+        io.KeyMap[(int)ImGuiKey.PageUp] = (int)Keys.PageUp;
+        io.KeyMap[(int)ImGuiKey.PageDown] = (int)Keys.PageDown;
+        io.KeyMap[(int)ImGuiKey.Home] = (int)Keys.Home;
+        io.KeyMap[(int)ImGuiKey.End] = (int)Keys.End;
+        io.KeyMap[(int)ImGuiKey.Delete] = (int)Keys.Delete;
+        io.KeyMap[(int)ImGuiKey.Backspace] = (int)Keys.Backspace;
+        io.KeyMap[(int)ImGuiKey.Enter] = (int)Keys.Enter;
+        io.KeyMap[(int)ImGuiKey.Escape] = (int)Keys.Escape;
+        io.KeyMap[(int)ImGuiKey.A] = (int)Keys.A;
+        io.KeyMap[(int)ImGuiKey.C] = (int)Keys.C;
+        io.KeyMap[(int)ImGuiKey.V] = (int)Keys.V;
+        io.KeyMap[(int)ImGuiKey.X] = (int)Keys.X;
+        io.KeyMap[(int)ImGuiKey.Y] = (int)Keys.Y;
+        io.KeyMap[(int)ImGuiKey.Z] = (int)Keys.Z;
+    }
+    
     public void Dispose()
     {
         m_fontTexture?.Dispose();

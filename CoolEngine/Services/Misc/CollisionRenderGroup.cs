@@ -76,7 +76,7 @@ internal class CollisionRenderGroup
             if (collisionable.Collision?.IsActive == false)
                 continue;
 
-            collisionable.Collision.CollisionData.Transformable?.AcceptTransform();
+            collisionable.Collision.CollisionData.PhysicObject?.ApplyTransformation();
 
             for (int vIndex = 0; vIndex < collisionable.Collision.CollisionData.Vertices.Length; vIndex++)
                 m_vertices[m_activeCount * m_verticesPerModel + vIndex] =

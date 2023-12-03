@@ -5,18 +5,21 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public class Mesh
 {
-    private readonly List<Face> m_faces;
-
     public Mesh(Vector3[] vertices)
     {
         Vertices = vertices;
+        TextureCoords = Array.Empty<Vector2>();
+        Normals = Array.Empty<Vector3>();
 
         TextureData = new TextureData();
 
-        Texture = Core.Texture.Texture.Empty;
-
-        m_faces = new List<Face>();
+        Faces = new List<Face>();
     }
+    
+    public List<Face> Faces { get; }
+    
+    public TextureData TextureData { get; }
+
     
     public Vector3[] Vertices { get; set; }
 
@@ -24,22 +27,15 @@ public class Mesh
 
     public Vector3[] Normals { get; set; }
 
-    public List<Face> Faces => m_faces;
-
     public bool HasTextureCoords => TextureCoords.Length > 0;
     public bool HasNormals => Normals.Length > 0;
-
-    public TextureData TextureData { get; }
     
-    public Texture.Texture Texture { get; set; }
-
     public Mesh Copy()
     {
         var mesh = new Mesh(Vertices)
         {
             Normals = Normals,
-            TextureCoords = TextureCoords,
-            Texture = Texture
+            TextureCoords = TextureCoords
         };
 
         mesh.TextureData.Texture = TextureData.Texture;

@@ -54,9 +54,8 @@ public sealed partial class TextureWindow : ImGuiWindow
             var textId = 0;
             if (mesh != null)
             {
-                var texture = mesh.TextureData?.Texture ?? mesh.Texture;
-
-                if (texture != null)
+                var texture = mesh.TextureData.Texture;
+                if (texture != Texture.Empty)
                 {
                     textId = texture.Handle;
                     

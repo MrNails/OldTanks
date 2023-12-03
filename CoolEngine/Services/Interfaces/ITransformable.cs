@@ -2,17 +2,11 @@
 
 namespace CoolEngine.Services.Interfaces;
 
-public interface ITransformable : IMovable
+public interface ITransformable
 {
-    bool HaveChanged { get; }
-    
-    Vector3 Size { get; set; }
+    bool NeedTransformationApply { get; }
 
-    float Width { get; set; }
-    float Height { get; set; }
-    float Length { get; set; }
+    Matrix4 Transformation { get; }
 
-    Matrix4 Transform { get; }
-
-    void AcceptTransform();
+    void ApplyTransformation();
 }

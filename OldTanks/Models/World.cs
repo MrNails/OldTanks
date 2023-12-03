@@ -74,7 +74,7 @@ public class World
                 if (!wObj.RigidBody.IsStatic)
                     wObj.RigidBody.OnGround = false;
 
-                wObj.AcceptTransform();
+                wObj.ApplyTransformation();
             }
 
             for (int i = 0; i < m_objects.Count - 1; i++)
@@ -115,8 +115,8 @@ public class World
                         
                         ResolveColliding(first, second, normal);
 
-                        first.AcceptTransform();
-                        second.AcceptTransform();
+                        first.ApplyTransformation();
+                        second.ApplyTransformation();
                     }
                 }
             }

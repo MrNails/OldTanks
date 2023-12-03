@@ -101,7 +101,7 @@ public static class ObjectRenderer
                 if (!element.Visible)
                     continue;
 
-                drawSceneInfo.Shader.SetMatrix4("model", element.Transform);
+                drawSceneInfo.Shader.SetMatrix4("model", element.Transformation);
                 drawSceneInfo.Shader.SetVector4("color", Colors.White);
 
                 for (int j = 0; j < element.Scene.Meshes.Count; j++)
@@ -256,9 +256,8 @@ public static class ObjectRenderer
             if (face.Indices.Length == 3)
                 for (int j = 0; j < face.Indices.Length; j++, vIdx++)
                     vertexRentArr[vIdx] = new Vertex(mesh.Vertices[face.Indices[j]],
-                        face.HasTextureIndices ? mesh.TextureCoords[face.TextureIndices[j]] : Vector2.Zero,
                         face.HasNormalIndices ? mesh.Normals[face.NormalsIndices[j]] : Vector3.Zero,
-                        0);
+                        face.HasTextureIndices ? mesh.TextureCoords[face.TextureIndices[j]] : Vector2.Zero);
             else
             {
                 for (int j = 0; j < s_quadIndices.Length; j++)
@@ -267,11 +266,10 @@ public static class ObjectRenderer
                 for (int j = 0; j < face.Indices.Length; j++, vIdx++)
                 {
                     vertexRentArr[vIdx] = new Vertex(mesh.Vertices[face.Indices[j]],
+                        face.HasNormalIndices ? mesh.Normals[face.NormalsIndices[j]] : Vector3.Zero,
                         face.HasTextureIndices
                             ? mesh.TextureCoords[face.TextureIndices[j]]
-                            : Vector2.Zero,
-                        face.HasNormalIndices ? mesh.Normals[face.NormalsIndices[j]] : Vector3.Zero,
-                        0);
+                            : Vector2.Zero);
                 }
             }
         }
@@ -291,7 +289,7 @@ public static class ObjectRenderer
         GL.EnableVertexAttribArray(posIndex);
 
         var textureIndex = shader.GetAttribLocation("iTextureCoord");
-        GL.VertexAttribPointer(textureIndex, 2, VertexAttribPointerType.Float, false, Vertex.SizeInBytes, Vector3.SizeInBytes);
+        GL.VertexAttribPointer(textureIndex, 2, VertexAttribPointerType.Float, false, Vertex.SizeInBytes, Vector3.SizeInBytes * 2);
         GL.EnableVertexAttribArray(textureIndex);
 
         if (indicesRentArr.Length != 0)
@@ -330,29 +328,29 @@ public static class ObjectRenderer
         return new DrawObjectInfo(vao, vbo, ebo);
     }
     
-    private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera, Font font)
-    {
-        var textDrawInfo = new TextDrawInformation(color: Colors.White, originPosition: element.Position,
-            originRotation: new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z), scale: 0.1f);
-
-        for (int i = 0; i < originalMesh.Faces.Count; i++)
-        {
-            for (int j = 0; j < originalMesh.Faces[i].NormalsIndices.Length; j++)
-            {
-                var norm = originalMesh.Normals[(int)originalMesh.Faces[i].NormalsIndices[j]];
-                textDrawInfo.SelfPosition = new Vector3(
-                    norm.X != 0 ? norm.X * (element.Width / 2 + 0.05f) : 0,
-                    norm.Y != 0 ? norm.Y * (element.Height / 2 + 0.05f) : 0,
-                    norm.Z != 0 ? norm.Z * (element.Length / 2 + 0.05f) : 0);
-
-                textDrawInfo.SelfRotation = new Vector3(norm.Z < 0 ? 180 : norm.Y != 0 ? -norm.Y * 90 : 0,
-                    norm.X != 0 ? norm.X * 90 : 0,
-                    norm.Z < 0 ? 180 : 0);
-
-                TextRenderer.DrawText3D(font, i.ToString(), camera, textDrawInfo);
-            }
-        }
-    }
+    // private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera, Font font)
+    // {
+    //     var textDrawInfo = new TextDrawInformation(color: Colors.White, originPosition: element.Position,
+    //         originRotation: new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z), scale: 0.1f);
+    //
+    //     for (int i = 0; i < originalMesh.Faces.Count; i++)
+    //     {
+    //         for (int j = 0; j < originalMesh.Faces[i].NormalsIndices.Length; j++)
+    //         {
+    //             var norm = originalMesh.Normals[(int)originalMesh.Faces[i].NormalsIndices[j]];
+    //             textDrawInfo.SelfPosition = new Vector3(
+    //                 norm.X != 0 ? norm.X * (element.Width / 2 + 0.05f) : 0,
+    //                 norm.Y != 0 ? norm.Y * (element.Height / 2 + 0.05f) : 0,
+    //                 norm.Z != 0 ? norm.Z * (element.Length / 2 + 0.05f) : 0);
+    //
+    //             textDrawInfo.SelfRotation = new Vector3(norm.Z < 0 ? 180 : norm.Y != 0 ? -norm.Y * 90 : 0,
+    //                 norm.X != 0 ? norm.X * 90 : 0,
+    //                 norm.Z < 0 ? 180 : 0);
+    //
+    //             TextRenderer.DrawText3D(font, i.ToString(), camera, textDrawInfo);
+    //         }
+    //     }
+    // }
     
     private static DrawObjectInfo CreateDrawVerticesInfo(Shader shader)
     {

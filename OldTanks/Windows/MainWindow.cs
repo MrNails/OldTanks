@@ -126,7 +126,7 @@ public partial class MainWindow : GameWindow
     protected override void OnLoad()
     {
         VSync = VSyncMode.On;
-        m_imGuiController = new ImGuiController(Size.X, Size.Y);
+        m_imGuiController = new ImGuiController(Size.X, Size.Y, m_loggerService.CreateLogger());
 
         Title += $". OpenGL: {GL.GetString(StringName.Version)}";
 
@@ -427,11 +427,8 @@ public partial class MainWindow : GameWindow
 
         foreach (var wObject in tempObjects)
         {
-            var rBody = new RigidBody();
-            rBody.IsStatic = true;
-            rBody.Restitution = 0.5f;
-
-            wObject.RigidBody = rBody;
+            wObject.RigidBody.IsStatic = true;
+            wObject.RigidBody.Restitution = 0.5f;
         }
 
         m_world.WorldObjects.AddRange(tempObjects);
@@ -458,15 +455,11 @@ public partial class MainWindow : GameWindow
 
         foreach (var wObject in tempObjects)
         {
-            var cubeRBody = new RigidBody();
-
-            cubeRBody.MaxSpeed = 2;
-            cubeRBody.MaxBackSpeed = 2;
-            cubeRBody.MaxSpeedMultiplier = 1;
-            cubeRBody.Restitution = 0.4f;
-            cubeRBody.DefaultJumpForce = -250;
-
-            wObject.RigidBody = cubeRBody;
+            wObject.RigidBody.MaxSpeed = 2;
+            wObject.RigidBody.MaxBackSpeed = 2;
+            wObject.RigidBody.MaxSpeedMultiplier = 1;
+            wObject.RigidBody.Restitution = 0.4f;
+            wObject.RigidBody.DefaultJumpForce = -250;
 
             foreach (var mesh in wObject.Scene.Meshes)
                 mesh.TextureData.Texture = GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture");

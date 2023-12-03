@@ -121,7 +121,7 @@ public class CollisionRenderer
             var mesh = collisionable.Collision.CollisionData.Meshes[i];
 
             normals[normalsCount] = new Vector3(new Vector4(mesh.Normal, 1) *
-                                                collisionable.Collision.CollisionData.Transformable.Transform.ClearRotation());
+                                                collisionable.Collision.CollisionData.PhysicObject.Transformation.ClearRotation());
             normals[normalsCount + 1] = normals[normalsCount] + mesh.Normal;
             normalsCount += 2;
 
