@@ -1,4 +1,5 @@
-﻿using CoolEngine.GraphicalEngine.Core;
+﻿using Common.Models;
+using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
@@ -261,7 +262,7 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
         var rotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y));
 
-        GlobalSettings.GlobalLock.EnterWriteLock();
+        EngineSettings.Current.GlobalLock.EnterWriteLock();
         
         Position += rotation * RigidBody.Velocity * timeDelta;
         
@@ -273,7 +274,7 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
             Camera.Pitch = (float)MathHelper.RadiansToDegrees(Math.Asin(-normalizedDirection.Y));
         }
         
-        GlobalSettings.GlobalLock.ExitWriteLock();
+        EngineSettings.Current.GlobalLock.ExitWriteLock();
     }
     
     private void SetCameraData()

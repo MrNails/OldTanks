@@ -25,7 +25,7 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Serilog;
-using GEGlobalSettings = CoolEngine.Services.GlobalSettings;
+using EngineSettings = CoolEngine.Services.EngineSettings;
 
 namespace OldTanks.Windows;
 
@@ -35,7 +35,7 @@ public partial class MainWindow : GameWindow
     private readonly SettingsService m_settingsService;
     private readonly ControlHandler m_controlHandler;
     private readonly UI.ImGuiUI.MainWindow m_imGuiMainWindow;
-    private readonly EngineSettings m_engineSettings;
+    private readonly Services.EngineSettings m_engineSettings;
     private readonly Settings m_userSettings;
     private readonly GameManager m_gameManager;
     private readonly LoggerService m_loggerService;
@@ -109,10 +109,10 @@ public partial class MainWindow : GameWindow
         m_gameManager = new GameManager(loggerService, settingsService, m_world);
 
         m_freeCamMode = true;
-        m_engineSettings = new EngineSettings();
-        m_settingsService.SetRuntimeSettings(nameof(EngineSettings), m_settingsService);
+        m_engineSettings = new Services.EngineSettings();
+        m_settingsService.SetRuntimeSettings(nameof(Services.EngineSettings), m_settingsService);
 
-        GEGlobalSettings.CollisionIterations = 20;
+        EngineSettings.Current.CollisionIterations = 20;
 
         m_rotation = new Vector3(0, 0, 0);
 
@@ -163,7 +163,7 @@ public partial class MainWindow : GameWindow
                 m_readyToHandle = true;
             });
 
-        GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             (float)Size.X / Size.Y, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -190,7 +190,7 @@ public partial class MainWindow : GameWindow
         var aspect = (float)Size.X / Size.Y;
         m_world.CurrentCamera.FOV += -e.OffsetY;
 
-        GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -227,7 +227,7 @@ public partial class MainWindow : GameWindow
                 m_currentObject.RigidBody.MaxSpeedMultiplier = 1;
                 break;
             case Keys.F:
-                GEGlobalSettings.PhysicsEnable = !GEGlobalSettings.PhysicsEnable;
+                EngineSettings.Current.PhysicsEnable = !EngineSettings.Current.PhysicsEnable;
                 break;
             case Keys.N:
                 m_drawNormals = !m_drawNormals;
@@ -299,11 +299,11 @@ public partial class MainWindow : GameWindow
             }
         }
 
-        GEGlobalSettings.GlobalLock.EnterWriteLock();
+        EngineSettings.Current.GlobalLock.EnterWriteLock();
         
         m_controlHandler.HandleControls();
         
-        GEGlobalSettings.GlobalLock.ExitWriteLock();
+        EngineSettings.Current.GlobalLock.ExitWriteLock();
 
         m_imGuiController.Render();
 
@@ -325,7 +325,7 @@ public partial class MainWindow : GameWindow
         m_imGuiController.Update(this, (float)args.Time);
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
-        m_tbSubIterationAmount.Text = GEGlobalSettings.CollisionIterations.ToString();
+        m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
         m_tbCamRotation.Text = m_currentObject.Direction.ToString();
         m_tbPosition.Text = m_currentObject.Position.ToString();
         m_tbRotation.Text = m_rotation.ToString();
@@ -341,17 +341,17 @@ public partial class MainWindow : GameWindow
 
         GL.Viewport(0, 0, Size.X, Size.Y);
 
-        GEGlobalSettings.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
+        EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
 
-        GEGlobalSettings.WindowWidth = Size.X;
-        GEGlobalSettings.WindowHeight = Size.Y;
+        EngineSettings.Current.WindowWidth = Size.X;
+        EngineSettings.Current.WindowHeight = Size.Y;
 
         if (Size.X == 0 || Size.Y == 0)
             return;
 
         var aspect = (float)Size.X / Size.Y;
 
-        GEGlobalSettings.Projection = Matrix4.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -740,7 +740,7 @@ public partial class MainWindow : GameWindow
 
         m_primitivesShader.Use();
 
-        m_primitivesShader.SetMatrix4("projection", GEGlobalSettings.Projection);
+        m_primitivesShader.SetMatrix4("projection", EngineSettings.Current.Projection);
         m_primitivesShader.SetMatrix4("view", m_world.CurrentCamera.LookAt);
         m_primitivesShader.SetVector4("color", Colors.Red);
 

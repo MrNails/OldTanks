@@ -1,9 +1,7 @@
 ﻿using System.Buffers;
 using CoolEngine.GraphicalEngine.Core;
-using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.Services.Interfaces;
-using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
@@ -91,7 +89,7 @@ public static class ObjectRenderer
                 continue;
 
             drawSceneInfo.Shader.Use();
-            drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
+            drawSceneInfo.Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
             drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
 
             for (int i = 0; i < drawSceneInfo.Drawables.Count; i++)
@@ -130,7 +128,7 @@ public static class ObjectRenderer
                     else
                         drawSceneInfo.Shader.SetBool("hasTexture", true);
                     
-                    mesh.TextureData.Texture?.Use(TextureUnit.Texture0);
+                    mesh.TextureData.Texture.Use(TextureUnit.Texture0);
 
                     if (drawObjectInfo.IndicesLength != 0)
                         GL.DrawElements(BeginMode.Triangles, drawObjectInfo.IndicesLength, DrawElementsType.UnsignedInt, 0);
@@ -153,7 +151,7 @@ public static class ObjectRenderer
         }
 
         drawSceneInfo.Shader.Use();
-        drawSceneInfo.Shader.SetMatrix4("projection", GlobalSettings.Projection);
+        drawSceneInfo.Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
         drawSceneInfo.Shader.SetMatrix3("view", new Matrix3(camera.LookAt));
         // drawSceneInfo.Shader.SetMatrix4("model", Matrix4.CreateRotationY(MathHelper.DegreesToRadians(skyBox.Rotation.Y)));
 

@@ -2,7 +2,7 @@
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class Scene
+public sealed class Scene
 {
     public List<Mesh> Meshes { get; } = new();
 
@@ -16,7 +16,7 @@ public class Scene
         {
             var vertices = Meshes[i].Vertices;
             
-            for (int j = 0; j < Meshes[i].Vertices.Length; j++)
+            for (int j = 0; j < vertices.Length; j++)
             {
                 if (min.X > vertices[j].X) min.X = vertices[j].X;
                 if (min.Y > vertices[j].Y) min.Y = vertices[j].Y;

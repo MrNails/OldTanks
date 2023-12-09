@@ -60,10 +60,11 @@ public class World
         var haveCollision = false;
         var normal = Vector3.Zero;
         var depth = 0f;
+        var collisionIters = EngineSettings.Current.CollisionIterations;
         
-        timeDelta /= GlobalSettings.CollisionIterations;
+        timeDelta /= collisionIters;
 
-        for (int itr = 0; itr < GlobalSettings.CollisionIterations; itr++)
+        for (int itr = 0; itr < collisionIters; itr++)
         {
             for (int i = 0; i < m_objects.Count; i++)
             {

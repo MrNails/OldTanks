@@ -68,7 +68,7 @@ public class CollisionRenderer
             s_normalObjInfo = CreateDrawNormalInfo(Shader);
 
         Shader.Use();
-        Shader.SetMatrix4("projection", GlobalSettings.Projection);
+        Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
         Shader.SetMatrix4("view", useLookAt ? camera.LookAt : Matrix4.Identity);
         Shader.SetVector4("color", Colors.Orange);
 

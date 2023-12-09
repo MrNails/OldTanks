@@ -203,11 +203,9 @@ public sealed class WaveFrontLoader : IAssetLoader
     private static Mesh CreateMeshFromData(List<Vector3> vertices, List<Vector2> textureCoords,
         List<Vector3> normals, List<FaceData> faceDatas)
     {
-        var mesh = new Mesh(vertices.ToArray())
-        {
-            Normals = normals.Count == 0 ? Array.Empty<Vector3>() : normals.ToArray(),
-            TextureCoords = textureCoords.Count == 0 ? Array.Empty<Vector2>() : textureCoords.ToArray(),
-        };
+        var mesh = new Mesh(vertices.ToArray(),
+            textureCoords.Count == 0 ? Array.Empty<Vector2>() : textureCoords.ToArray(),
+            normals.Count == 0 ? Array.Empty<Vector3>() : normals.ToArray());
 
         for (int i = 0; i < faceDatas.Count; i++)
             mesh.Faces.Add(new Face(faceDatas[i].VertexIndices,

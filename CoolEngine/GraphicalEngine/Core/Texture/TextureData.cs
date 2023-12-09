@@ -1,4 +1,5 @@
-﻿using CoolEngine.Services;
+﻿using Common.Models;
+using CoolEngine.Services;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;

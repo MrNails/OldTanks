@@ -2,7 +2,7 @@
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class DrawSceneInfo
+public sealed class DrawSceneInfo
 {
     private readonly Dictionary<int, DrawObjectInfo> m_buffers;
     private readonly List<IDrawable> m_drawables;

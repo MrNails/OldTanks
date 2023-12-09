@@ -1,4 +1,5 @@
-﻿using CoolEngine.Services;
+﻿using Common.Models;
+using CoolEngine.Services;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core;
@@ -124,7 +125,7 @@ public class RigidBody : ObservableObject
         Velocity += (Force / Weight + PhysicsConstants.GravityDirection * PhysicsConstants.FreeFallingAcceleration) *
                     timeDelta;
 
-        if (collisionIteration == -1 || collisionIteration == GlobalSettings.CollisionIterations - 1)
+        if (collisionIteration == -1 || collisionIteration == EngineSettings.Current.CollisionIterations - 1)
         {
             Force = Vector3.Zero;
         }

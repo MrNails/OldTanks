@@ -20,6 +20,8 @@ public class Texture : IDisposable, IEquatable<Texture>
     public float Height { get; }
     
     public bool Disposed { get; private set; }
+
+    public static Texture CurrentUsingTexture { get; private set; } = Empty;
     
     public override string ToString()
     {
@@ -48,6 +50,8 @@ public class Texture : IDisposable, IEquatable<Texture>
     {
         GL.ActiveTexture(unit);
         GL.BindTexture(textureTarget, Handle);
+
+        CurrentUsingTexture = this;
     }
 
     private void ReleaseUnmanagedResources()

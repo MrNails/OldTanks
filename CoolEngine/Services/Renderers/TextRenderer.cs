@@ -98,7 +98,7 @@ public static class TextRenderer
         var sizeMultiplier = font.FontSize / font.FontInformation.OriginalFontSize;
 
         Shader.Use();
-        Shader.SetMatrix4("projection", GlobalSettings.ScreenProjection);
+        Shader.SetMatrix4("projection", EngineSettings.Current.ScreenProjection);
         Shader.SetMatrix4("model", Matrix4.Identity);
         Shader.SetVector4("color", color);
 
@@ -172,7 +172,7 @@ public static class TextRenderer
         var sizeMultiplier = (font.FontSize / font.FontInformation.OriginalFontSize) * textDrawInformation.Scale;
 
         Shader.Use();
-        Shader.SetMatrix4("projection", camera.LookAt * GlobalSettings.Projection);
+        Shader.SetMatrix4("projection", camera.LookAt * EngineSettings.Current.Projection);
         Shader.SetVector4("color", textDrawInformation.Color);
 
         Matrix4 mTransOrigin;

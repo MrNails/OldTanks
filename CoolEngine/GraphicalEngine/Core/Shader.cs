@@ -24,10 +24,14 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
     public string Name { get; }
     
     public bool Disposed { get; private set; }
+    
+    public Shader CurrentUsingShader { get; private set; }
 
     public void Use()
     {
         GL.UseProgram(Handle);
+
+        CurrentUsingShader = this;
     }
 
     public void SetMatrix4(string name, Matrix4 matrix)

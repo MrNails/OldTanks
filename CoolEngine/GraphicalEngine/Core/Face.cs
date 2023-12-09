@@ -1,8 +1,6 @@
-﻿using OpenTK.Mathematics;
+﻿namespace CoolEngine.GraphicalEngine.Core;
 
-namespace CoolEngine.GraphicalEngine.Core;
-
-public class Face
+public sealed class Face
 {
     public Face() : this(Array.Empty<uint>(), Array.Empty<uint>(), Array.Empty<uint>()) {}
 
@@ -13,9 +11,9 @@ public class Face
         NormalsIndices = normalsIndices ?? throw new ArgumentNullException(nameof(normalsIndices));
     }
     
-    public uint[] Indices { get; set; }
-    public uint[] TextureIndices { get; set; }
-    public uint[] NormalsIndices { get; set; }
+    public uint[] Indices { get; }
+    public uint[] TextureIndices { get; }
+    public uint[] NormalsIndices { get; }
 
     public bool HasTextureIndices => TextureIndices.Length > 0;
     public bool HasNormalIndices => NormalsIndices.Length > 0;
