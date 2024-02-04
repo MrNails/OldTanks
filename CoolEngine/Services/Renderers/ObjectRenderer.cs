@@ -161,8 +161,6 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         
         if (!shader.IsCurrentShaderInUsing)
             shader.Use();
-        
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
 
         shader.SetMatrix4("projection", projection);
         shader.SetMatrix4("view", camera.LookAt);
@@ -195,9 +193,9 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             }
         }
         
-        GL.BindVertexArray(0);
+        ClearBindState();
     }
-    
+
     private void RenderPerInstance(DrawSceneInfo drawSceneInfo, Mesh mesh, DrawObjectInfo drawObjectInfo, Shader shader)
     {
         for (int j = 0; j < drawSceneInfo.Drawables.Count; j++)
@@ -276,22 +274,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         
         ArrayPool<ModelData>.Shared.Return(modelsData);
     }
-
-    private static int GetMaxBufferElements(DrawSceneInfo drawSceneInfo, bool needBufferRecreate, Buffer<ModelData>? buffer)
-    {
-        var elementsAmount = drawSceneInfo.Drawables.Count;
-        var newElementsAmount = DEFAULT_MAX_INSTANCED_ELEMENTS;
-        
-        while (elementsAmount > newElementsAmount)
-        {
-            newElementsAmount *= 2;
-        }
-        
-        return needBufferRecreate 
-            ? buffer?.MaxElementsInBuffer * 2 ?? newElementsAmount 
-            : buffer!.MaxElementsInBuffer;
-    }
-
+    
     private void DrawablesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         switch (e.Action)
@@ -307,10 +290,32 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         }
     }
     
+    private static int GetMaxBufferElements(DrawSceneInfo drawSceneInfo, bool needBufferRecreate, Buffer<ModelData>? buffer)
+    {
+        var elementsAmount = drawSceneInfo.Drawables.Count;
+        var newElementsAmount = DEFAULT_MAX_INSTANCED_ELEMENTS;
+        
+        while (elementsAmount > newElementsAmount)
+        {
+            newElementsAmount *= 2;
+        }
+        
+        return needBufferRecreate 
+            ? buffer?.MaxElementsInBuffer * 2 ?? newElementsAmount 
+            : buffer!.MaxElementsInBuffer;
+    }
+    
+    private static void ClearBindState()
+    {
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+        GL.BindVertexArray(0);
+    }
+    
     private static Buffer<ModelData> RecreateBuffer(DrawObjectInfo drawObjectInfo, Shader shader, int maxElements)
     {
         var buffer = new Buffer<ModelData>(BufferTarget.ArrayBuffer,
-            BufferUsageHint.DynamicDraw, maxElements);
+            BufferUsageHint.DynamicDraw, maxElements) { Name = "Instanced rendering ArrayBuffer" };
 
         GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
         

@@ -16,6 +16,8 @@ public sealed class Buffer<T> : IDisposable
         
         Id = GL.GenBuffer();
         
+        Log.Logger.Information("Buffer {BufferTarget} object: {Id}", BufferTarget, Id);
+        
         Use();
         GL.BufferData(bufferTarget, maxElementsAmount * sizeof(T), data, usageHint);
     }
@@ -45,10 +47,7 @@ public sealed class Buffer<T> : IDisposable
             throw new InvalidOperationException($"Cannot fill buffer with data elements size {dataAmount}. Max buffer elements size is {MaxElementsInBuffer}");
         
         Use();
-
         GL.BufferSubData(BufferTarget, offset, dataAmount * sizeof(T), data);
-
-        ClearUsing();
     }
 
     private void ReleaseUnmanagedResources()

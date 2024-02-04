@@ -63,7 +63,7 @@ public sealed class DrawObjectInfo : IDisposable
         
         if (m_vertexArrayObject != 0)
         {
-            GL.DeleteBuffer(m_vertexArrayObject);
+            GL.DeleteVertexArray(m_vertexArrayObject);
             m_vertexArrayObject = 0;
         }
 
