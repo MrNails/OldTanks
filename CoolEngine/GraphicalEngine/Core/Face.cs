@@ -1,4 +1,15 @@
-﻿namespace CoolEngine.GraphicalEngine.Core;
+﻿using CoolEngine.Services.Extensions;
+
+namespace CoolEngine.GraphicalEngine.Core;
+
+public enum FaceType : byte
+{
+    Unknown,
+    Dot,
+    Line,
+    Triangle,
+    Quad
+}
 
 public sealed class Face
 {
@@ -14,6 +25,8 @@ public sealed class Face
     public uint[] Indices { get; }
     public uint[] TextureIndices { get; }
     public uint[] NormalsIndices { get; }
+
+    public FaceType FaceType => Indices.Length.GetFaceType();
 
     public bool HasTextureIndices => TextureIndices.Length > 0;
     public bool HasNormalIndices => NormalsIndices.Length > 0;

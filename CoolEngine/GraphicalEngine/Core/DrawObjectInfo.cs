@@ -1,12 +1,15 @@
-﻿namespace CoolEngine.GraphicalEngine.Core;
+﻿using OpenTK.Graphics.OpenGL4;
 
-public class DrawObjectInfo
+namespace CoolEngine.GraphicalEngine.Core;
+
+public sealed class DrawObjectInfo : IDisposable
 {
     private int m_vertexArrayObject;
     private int m_vertexBufferObject;
     private int m_elementsBufferObject;
     private int m_verticesLength;
     private int m_indicesLength;
+    private bool m_disposed;
 
     public DrawObjectInfo(int vertexArrayObject, int vertexBufferObject, int elementsBufferObject)
     {
@@ -16,17 +19,19 @@ public class DrawObjectInfo
     }
 
     public int VertexArrayObject => m_vertexArrayObject;
-    
+
     /// <summary>
     /// Model vertices buffer
     /// </summary>
     public int VertexBufferObject => m_vertexBufferObject;
-    
+
     /// <summary>
     /// Indices buffer
     /// </summary>
     public int ElementsBufferObject => m_elementsBufferObject;
 
+    public bool Disposed => m_disposed;
+    
     public int VerticesLength
     {
         get => m_verticesLength;
@@ -34,7 +39,7 @@ public class DrawObjectInfo
         {
             if (value < 0)
                 throw new ArgumentOutOfRangeException(nameof(value));
-            
+
             m_verticesLength = value;
         }
     }
@@ -46,8 +51,48 @@ public class DrawObjectInfo
         {
             if (value < 0)
                 throw new ArgumentOutOfRangeException(nameof(value));
-                
+
             m_indicesLength = value;
         }
+    }
+
+    private void ReleaseUnmanagedResources()
+    {
+        if (m_disposed)
+            return;
+        
+        if (m_vertexArrayObject != 0)
+        {
+            GL.DeleteBuffer(m_vertexArrayObject);
+            m_vertexArrayObject = 0;
+        }
+
+        if (m_vertexBufferObject != 0)
+        {
+            GL.DeleteBuffer(m_vertexBufferObject);
+            m_vertexBufferObject = 0;
+        }
+
+        if (m_elementsBufferObject != 0)
+        {
+            GL.DeleteBuffer(m_elementsBufferObject);
+            m_elementsBufferObject = 0;
+        }
+
+        VerticesLength = 0;
+        IndicesLength = 0;
+
+        m_disposed = true;
+    }
+
+    public void Dispose()
+    {
+        ReleaseUnmanagedResources();
+        GC.SuppressFinalize(this);
+    }
+
+    ~DrawObjectInfo()
+    {
+        ReleaseUnmanagedResources();
     }
 }

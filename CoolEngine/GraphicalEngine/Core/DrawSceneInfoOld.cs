@@ -2,13 +2,19 @@
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public sealed class DrawSceneInfo
+public sealed class DrawSceneInfoOld
 {
     private readonly Dictionary<int, DrawObjectInfo> m_buffers;
     private readonly List<IDrawable> m_drawables;
     private readonly Shader m_shader;
 
-    public DrawSceneInfo(Shader shader)
+    public DrawSceneInfoOld()
+    {
+        m_drawables = new List<IDrawable>();
+        m_buffers = new Dictionary<int, DrawObjectInfo>();
+    }
+    
+    public DrawSceneInfoOld(Shader shader)
     {
         m_shader = shader ?? throw new ArgumentNullException(nameof(shader));
 

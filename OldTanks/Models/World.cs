@@ -85,6 +85,11 @@ public class World
                     var first = m_objects[i];
                     var second = m_objects[j];
 
+                    if (first.Collision == null || second.Collision == null)
+                    {
+                        continue;
+                    }
+
                     if (first.RigidBody.IsStatic && second.RigidBody.IsStatic)
                         continue;
 

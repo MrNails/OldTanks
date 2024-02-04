@@ -2,7 +2,7 @@
 
 namespace CoolEngine.Services.Interfaces;
 
-public interface IDrawable : ITransformable, IColorable
+public interface IDrawable : ITransformable
 {
     Scene Scene { get; }
     

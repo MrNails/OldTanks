@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 using Serilog;
@@ -18,13 +19,14 @@ public sealed class WaveFrontLoader : IAssetLoader
         SmoothShading
     }
 
+    private static readonly int[] s_quadIndices = new int[] { 0, 1, 3, 1, 2, 3 };
     private static readonly char s_splitSeparator = ' ';
 
-    private struct FaceData
+    private sealed class FaceData
     {
-        public uint[] VertexIndices;
-        public uint[] TextureIndices;
-        public uint[] NormalIndices;
+        public uint[] VertexIndices { get; init; }
+        public uint[] TextureIndices { get; init; }
+        public uint[] NormalIndices { get; init; }
 
         public FaceData(uint[] vertexIndices, uint[] textureIndices, uint[] normalIndices)
         {
@@ -145,49 +147,34 @@ public sealed class WaveFrontLoader : IAssetLoader
                     if (!facesStarted)
                         facesStarted = true;
 
-                    var fDataLine = line.Split(s_splitSeparator);
-                    var fTmpArr = new uint[][]
-                    {
-                        new uint[fDataLine.Length - 1],
-                        textureCoords.Count == 0 ? Array.Empty<uint>() : new uint[fDataLine.Length - 1],
-                        normals.Count == 0 ? Array.Empty<uint>() : new uint[fDataLine.Length - 1]
-                    };
+                    var faceDataLine = line.Split(s_splitSeparator);
+                    var faceLength = faceDataLine.Length - 1;
+                    var faceType = (faceLength).GetFaceType();
 
-                    if (fDataLine.Length > 5)
+                    if (faceType == FaceType.Unknown)
                     {
                         m_logger.Error("Cannot load model {Name}. Supporting faces: Triangle, Quad", name);
-                        break;
+                        return;
                     }
-
-                    for (int i = 1; i < fDataLine.Length; i++)
+                    
+                    var texturesExists = textureCoords.Count != 0;
+                    var normalsExists = normals.Count != 0;
+                    var faceTmpArr = new uint[][]
                     {
-                        var fData = fDataLine[i].Split('/');
-
-                        if (fData.Length == 0)
-                        {
-                            m_logger.Error("Cannot parse vertexIndices {CoordIdx} in line {CurrentLine}", i, currLine);
-                            break;
-                        }
-
-                        for (int j = 0; j < fData.Length; j++)
-                        {
-                            if (j == 1 && fData[j] == string.Empty)
-                            {
-                                continue;
-                            }
-
-                            if (!uint.TryParse(fData[j], out var outUintValue))
-                            {
-                                m_logger.Error("Cannot parse index (uint) [{i};{j}] in line {CurrentLine}", i, j,
-                                    currLine);
-                                break;
-                            }
-
-                            fTmpArr[j][i - 1] = outUintValue - 1 - lastOffset[j];
-                        }
-                    }
-
-                    faceData.Add(new FaceData(fTmpArr[0], fTmpArr[1], fTmpArr[2]));
+                        new uint[faceLength],
+                        texturesExists ? new uint[faceLength] : Array.Empty<uint>(),
+                        normalsExists ? new uint[faceLength] : Array.Empty<uint>(),
+                    };
+                    
+                    parseError = !ParseLineData(faceTmpArr, faceDataLine, currLine, lastOffset);
+                    
+                    if (parseError)
+                        return;
+                    
+                    if (faceType == FaceType.Triangle)
+                        faceData.Add(new FaceData(faceTmpArr[0], faceTmpArr[1], faceTmpArr[2]));
+                    else
+                        HandleQuadFace(faceData, texturesExists, normalsExists, faceTmpArr);
                 }
             }
         }
@@ -199,7 +186,64 @@ public sealed class WaveFrontLoader : IAssetLoader
 
         GlobalCache<Scene>.Default.AddOrUpdateItem(name, scene);
     }
+    
+    private bool ParseLineData(uint[][] faceTmpArr, string[] faceDataLine, int currLine, uint[] lastOffset)
+    {
+        for (int i = 1; i < faceDataLine.Length; i++)
+        {
+            var fData = faceDataLine[i].Split('/');
 
+            if (fData.Length == 0)
+            {
+                m_logger.Error("Cannot parse vertexIndices {CoordIdx} in line {CurrentLine}", i, currLine);
+                return false;
+            }
+
+            for (int j = 0; j < fData.Length; j++)
+            {
+                if (fData[j] == string.Empty)
+                    continue;
+
+                if (!uint.TryParse(fData[j], out var outUintValue))
+                {
+                    m_logger.Error("Cannot parse index (uint) [{i};{j}] in line {CurrentLine}", i, j,
+                        currLine);
+                    return false;
+                }
+
+                faceTmpArr[j][i - 1] = outUintValue - 1 - lastOffset[j];
+            }
+        }
+
+        return true;
+    }
+    
+    private static void HandleQuadFace(List<FaceData> faceData, bool texturesExists, bool normalsExists, uint[][] faceTmpArr)
+    {
+        faceData.Add(new FaceData(new uint[3],
+            texturesExists ? new uint[3] : Array.Empty<uint>(),
+            normalsExists ? new uint[3] : Array.Empty<uint>()));
+
+        faceData.Add(new FaceData(new uint[3],
+            texturesExists ? new uint[3] : Array.Empty<uint>(),
+            normalsExists ? new uint[3] : Array.Empty<uint>()));
+
+        var faceDataStartIndex = faceData.Count - 2;
+        for (int i = 0; i < s_quadIndices.Length; i++)
+        {
+            var faceArrCurrentIndex = i % 3;
+            var faceDataCurrentIndex = i / 3;
+            
+            faceData[faceDataStartIndex + faceDataCurrentIndex].VertexIndices[faceArrCurrentIndex] = faceTmpArr[0][s_quadIndices[i]];
+
+            if (texturesExists)
+                faceData[faceDataStartIndex + faceDataCurrentIndex].TextureIndices[faceArrCurrentIndex] = faceTmpArr[1][s_quadIndices[i]];
+
+            if (normalsExists)
+                faceData[faceDataStartIndex + faceDataCurrentIndex].NormalIndices[faceArrCurrentIndex] = faceTmpArr[2][s_quadIndices[i]];
+        }
+    }
+    
     private static Mesh CreateMeshFromData(List<Vector3> vertices, List<Vector2> textureCoords,
         List<Vector3> normals, List<FaceData> faceDatas)
     {

@@ -44,4 +44,9 @@ public sealed class Scene
 
         return newScene;
     }
+
+    public int SizeInBytes()
+    {
+        return Meshes.Sum(m => m.SizeInBytes());
+    }
 }

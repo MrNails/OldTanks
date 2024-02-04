@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Common.Extensions;
 using Common.Services;
@@ -40,6 +41,10 @@ public partial class MainWindow : GameWindow
     private readonly GameManager m_gameManager;
     private readonly LoggerService m_loggerService;
 
+    private readonly object m_locker = new object();
+
+    private readonly ObjectRenderer<WorldObject> m_objectRenderer;
+
     private Shader? m_primitivesShader;
 
     private bool m_exit;
@@ -50,6 +55,7 @@ public partial class MainWindow : GameWindow
     private Font m_font;
 
     private Thread m_interactionWorker;
+    private Thread m_testThread;
 
     private World m_world;
 
@@ -92,11 +98,13 @@ public partial class MainWindow : GameWindow
         SettingsService settingsService, LoggerService loggerService)
         : base(gameWindowSettings, nativeWindowSettings)
     {
+        m_objectRenderer = new ObjectRenderer<WorldObject>();
+
         m_settingsService = settingsService;
         m_userSettings = m_settingsService.GetDefaultSettings<Settings>()!;
-        
+
         Log.Logger.AddGLMessageHandling();
-        
+
         if (m_userSettings.FullScreen)
         {
             WindowState = WindowState.Fullscreen;
@@ -117,8 +125,11 @@ public partial class MainWindow : GameWindow
         m_rotation = new Vector3(0, 0, 0);
 
         m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
+        m_testThread = new Thread(SpawnObjects) { IsBackground = true };
+
         m_controlHandler = new ControlHandler();
-        m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager) { Title = "Debug window", IsVisible = true };
+        m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager)
+            { Title = "Debug window", IsVisible = true };
     }
 
     #region Overloads
@@ -149,18 +160,23 @@ public partial class MainWindow : GameWindow
                 m_gameManager.ShadersLoaded -= OnShadersLoaded;
                 m_gameManager.SkyBoxesLoaded -= OnSkyBoxesLoaded;
 
-                ObjectRenderer.RegisterScene(typeof(SkyBox),
+                ObjectRendererOld.RegisterScene(typeof(SkyBox),
                     GlobalCache<Shader>.Default.GetItemOrDefault("SkyBoxShader")!);
 
                 m_currentObject = m_world.CurrentCamera;
 
                 InitDefaultObjects();
 
-                ObjectRenderer.AddDrawables(m_world.WorldObjects,
-                    GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader")!);
+                m_objectRenderer.Shader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader")!;
+                m_objectRenderer.InstancedShader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader2")!;
+                m_objectRenderer.DrawableItems = m_world.WorldObjects;
+
+                ObjectRendererOld.AddDrawables(m_world.WorldObjects, m_objectRenderer.Shader);
                 CollisionRenderer.AddCollisions(m_world.WorldObjects);
 
                 m_readyToHandle = true;
+                
+                m_testThread.Start();
             });
 
         EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
@@ -247,7 +263,7 @@ public partial class MainWindow : GameWindow
                 {
                     WindowState = WindowState != WindowState.Fullscreen ? WindowState.Fullscreen : WindowState.Normal;
                 }
-                
+
                 break;
             }
         }
@@ -260,7 +276,10 @@ public partial class MainWindow : GameWindow
         if (!m_readyToHandle)
             return;
 
-        m_fps = 1.0 / args.Time;
+        lock (m_locker)
+        {
+            m_fps = 1.0 / args.Time;
+        }
 
         GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
 
@@ -268,11 +287,13 @@ public partial class MainWindow : GameWindow
         GL.Enable(EnableCap.CullFace);
 
         GL.DepthFunc(DepthFunction.Lequal);
-        ObjectRenderer.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
+        ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
         GL.DepthFunc(DepthFunction.Less);
 
+        var projection = EngineSettings.Current.Projection;
         if (!m_debugView)
-            ObjectRenderer.DrawElements(m_world.CurrentCamera);
+            m_objectRenderer.Render(m_world.CurrentCamera, ref projection);
+        // ObjectRendererOld.DrawElements(m_world.CurrentCamera);
         else
             CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera, m_font, drawVerticesPositions: false);
 
@@ -300,9 +321,9 @@ public partial class MainWindow : GameWindow
         }
 
         EngineSettings.Current.GlobalLock.EnterWriteLock();
-        
+
         m_controlHandler.HandleControls();
-        
+
         EngineSettings.Current.GlobalLock.ExitWriteLock();
 
         m_imGuiController.Render();
@@ -371,6 +392,28 @@ public partial class MainWindow : GameWindow
     }
 
     #endregion
+
+    private void SpawnObjects()
+    {
+        var objAmount = 2500;
+        var rand = Random.Shared;
+
+        for (int i = 0; i < objAmount; i++)
+        {
+            var cube = new Cube
+            {
+                Size = new Vector3(1),
+                Position = new Vector3(rand.Next(-50, 50), rand.Next(-50, 50), rand.Next(-50, 50)),
+            };
+            
+            FillObject(cube, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
+
+            lock (m_locker)
+            {
+                m_world.WorldObjects.Add(cube);
+            }
+        }
+    }
 
     private void ChangeCameraMode()
     {
@@ -605,7 +648,12 @@ public partial class MainWindow : GameWindow
 
                     // m_collisionCalculation = true;
 
-                    m_world.CollideObjects(elapsedTime);
+                    // m_world.CollideObjects(elapsedTime);
+                    
+                    for (var i = 0; i < m_world.WorldObjects.Count; i++)
+                    {
+                        m_world.WorldObjects[i].ApplyTransformation();
+                    }
 
                     // m_collisionCalculation = false;
                 }
@@ -659,7 +707,7 @@ public partial class MainWindow : GameWindow
 
         GL.PointSize(30);
 
-        ObjectRenderer.DrawPrimitives(PrimitiveType.Points, shader, arr, drawLength);
+        ObjectRendererOld.DrawPrimitives(PrimitiveType.Points, shader, arr, drawLength);
 
         GL.PointSize(1);
 
@@ -706,7 +754,7 @@ public partial class MainWindow : GameWindow
 
         GL.LineWidth(5);
 
-        ObjectRenderer.DrawPrimitives(PrimitiveType.Lines, shader, arr, drawLength);
+        ObjectRendererOld.DrawPrimitives(PrimitiveType.Lines, shader, arr, drawLength);
 
         GL.LineWidth(1);
 

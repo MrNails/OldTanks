@@ -12,7 +12,7 @@ namespace CoolEngine.Services.Renderers;
 public class CollisionRenderer
 {
     private static readonly Dictionary<Type, CollisionRenderGroup> m_drawCollisions = new();
-    private static readonly Dictionary<ICollisionable, DrawSceneInfo> m_collisionInfo = new();
+    private static readonly Dictionary<ICollisionable, DrawSceneInfoOld> m_collisionInfo = new();
 
     private static DrawObjectInfo s_normalObjInfo;
 

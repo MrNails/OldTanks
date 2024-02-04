@@ -94,7 +94,7 @@ public partial class MainWindow : ImGuiWindow
         if (selectedItem == null) 
             return;
         
-        ObjectRenderer.RemoveDrawable(selectedItem);
+        ObjectRendererOld.RemoveDrawable(selectedItem);
         CollisionRenderer.RemoveCollision(selectedItem);
         m_gameManager.World.WorldObjects.Remove(selectedItem);
     }
@@ -113,6 +113,6 @@ public partial class MainWindow : ImGuiWindow
 
         m_gameManager.World.WorldObjects.Add(cube);
         CollisionRenderer.AddCollision(cube);
-        ObjectRenderer.AddDrawable(cube, GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader"));
+        ObjectRendererOld.AddDrawable(cube, GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader"));
     }
 }

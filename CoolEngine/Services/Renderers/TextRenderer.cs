@@ -279,14 +279,7 @@ public static class TextRenderer
 
         if (s_drawObjectInfo != null)
         {
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-            GL.BindVertexArray(0);
-
-            GL.DeleteBuffer(s_drawObjectInfo.ElementsBufferObject);
-            GL.DeleteBuffer(s_drawObjectInfo.VertexBufferObject);
-            GL.DeleteVertexArray(s_drawObjectInfo.VertexArrayObject);
-
+            s_drawObjectInfo.Dispose();
             s_drawObjectInfo = null;
         }
 

@@ -1,379 +1,386 @@
 ﻿using System.Buffers;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Runtime.InteropServices;
+using Common.Models;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Primitives;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
-public static class ObjectRenderer
+public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
+    where T: IDrawable
 {
-    private static readonly int s_maxPrimitivesIndices = 6900;
+    public static readonly int DEFAULT_MAX_INSTANCED_ELEMENTS = 32;
+    public static readonly Vector4 DEFAULT_EMPTY_TEXTURE_COLOR = new Vector4(0xAA, 0x55, 0x6F, 1);
+    public static readonly int MAX_PER_INSTANCE_ELEMENTS = 5;
     
-    private static readonly Dictionary<Type, DrawSceneInfo> m_sceneBuffers = new();
-    private static readonly Dictionary<PrimitiveType, DrawObjectInfo> m_primitives = new();
+    private readonly Dictionary<Scene, DrawSceneInfo> m_sceneBuffers;
+    private readonly Dictionary<Scene, DrawSceneInfo> m_instancedSceneBuffers;
 
-    private static readonly uint[] s_quadIndices = new uint[] { 0, 1, 3, 1, 2, 3 };
+    private bool m_isActive;
 
-    private static int m_currentPrimitivesIndices = 100;
+    private Shader? m_shader;
+    private Shader? m_instancedShader;
+    private ObservableCollection<T>? m_drawableItems;
 
-    public static bool RegisterScene(Type type, Shader shader)
+    public ObjectRenderer()
     {
-        if (type == null)
-            throw new ArgumentNullException(nameof(type));
-
-        if (shader == null)
-            throw new ArgumentNullException(nameof(shader));
-
-        return m_sceneBuffers.TryAdd(type, new DrawSceneInfo(shader));
+        m_sceneBuffers = new Dictionary<Scene, DrawSceneInfo>();
+        m_instancedSceneBuffers = new Dictionary<Scene, DrawSceneInfo>();
+        IsActive = true;
+    }
+    
+    public bool IsActive
+    {
+        get => m_isActive;
+        set => SetField(ref m_isActive, value);
     }
 
-    //TODO: Refactor AddDrawable to make it internal 
-    public static bool AddDrawable(IDrawable drawable, Shader shader)
+    public ObservableCollection<T>? DrawableItems
     {
-        if (drawable == null)
-            return false;
-
-        if (shader == null)
-            return false;
-
-        DrawSceneInfo drawSceneInfo;
-        var drawableType = drawable.GetType();
-
-        if (!m_sceneBuffers.TryGetValue(drawableType, out drawSceneInfo))
+        get => m_drawableItems;
+        set
         {
-            drawSceneInfo = new DrawSceneInfo(shader);
-            m_sceneBuffers.Add(drawableType, drawSceneInfo);
-        }
+            if (Equals(value, m_drawableItems)) return;
 
+            if (m_drawableItems != null)
+            {
+                m_drawableItems.CollectionChanged -= DrawablesOnCollectionChanged;
+            }
+
+            if (value != null)
+            {
+                value.CollectionChanged += DrawablesOnCollectionChanged;
+                AddDrawables(value);
+            }
+            
+            m_drawableItems = value;
+            
+            OnPropertyChanged();
+        }
+    }
+
+    public Shader? Shader
+    {
+        get => m_shader;
+        set
+        {
+            m_shader = value ?? throw new ArgumentNullException(nameof(Shader));
+            
+            OnPropertyChanged();
+        }
+    }
+    
+    public Shader? InstancedShader
+    {
+        get => m_instancedShader;
+        set
+        {
+            m_instancedShader = value ?? throw new ArgumentNullException(nameof(InstancedShader));
+            
+            SortInstancedAndPerInstanceObjects();
+            OnPropertyChanged();
+        }
+    }
+    
+    public void Render(Camera camera, ref Matrix4 projection)
+    {
+        if (!IsActive || 
+            Shader == null || 
+            DrawableItems == null || 
+            DrawableItems.Count == 0)
+            return;
+
+        RenderInternal(m_sceneBuffers, Shader!, camera, ref projection, false);
+
+        if (InstancedShader != null)
+            RenderInternal(m_instancedSceneBuffers, InstancedShader, camera, ref projection, true);
+    }
+
+    private void SortInstancedAndPerInstanceObjects()
+    {
+        foreach (var sceneBuffer in m_sceneBuffers)
+        {
+            if (sceneBuffer.Value.Drawables.Count > MAX_PER_INSTANCE_ELEMENTS)
+                m_instancedSceneBuffers.Add(sceneBuffer.Key, sceneBuffer.Value);
+        }
+        
+        foreach (var sceneBuffer in m_instancedSceneBuffers)
+            m_sceneBuffers.Remove(sceneBuffer.Key);
+    }
+    
+    private bool AddDrawable(IDrawable drawable)
+    {
+        var drawableScene = drawable.Scene;
+        
+        if (!m_instancedSceneBuffers.TryGetValue(drawableScene, out var drawSceneInfo) && 
+            !m_sceneBuffers.TryGetValue(drawableScene, out drawSceneInfo))
+        {
+            drawSceneInfo = new DrawSceneInfo();
+            m_sceneBuffers.Add(drawableScene, drawSceneInfo);
+        } 
+        else if (InstancedShader != null && 
+                 !m_instancedSceneBuffers.ContainsKey(drawableScene) && 
+                 drawSceneInfo.Drawables.Count > MAX_PER_INSTANCE_ELEMENTS)
+        {
+            m_sceneBuffers.Remove(drawableScene);
+            m_instancedSceneBuffers[drawableScene] = drawSceneInfo;
+        }
+        
         drawSceneInfo.Drawables.Add(drawable);
 
         return true;
     }
 
-    public static void AddDrawables<T>(IList<T> drawables, Shader shader)
-        where T : IDrawable
+    private void AddDrawables(IList<T> drawables)
     {
-        if (drawables == null)
-            return;
-
         for (int i = 0; i < drawables.Count; i++)
         {
             var drawable = drawables[i];
 
-            AddDrawable(drawable, shader);
+            AddDrawable(drawable);
         }
     }
 
-    public static bool RemoveDrawable(IDrawable drawable)
+    private bool RemoveDrawable(IDrawable drawable)
     {
-        if (drawable == null)
-            return false;
-
-        var drawableType = drawable.GetType();
-        DrawSceneInfo drawSceneInfo;
-
-        return m_sceneBuffers.TryGetValue(drawableType, out drawSceneInfo) && 
+        return (m_sceneBuffers.TryGetValue(drawable.Scene, out var drawSceneInfo) || 
+                m_instancedSceneBuffers.TryGetValue(drawable.Scene, out drawSceneInfo)) &&
                drawSceneInfo.Drawables.Remove(drawable);
     }
-    
-    public static void DrawElements(Camera camera)
+
+    private void RenderInternal(Dictionary<Scene, DrawSceneInfo> sceneInfos, Shader shader, Camera camera, ref Matrix4 projection, bool isInstanceRendering)
     {
-        foreach (var elemPair in m_sceneBuffers)
+        if (sceneInfos.Count == 0)
+            return;
+        
+        if (!shader.IsCurrentShaderInUsing)
+            shader.Use();
+        
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+
+        shader.SetMatrix4("projection", projection);
+        shader.SetMatrix4("view", camera.LookAt);
+
+        Action<DrawSceneInfo, Mesh, DrawObjectInfo, Shader> renderExecute = isInstanceRendering 
+                ? RenderInstanced 
+                : RenderPerInstance;
+        
+        foreach (var elemPair in sceneInfos)
         {
             var drawSceneInfo = elemPair.Value;
+            var meshes = elemPair.Key.Meshes;
 
-            if (elemPair.Key == typeof(SkyBox) ||
-                drawSceneInfo.Drawables.Count == 0)
+            for (int i = 0; i < meshes.Count; i++)
+            {
+                var mesh = meshes[i];
+                
+                //Find existing draw mesh info and if it don't exists - create it
+                var key = (mesh, shader);
+                if (!drawSceneInfo.MeshDrawInfos.TryGetValue(key, out var drawObjectInfo))
+                {
+                    drawObjectInfo = CreateDrawMeshInfo(mesh, shader);
+
+                    drawSceneInfo.MeshDrawInfos.Add(key, drawObjectInfo);
+                }
+
+                GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
+                
+                renderExecute(drawSceneInfo, mesh, drawObjectInfo, shader);
+            }
+        }
+        
+        GL.BindVertexArray(0);
+    }
+    
+    private void RenderPerInstance(DrawSceneInfo drawSceneInfo, Mesh mesh, DrawObjectInfo drawObjectInfo, Shader shader)
+    {
+        for (int j = 0; j < drawSceneInfo.Drawables.Count; j++)
+        {
+            var element = drawSceneInfo.Drawables[j];
+
+            if (!element.Visible)
                 continue;
 
-            drawSceneInfo.Shader.Use();
-            drawSceneInfo.Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
-            drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
+            Shader!.SetMatrix4("model", element.Transformation);
+            Shader.SetVector4("color", Colors.White);
 
-            for (int i = 0; i < drawSceneInfo.Drawables.Count; i++)
+            Shader.SetMatrix2("textureTransform",
+                Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
+                Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle)));
+
+            if (mesh.TextureData.Texture.Handle == 0 || !mesh.HasTextureCoords)
             {
-                var element = drawSceneInfo.Drawables[i];
-
-                if (!element.Visible)
-                    continue;
-
-                drawSceneInfo.Shader.SetMatrix4("model", element.Transformation);
-                drawSceneInfo.Shader.SetVector4("color", Colors.White);
-
-                for (int j = 0; j < element.Scene.Meshes.Count; j++)
-                {
-                    var mesh = element.Scene.Meshes[j];
-                    DrawObjectInfo drawObjectInfo;
-
-                    //Find existing draw mesh info and if it don't exists - create it
-                    if (!drawSceneInfo.Buffers.TryGetValue(j, out drawObjectInfo))
-                    {
-                        drawObjectInfo = CreateDrawMeshInfo(mesh, drawSceneInfo.Shader);
-                        drawSceneInfo.Buffers.Add(j, drawObjectInfo);
-                    }
-
-                    drawSceneInfo.Shader.SetMatrix2("textureTransform",
-                        Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
-                        Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle)));
-
-                    GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
-
-                    if (mesh.TextureData.Texture.Handle == 0 || !mesh.HasTextureCoords)
-                    {
-                        drawSceneInfo.Shader.SetVector4("color", new Vector4(0xAA, 0x55, 0x6F, 1));
-                        drawSceneInfo.Shader.SetBool("hasTexture", false);
-                    }
-                    else
-                        drawSceneInfo.Shader.SetBool("hasTexture", true);
-                    
-                    mesh.TextureData.Texture.Use(TextureUnit.Texture0);
-
-                    if (drawObjectInfo.IndicesLength != 0)
-                        GL.DrawElements(BeginMode.Triangles, drawObjectInfo.IndicesLength, DrawElementsType.UnsignedInt, 0);
-                    else
-                        GL.DrawArrays(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength);
-                }
+                Shader.SetVector4("color", DEFAULT_EMPTY_TEXTURE_COLOR);
+                Shader.SetBool("hasTexture", false);
             }
+            else
+                Shader.SetBool("hasTexture", true);
+
+            mesh.TextureData.Texture.Use(TextureUnit.Texture0);
+            
+            GL.DrawArrays(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength);
         }
     }
-
-    public static void DrawSkyBox(SkyBox skyBox, Camera camera)
+    
+    private void RenderInstanced(DrawSceneInfo drawSceneInfo, Mesh mesh, DrawObjectInfo drawObjectInfo, Shader shader)
     {
-        var elemType = typeof(SkyBox);
-        DrawSceneInfo drawSceneInfo;
+        var buffer = drawSceneInfo.TransformationsBuffer;
+        var needBufferRecreate = buffer == null || buffer.MaxElementsInBuffer < drawSceneInfo.Drawables.Count;
+        var maxElements = GetMaxBufferElements(drawSceneInfo, needBufferRecreate, buffer);
 
-        if (!m_sceneBuffers.TryGetValue(elemType, out drawSceneInfo))
+        var modelsData = ArrayPool<ModelData>.Shared.Rent(maxElements);
+        mesh.TextureData.Texture.Use(TextureUnit.Texture0);
+        
+        var haveTexture = mesh.TextureData.Texture != Texture.Empty && mesh.HasTextureCoords;
+        var textTransform = Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
+                            Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle));
+        var hiddenElementsAmount = 0;
+        
+        for (int j = 0; j < drawSceneInfo.Drawables.Count; j++)
         {
-            Console.WriteLine("Cannot draw skybox because DrawSceneInfo not exists.");
+            var element = drawSceneInfo.Drawables[j];
+
+            if (!element.Visible)
+            {
+                hiddenElementsAmount++;
+                continue;
+            }
+
+            modelsData[j] = new ModelData(element.Transformation, 
+                haveTexture ? Colors.White : DEFAULT_EMPTY_TEXTURE_COLOR, 
+                textTransform, haveTexture ? 1 : 0);
+        }
+        
+        if (hiddenElementsAmount == drawSceneInfo.Drawables.Count)
             return;
-        }
 
-        drawSceneInfo.Shader.Use();
-        drawSceneInfo.Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
-        drawSceneInfo.Shader.SetMatrix3("view", new Matrix3(camera.LookAt));
-        // drawSceneInfo.Shader.SetMatrix4("model", Matrix4.CreateRotationY(MathHelper.DegreesToRadians(skyBox.Rotation.Y)));
-
-        DrawObjectInfo drawObjectInfo;
-
-        //Find existing draw mesh info and if it don't exists - create it
-        if (!drawSceneInfo.Buffers.TryGetValue(0, out drawObjectInfo))
+        if (needBufferRecreate)
         {
-            drawObjectInfo = CreateSkyBoxDrawMeshInfo(SkyBox.Vertices, drawSceneInfo.Shader);
-            drawSceneInfo.Buffers.Add(0, drawObjectInfo);
+            buffer?.Dispose();
+            buffer = RecreateBuffer(drawObjectInfo, shader, maxElements);
+            
+            drawSceneInfo.TransformationsBuffer = buffer;
         }
+
+        var drawablesToDraw = drawSceneInfo.Drawables.Count - hiddenElementsAmount;
+        
+        buffer!.FillData(modelsData, drawablesToDraw);
+        
+        GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, drawablesToDraw);
+        
+        ArrayPool<ModelData>.Shared.Return(modelsData);
+    }
+
+    private static int GetMaxBufferElements(DrawSceneInfo drawSceneInfo, bool needBufferRecreate, Buffer<ModelData>? buffer)
+    {
+        var elementsAmount = drawSceneInfo.Drawables.Count;
+        var newElementsAmount = DEFAULT_MAX_INSTANCED_ELEMENTS;
+        
+        while (elementsAmount > newElementsAmount)
+        {
+            newElementsAmount *= 2;
+        }
+        
+        return needBufferRecreate 
+            ? buffer?.MaxElementsInBuffer * 2 ?? newElementsAmount 
+            : buffer!.MaxElementsInBuffer;
+    }
+
+    private void DrawablesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+                foreach (IDrawable drawable in e.NewItems!)
+                    AddDrawable(drawable);
+                break;
+            case NotifyCollectionChangedAction.Remove:
+                foreach (IDrawable drawable in e.OldItems!)
+                    RemoveDrawable(drawable);
+                break;
+        }
+    }
+    
+    private static Buffer<ModelData> RecreateBuffer(DrawObjectInfo drawObjectInfo, Shader shader, int maxElements)
+    {
+        var buffer = new Buffer<ModelData>(BufferTarget.ArrayBuffer,
+            BufferUsageHint.DynamicDraw, maxElements);
 
         GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
-
-        skyBox.Texture?.Use(TextureUnit.Texture0, TextureTarget.TextureCubeMap);
-
-        GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
-    }
-
-    /// <summary>
-    /// Draws primitives
-    /// </summary>
-    /// <param name="type">Primitive type</param>
-    /// <param name="shader">Shader program</param>
-    /// <param name="primitives">Primitives indices</param>
-    /// <param name="drawAmount">Primitives draw amount. If it's default (-1) - draw primitives based on <paramref name="primitives"/> length</param>
-    public static void DrawPrimitives(PrimitiveType type, Shader shader, Vector3[] primitives, int drawAmount = -1)
-    {
-        if (primitives == null || primitives.Length == 0)
-            return;
-
-        shader.Use();
-
-        var tmpDrawLength = drawAmount <= 0 ? primitives.Length : drawAmount;
-        var needRecreate = false;
-
-        DrawObjectInfo drawObjectInfo;
-
-        if (tmpDrawLength > m_currentPrimitivesIndices && tmpDrawLength <= s_maxPrimitivesIndices &&
-            tmpDrawLength * 2 <= s_maxPrimitivesIndices)
-        {
-            m_currentPrimitivesIndices = tmpDrawLength * 2;
-            needRecreate = true;
-        }
-        else if (tmpDrawLength > m_currentPrimitivesIndices)
-        {
-            m_currentPrimitivesIndices = s_maxPrimitivesIndices;
-            needRecreate = true;
-        }
-
-        if (needRecreate)
-        {
-            m_primitives.Remove(type, out drawObjectInfo);
-
-            if (drawObjectInfo != null)
-            {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-                GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-                GL.BindVertexArray(0);
-
-                GL.DeleteBuffer(drawObjectInfo.ElementsBufferObject);
-                GL.DeleteBuffer(drawObjectInfo.VertexBufferObject);
-                GL.DeleteVertexArray(drawObjectInfo.VertexArrayObject);
-            }
-            
-            drawObjectInfo = CreateDrawVerticesInfo(shader);
-            m_primitives.Add(type, drawObjectInfo);
-        }
-        else if (!m_primitives.TryGetValue(type, out drawObjectInfo))
-        {
-            drawObjectInfo = CreateDrawVerticesInfo(shader);
-            m_primitives.Add(type, drawObjectInfo);
-        }
-
-        PrepareVerticesToDraw(drawObjectInfo, primitives, tmpDrawLength);
         
-        GL.DrawArrays(type, 0, tmpDrawLength);
+        shader.SetAttributeData("iModel", 4 * 4 + 4 * 2 + 1,
+            VertexAttribPointerType.Float, ModelData.SizeInBytes, 0, vertexAttbDivisor: 1);
+        
+        return buffer;
     }
     
     private static DrawObjectInfo CreateDrawMeshInfo(Mesh mesh, Shader shader)
     {
-        int vao = 0, vbo = 0, ebo = 0;
+        int vao = 0, vbo = 0;
 
-        var indicesLength = 0;
-        var verticesLength = mesh.Faces.Sum(f =>
-        {
-            indicesLength += f.Indices.Length * (f.Indices.Length == 3 ? 1 : 2);
-            return f.Indices.Length;
-        });
-
+        var verticesLength = mesh.Faces.Sum(f => f.Indices.Length);
         var vertexRentArr = ArrayPool<Vertex>.Shared.Rent(verticesLength);
-        var indicesRentArr = indicesLength == verticesLength
-            ? Array.Empty<uint>()
-            : ArrayPool<uint>.Shared.Rent(indicesLength);
-
+        
         for (int i = 0, vIdx = 0; i < mesh.Faces.Count; i++)
         {
             var face = mesh.Faces[i];
-
-            if (face.Indices.Length == 3)
-                for (int j = 0; j < face.Indices.Length; j++, vIdx++)
-                    vertexRentArr[vIdx] = new Vertex(mesh.Vertices[face.Indices[j]],
-                        face.HasNormalIndices ? mesh.Normals[face.NormalsIndices[j]] : Vector3.Zero,
-                        face.HasTextureIndices ? mesh.TextureCoords[face.TextureIndices[j]] : Vector2.Zero);
-            else
+        
+            for (int j = 0; j < face.Indices.Length; j++, vIdx++)
             {
-                for (int j = 0; j < s_quadIndices.Length; j++)
-                    indicesRentArr[i * s_quadIndices.Length + j] = s_quadIndices[j] + (uint)vIdx;
-
-                for (int j = 0; j < face.Indices.Length; j++, vIdx++)
-                {
-                    vertexRentArr[vIdx] = new Vertex(mesh.Vertices[face.Indices[j]],
-                        face.HasNormalIndices ? mesh.Normals[face.NormalsIndices[j]] : Vector3.Zero,
-                        face.HasTextureIndices
-                            ? mesh.TextureCoords[face.TextureIndices[j]]
-                            : Vector2.Zero);
-                }
+                vertexRentArr[vIdx] = new Vertex(mesh.Vertices[face.Indices[j]],
+                    face.HasNormalIndices ? mesh.Normals[face.NormalsIndices[j]] : Vector3.Zero,
+                    face.HasTextureIndices ? mesh.TextureCoords[face.TextureIndices[j]] : Vector2.Zero);
             }
         }
-
+        
         vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, verticesLength * Vertex.SizeInBytes, vertexRentArr,
-            BufferUsageHint.StaticDraw);
+        GL.BufferData(BufferTarget.ArrayBuffer, verticesLength * Vertex.SizeInBytes, vertexRentArr, BufferUsageHint.StaticDraw);
 
         ArrayPool<Vertex>.Shared.Return(vertexRentArr);
 
         vao = GL.GenVertexArray();
         GL.BindVertexArray(vao);
 
-        var posIndex = shader.GetAttribLocation("iPos");
-        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Vertex.SizeInBytes, 0);
-        GL.EnableVertexAttribArray(posIndex);
+        shader.SetAttributeData("iPos", 3, VertexAttribPointerType.Float, Vertex.SizeInBytes, 0);
+        shader.SetAttributeData("iTextureCoord", 2, VertexAttribPointerType.Float, Vertex.SizeInBytes, Vector3.SizeInBytes * 2);
 
-        var textureIndex = shader.GetAttribLocation("iTextureCoord");
-        GL.VertexAttribPointer(textureIndex, 2, VertexAttribPointerType.Float, false, Vertex.SizeInBytes, Vector3.SizeInBytes * 2);
-        GL.EnableVertexAttribArray(textureIndex);
-
-        if (indicesRentArr.Length != 0)
+        return new DrawObjectInfo(vao, vbo, 0)
         {
-            ebo = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indicesLength * sizeof(uint), indicesRentArr,
-                BufferUsageHint.StaticDraw);
-
-            ArrayPool<uint>.Shared.Return(indicesRentArr);
-        }
-
-        return new DrawObjectInfo(vao, vbo, ebo)
-        {
-            IndicesLength = indicesLength != verticesLength ? indicesLength : 0,
             VerticesLength = verticesLength
         };
     }
-
-    private static DrawObjectInfo CreateSkyBoxDrawMeshInfo(Vector3[] vertices, Shader shader)
+    
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct ModelData
     {
-        int vao = 0, vbo = 0, ebo = 0;
+        public readonly Matrix4 Transformation;
+        public readonly Vector4 Color;
+        public readonly Matrix2 TextureTransformation;
+        public readonly float HaveTexture;
+        
+        public ModelData(Matrix4 transformation, Vector4 color, Matrix2 textureTransformation, float haveTexture)
+        {
+            Transformation = transformation;
+            Color = color;
+            TextureTransformation = textureTransformation;
+            HaveTexture = haveTexture;
+        }
 
-        vbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * 3 * Vector3.SizeInBytes, vertices,
-            BufferUsageHint.StaticDraw);
-
-        vao = GL.GenVertexArray();
-        GL.BindVertexArray(vao);
-
-        var posIndex = shader.GetAttribLocation("iPos");
-        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Vector3.SizeInBytes, 0);
-        GL.EnableVertexAttribArray(posIndex);
-
-        return new DrawObjectInfo(vao, vbo, ebo);
+        public static unsafe int SizeInBytes => sizeof(ModelData);
     }
     
-    // private static void DrawFaceNumber(Mesh originalMesh, ITransformable element, Camera camera, Font font)
-    // {
-    //     var textDrawInfo = new TextDrawInformation(color: Colors.White, originPosition: element.Position,
-    //         originRotation: new Vector3(element.Direction.X, -element.Direction.Y, element.Direction.Z), scale: 0.1f);
-    //
-    //     for (int i = 0; i < originalMesh.Faces.Count; i++)
-    //     {
-    //         for (int j = 0; j < originalMesh.Faces[i].NormalsIndices.Length; j++)
-    //         {
-    //             var norm = originalMesh.Normals[(int)originalMesh.Faces[i].NormalsIndices[j]];
-    //             textDrawInfo.SelfPosition = new Vector3(
-    //                 norm.X != 0 ? norm.X * (element.Width / 2 + 0.05f) : 0,
-    //                 norm.Y != 0 ? norm.Y * (element.Height / 2 + 0.05f) : 0,
-    //                 norm.Z != 0 ? norm.Z * (element.Length / 2 + 0.05f) : 0);
-    //
-    //             textDrawInfo.SelfRotation = new Vector3(norm.Z < 0 ? 180 : norm.Y != 0 ? -norm.Y * 90 : 0,
-    //                 norm.X != 0 ? norm.X * 90 : 0,
-    //                 norm.Z < 0 ? 180 : 0);
-    //
-    //             TextRenderer.DrawText3D(font, i.ToString(), camera, textDrawInfo);
-    //         }
-    //     }
-    // }
-    
-    private static DrawObjectInfo CreateDrawVerticesInfo(Shader shader)
+    private sealed class DrawSceneInfo
     {
-        int vao = 0, vbo = 0, ebo = 0;
-
-        vbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, m_currentPrimitivesIndices * Vector3.SizeInBytes, (Vector3[]?)null,
-            BufferUsageHint.StreamDraw);
-
-        vao = GL.GenVertexArray();
-        GL.BindVertexArray(vao);
-
-        var posIndex = shader.GetAttribLocation("iPos");
-        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Vector3.SizeInBytes, 0);
-        GL.EnableVertexAttribArray(posIndex);
-
-        return new DrawObjectInfo(vao, vbo, ebo);
-    }
-
-    private static void PrepareVerticesToDraw(DrawObjectInfo drawObjectInfo, Vector3[] vertices, int drawAmount)
-    {
-        GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, drawObjectInfo.VertexBufferObject);
-        GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, drawAmount * Vector3.SizeInBytes, vertices);
+        public List<IDrawable> Drawables { get; } = new();
+        public Dictionary<(Mesh, Shader), DrawObjectInfo> MeshDrawInfos { get; } = new();
+        
+        public Buffer<ModelData>? TransformationsBuffer { get; set; }
     }
 }

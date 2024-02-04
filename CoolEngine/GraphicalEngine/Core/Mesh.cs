@@ -30,6 +30,8 @@ public sealed class Mesh
 
     public Vector3[] Normals { get; }
 
+    public FaceType FaceType => Faces.FirstOrDefault()?.FaceType ?? FaceType.Unknown;
+
     public bool HasTextureCoords => TextureCoords.Length > 0;
     public bool HasNormals => Normals.Length > 0;
     
@@ -42,5 +44,10 @@ public sealed class Mesh
             mesh.Faces.Add(new Face(Faces[i].Indices, Faces[i].TextureIndices, Faces[i].NormalsIndices));
 
         return mesh;
+    }
+
+    public int SizeInBytes()
+    {
+        return Vector3.SizeInBytes * (Vertices.Length + Normals.Length) + Vector2.SizeInBytes * TextureCoords.Length;
     }
 }
