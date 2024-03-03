@@ -1,4 +1,5 @@
-﻿using CoolEngine.Services;
+﻿using CoolEngine.Models;
+using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
 using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
 using OpenTK.Mathematics;
@@ -9,7 +10,7 @@ public class Collision
 {
     private readonly CollisionData m_originalCollision;
     private readonly CollisionData m_currentCollision;
-
+    
     public Collision(IPhysicObject physicObject, CollisionData originalCollision)
     {
         if (physicObject == null)
@@ -64,7 +65,19 @@ public class Collision
                      SphereOBBCollisionCheck(CollisionData, t2.CollisionData, out normal, out depth) : 
                      OBBCollisionCheck(CollisionData, t2.CollisionData, out normal, out depth);
      }
-    
+
+    public bool IntersectRay(Ray ray, out Vector3 intersectionResult)
+    {
+        intersectionResult = Vector3.Zero;
+
+        if (CollisionData.CollisionType == CollisionType.Polygon) 
+            return IntersectRayWithPolygon(ray, ref intersectionResult);
+        else if (CollisionData is { CollisionType: CollisionType.Sphere, PhysicObject: not null })
+            return IntersectRayWithSphere(ray, ref intersectionResult);
+        
+        return false;
+    }
+
     private void InitCollision(CollisionData originalCollision)
     {
         if (originalCollision.Vertices.Length == 0)
@@ -80,6 +93,68 @@ public class Collision
             m_currentCollision.Meshes.Add(new CollisionMesh(mesh.Indices) { Normal = mesh.Normal });
     }
 
+    private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResult)
+    {
+        for (int i = 0; i < CollisionData.Meshes.Count; i++)
+        {
+            var mesh = CollisionData.Meshes[i];
+            var normal = mesh.Normal;
+            var rayDelta = ray.RayDelta;
+
+            var nDotRayDelta = Vector3.Dot(normal, rayDelta);
+
+            if (nDotRayDelta < 1e-6f)
+            {
+                continue;
+            }
+
+            var meshFirstVertex = CollisionData.Vertices[mesh.Indices[0]];
+            var t = Vector3.Dot(-normal, ray.Start - meshFirstVertex) / nDotRayDelta;
+            var localRayEnd = ray.Start + rayDelta * t;
+
+            var deltaMeshAndLocalRayStart = localRayEnd - meshFirstVertex;
+            var deltaV21 = CollisionData.Vertices[mesh.Indices[1]] - meshFirstVertex;
+            var deltaV31 = CollisionData.Vertices[mesh.Indices[2]] - meshFirstVertex;
+
+            var u = Vector3.Dot(deltaMeshAndLocalRayStart, deltaV21);
+            var v = Vector3.Dot(deltaMeshAndLocalRayStart, deltaV31);
+
+            if (u >= 0 && u <= Vector3.Dot(deltaV21, deltaV21) &&
+                v >= 0 && v <= Vector3.Dot(deltaV31, deltaV31))
+            {
+                intersectionResult = localRayEnd;
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    private bool IntersectRayWithSphere(Ray ray, ref Vector3 intersectionResult)
+    {
+        var rayDelta = ray.RayDelta;
+        var rayLength = rayDelta.Length;
+        var sphereCenter = CollisionData.PhysicObject.Position;
+        var sphereSize = CollisionData.PhysicObject.Width;
+
+        var rayToSphereVector = ray.Start - sphereCenter;
+        var rayToSphereLength = Math.Abs(rayToSphereVector.Length);
+
+        if (rayLength < rayToSphereLength - sphereSize)
+            return true;
+
+        var rayDirection = rayDelta.Normalized();
+        var localEnd = ray.Start + rayDirection * (rayToSphereLength - sphereSize);
+
+        if (Math.Abs((localEnd - sphereCenter).Length) <= sphereSize)
+        {
+            intersectionResult = localEnd;
+            return true;
+        }
+
+        return false;
+    }
+    
     private static bool SphereXSphereCollision(CollisionData sphere1, CollisionData sphere2, out Vector3 normal, out float depth)
     {
         var distance = Math.Abs(Vector3.Distance(sphere1.PhysicObject!.Position, sphere2.PhysicObject!.Position));

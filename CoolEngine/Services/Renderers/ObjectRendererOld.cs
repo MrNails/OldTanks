@@ -206,16 +206,7 @@ public static class ObjectRendererOld
         {
             m_primitives.Remove(type, out drawObjectInfo);
 
-            if (drawObjectInfo != null)
-            {
-                GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-                GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-                GL.BindVertexArray(0);
-
-                GL.DeleteBuffer(drawObjectInfo.ElementsBufferObject);
-                GL.DeleteBuffer(drawObjectInfo.VertexBufferObject);
-                GL.DeleteVertexArray(drawObjectInfo.VertexArrayObject);
-            }
+            drawObjectInfo?.Dispose();
             
             drawObjectInfo = CreateDrawVerticesInfo(shader);
             m_primitives.Add(type, drawObjectInfo);

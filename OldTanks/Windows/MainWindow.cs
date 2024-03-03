@@ -1,11 +1,13 @@
 ﻿using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using Common.Extensions;
 using Common.Services;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Models;
 using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
@@ -56,6 +58,10 @@ public partial class MainWindow : GameWindow
 
     private Thread m_interactionWorker;
     private Thread m_testThread;
+
+    private Ray m_ray;
+    private bool m_rayIntersected;
+    private Vector3 m_rayIntersectionPoint;
 
     private World m_world;
 
@@ -120,12 +126,12 @@ public partial class MainWindow : GameWindow
         m_engineSettings = new Services.EngineSettings();
         m_settingsService.SetRuntimeSettings(nameof(Services.EngineSettings), m_settingsService);
 
-        EngineSettings.Current.CollisionIterations = 20;
+        EngineSettings.Current.CollisionIterations = 5;
 
         m_rotation = new Vector3(0, 0, 0);
 
         m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
-        m_testThread = new Thread(SpawnObjects) { IsBackground = true };
+        // m_testThread = new Thread(SpawnObjects) { IsBackground = true };
 
         m_controlHandler = new ControlHandler();
         m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager)
@@ -176,7 +182,7 @@ public partial class MainWindow : GameWindow
 
                 m_readyToHandle = true;
                 
-                m_testThread.Start();
+                // m_testThread.Start();
             });
 
         EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
@@ -295,7 +301,7 @@ public partial class MainWindow : GameWindow
             m_objectRenderer.Render(m_world.CurrentCamera, ref projection);
         // ObjectRendererOld.DrawElements(m_world.CurrentCamera);
         else
-            CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera, m_font, drawVerticesPositions: false);
+            CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera, m_font, drawVerticesPositions: true);
 
         OnRenderPrimitives();
 
@@ -624,6 +630,8 @@ public partial class MainWindow : GameWindow
         var stopWatch = new Stopwatch();
         stopWatch.Start();
 
+        var dict = new Dictionary<double, string>();
+        
         while (!m_exit)
         {
             try
@@ -631,16 +639,30 @@ public partial class MainWindow : GameWindow
                 while (!m_exit)
                 {
                     Thread.Sleep(5);
-
+                    
                     var elapsedTime = (float)stopWatch.Elapsed.TotalSeconds;
                     stopWatch.Restart();
 
                     HandleKeyboardInputs(elapsedTime);
 
-                    m_tbCollidingPS.Text = Math.Round(1 / elapsedTime, MidpointRounding.ToEven).ToString();
+                    //Collisions per second
+                    var cps = Math.Round(1 / elapsedTime, MidpointRounding.ToEven);
+                    var cpsString = "1000";
+                    
+                    if (cps < 1000 && !dict.TryGetValue(cps, out cpsString))
+                    {
+                        cpsString = cps.ToString(CultureInfo.InvariantCulture);
+                        dict.Add(cps, cpsString);
+                    }
+                    
+                    m_tbCollidingPS.Text = cpsString;
 
                     if (m_freeCamMode)
+                    {
                         HandleCameraMove(elapsedTime);
+                        var cam = m_world.CurrentCamera;
+                        m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + cam.Direction * 100);
+                    }
 
                     HandleObjectMove(elapsedTime);
 
@@ -648,11 +670,27 @@ public partial class MainWindow : GameWindow
 
                     // m_collisionCalculation = true;
 
-                    // m_world.CollideObjects(elapsedTime);
-                    
+                    m_world.CollideObjects(elapsedTime);
+
+                    var previousLength = float.MaxValue;
+                    var tmpIntersectedPoint = Vector3.Zero;
+                    m_rayIntersected = false;
                     for (var i = 0; i < m_world.WorldObjects.Count; i++)
                     {
-                        m_world.WorldObjects[i].ApplyTransformation();
+                        var worldObject = m_world.WorldObjects[i];
+
+                        if (worldObject.Collision == null)
+                            continue;
+                        
+                        var isRayIntersected = worldObject.Collision.IntersectRay(m_ray, out tmpIntersectedPoint);
+
+                        var lengthToRayStart = Math.Abs((tmpIntersectedPoint - m_ray.Start).Length);
+                        if (isRayIntersected && previousLength > lengthToRayStart)
+                        {
+                            m_rayIntersected = true;
+                            previousLength = lengthToRayStart;
+                            m_rayIntersectionPoint = tmpIntersectedPoint;
+                        }
                     }
 
                     // m_collisionCalculation = false;
@@ -751,13 +789,29 @@ public partial class MainWindow : GameWindow
                 }
             }
         }
-
-        GL.LineWidth(5);
-
+        
         ObjectRendererOld.DrawPrimitives(PrimitiveType.Lines, shader, arr, drawLength);
+        
+        ArrayPool<Vector3>.Shared.Return(arr);
+    }
 
-        GL.LineWidth(1);
+    private void DrawRay(Shader shader)
+    {
+        var arr = ArrayPool<Vector3>.Shared.Rent(2);
 
+        arr[0] = m_ray.Start;
+        arr[1] = m_rayIntersected ? m_rayIntersectionPoint : m_ray.End;
+        
+        ObjectRendererOld.DrawPrimitives(PrimitiveType.Lines, shader, arr, 2);
+
+        arr[0] = arr[1];
+        
+        GL.PointSize(30);
+        
+        ObjectRendererOld.DrawPrimitives(PrimitiveType.Points, shader, arr, 1);
+        
+        GL.PointSize(1);
+        
         ArrayPool<Vector3>.Shared.Return(arr);
     }
 
@@ -796,5 +850,7 @@ public partial class MainWindow : GameWindow
 
         if (m_drawNormals)
             DrawNormals(m_primitivesShader);
+
+        DrawRay(m_primitivesShader);
     }
 }

@@ -84,46 +84,43 @@ public class World
                 {
                     var first = m_objects[i];
                     var second = m_objects[j];
-
-                    if (first.Collision == null || second.Collision == null)
-                    {
-                        continue;
-                    }
-
+                    
                     if (first.RigidBody.IsStatic && second.RigidBody.IsStatic)
                         continue;
 
                     haveCollision = first.Collision
                         .CheckCollision(second.Collision, out normal, out depth);
 
-                    if (haveCollision)
+                    if (!haveCollision)
                     {
-                        var dot = Vector3.Dot(normal, PhysicsConstants.GravityDirection);
-
-                        if (first.RigidBody.IsStatic)
-                        {
-                            second.Position += normal * depth;
-                            second.RigidBody.OnGround = dot < 0;
-                        }
-                        else if (second.RigidBody.IsStatic)
-                        {
-                            first.Position -= normal * depth;
-                            first.RigidBody.OnGround = dot > 0;
-                        }
-                        else
-                        {
-                            first.Position -= normal * depth / 2;
-                            second.Position += normal * depth / 2;
-
-                            first.RigidBody.OnGround = dot > 0;
-                            second.RigidBody.OnGround = dot < 0;
-                        }
-                        
-                        ResolveColliding(first, second, normal);
-
-                        first.ApplyTransformation();
-                        second.ApplyTransformation();
+                        continue;
                     }
+                    
+                    var dot = Vector3.Dot(normal, PhysicsConstants.GravityDirection);
+
+                    if (first.RigidBody.IsStatic)
+                    {
+                        second.Position += normal * depth;
+                        second.RigidBody.OnGround = dot < 0;
+                    }
+                    else if (second.RigidBody.IsStatic)
+                    {
+                        first.Position -= normal * depth;
+                        first.RigidBody.OnGround = dot > 0;
+                    }
+                    else
+                    {
+                        first.Position -= normal * depth / 2;
+                        second.Position += normal * depth / 2;
+
+                        first.RigidBody.OnGround = dot > 0;
+                        second.RigidBody.OnGround = dot < 0;
+                    }
+                        
+                    ResolveColliding(first, second, normal);
+
+                    first.ApplyTransformation();
+                    second.ApplyTransformation();
                 }
             }
         }

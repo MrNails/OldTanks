@@ -4,7 +4,7 @@ using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services.Interfaces;
 
-namespace CoolEngine.Services;
+namespace CoolEngine.Models;
 
 public sealed class Level
 {

@@ -14,25 +14,25 @@ public class Cube : WorldObject
         
         Vector3[] collisionVertices =
         {
-            new Vector3(-1.0f,    1.0f,   -1.0f),
-            new Vector3(1.0f,    1.0f,   -1.0f),
-            new Vector3(1.0f,   -1.0f,   -1.0f),
-            new Vector3(-1.0f,   -1.0f,   -1.0f),
-            new Vector3(1.0f,    1.0f,    1.0f),
-            new Vector3(-1.0f,    1.0f,    1.0f),
-            new Vector3(-1.0f,   -1.0f,    1.0f),
-            new Vector3(1.0f,   -1.0f,    1.0f),
+            new Vector3(-1.0f,    1.0f,   1.0f),
+            new Vector3(1.0f,    1.0f,   1.0f),
+            new Vector3(1.0f,   -1.0f,   1.0f),
+            new Vector3(-1.0f,   -1.0f,   1.0f),
+            new Vector3(-1.0f,    1.0f,    -1.0f),
+            new Vector3(1.0f,    1.0f,    -1.0f),
+            new Vector3(1.0f,   -1.0f,    -1.0f),
+            new Vector3(-1.0f,   -1.0f,    -1.0f),
         };
 
-        uint[] frontCollisionIndices = { 0, 1, 2, 3 };
-        uint[] backCollisionIndices = { 4, 5, 6, 7 };
-        uint[] leftCollisionIndices = { 0, 3, 4, 7 };
-        uint[] rightCollisionIndices = { 1, 2, 5, 6 };
-        uint[] topCollisionIndices = { 0, 5, 1, 4 };
-        uint[] downCollisionIndices = { 3, 6, 2, 7 };
+        uint[] frontCollisionIndices = { 0, 1, 3, 2 };
+        uint[] backCollisionIndices = { 5, 4, 6, 7 };
+        uint[] leftCollisionIndices = { 3, 0, 7, 4 };
+        uint[] rightCollisionIndices = { 6, 5, 2, 1 };
+        uint[] topCollisionIndices = { 1, 5, 0, 4 };
+        uint[] downCollisionIndices = { 6, 2, 7, 3 };
 
-        collisionData.Meshes.Add(new CollisionMesh(frontCollisionIndices) { Normal = new Vector3(0, 0, -1)});
-        collisionData.Meshes.Add(new CollisionMesh(backCollisionIndices) { Normal = new Vector3(0, 0, 1)});
+        collisionData.Meshes.Add(new CollisionMesh(frontCollisionIndices) { Normal = new Vector3(0, 0, 1)});
+        collisionData.Meshes.Add(new CollisionMesh(backCollisionIndices) { Normal = new Vector3(0, 0, -1)});
         collisionData.Meshes.Add(new CollisionMesh(topCollisionIndices) { Normal = new Vector3(0, 1, 0)});
         collisionData.Meshes.Add(new CollisionMesh(downCollisionIndices) { Normal = new Vector3(0, -1, 0)});
         collisionData.Meshes.Add(new CollisionMesh(rightCollisionIndices) { Normal = new Vector3(1, 0, 0)});

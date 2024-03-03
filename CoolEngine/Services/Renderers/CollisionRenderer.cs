@@ -84,7 +84,7 @@ public class CollisionRenderer
 
             PrepareCollisionToDraw(element);
 
-            GL.LineWidth(lineWidth);
+            // GL.LineWidth(lineWidth);
 
             if (element.IndicesPerModel != 0)
                 GL.DrawElements(BeginMode.Lines, element.IndicesPerModel * element.ActiveCount,
@@ -130,12 +130,8 @@ public class CollisionRenderer
             Shader.SetVector4("color", mesh.Color);
 
             PrepareNormalToDraw(normals, normalsCount);
-
-            GL.LineWidth(5);
-
+            
             GL.DrawArrays(PrimitiveType.Lines, 0, normalsCount);
-
-            GL.LineWidth(1);
 
             mesh.Color = Colors.Orange;
         }
