@@ -11,18 +11,18 @@ public enum CollisionType
 
 public class CollisionData
 {
-    private readonly List<Mesh> m_meshes;
+    private readonly List<Face> m_faces;
     private Vector3[] m_vertices;
 
     public CollisionData(CollisionType collisionType)
     {
         Vertices = Array.Empty<Vector3>();
-        m_meshes = new List<Mesh>();
+        m_faces = new List<Face>();
 
         CollisionType = collisionType;
     }
 
-    public List<Mesh> Meshes => m_meshes;
+    public List<Face> Faces => m_faces;
     
     public Vector3[] Vertices
     {

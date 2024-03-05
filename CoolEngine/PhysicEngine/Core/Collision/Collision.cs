@@ -1,7 +1,6 @@
 ﻿using CoolEngine.Models;
 using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
-using CollisionMesh = CoolEngine.PhysicEngine.Core.Mesh;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core.Collision;
@@ -44,8 +43,8 @@ public class Collision
             m_currentCollision.Vertices[i] =
                 new Vector3(new Vector4(m_originalCollision.Vertices[i], 1) * transformation);
         
-        for (int i = 0; i < m_currentCollision.Meshes.Count; i++)
-            m_currentCollision.Meshes[i].Normal = Vector3.Normalize(new Vector3(new Vector4(m_originalCollision.Meshes[i].Normal, 1) * rotation));
+        for (int i = 0; i < m_currentCollision.Faces.Count; i++)
+            m_currentCollision.Faces[i].Normal = Vector3.Normalize(new Vector3(new Vector4(m_originalCollision.Faces[i].Normal, 1) * rotation));
     }
 
     public bool CheckCollision(Collision t2, out Vector3 normal, out float depth)
@@ -89,32 +88,36 @@ public class Collision
         m_currentCollision.Vertices = new Vector3[originalCollision.Vertices.Length];
         originalCollision.Vertices.CopyTo(m_currentCollision.Vertices, 0);
 
-        foreach (var mesh in originalCollision.Meshes)
-            m_currentCollision.Meshes.Add(new CollisionMesh(mesh.Indices) { Normal = mesh.Normal });
+        foreach (var mesh in originalCollision.Faces)
+            m_currentCollision.Faces.Add(new Face(mesh.Indices) { Normal = mesh.Normal });
     }
 
     private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResult)
     {
-        for (int i = 0; i < CollisionData.Meshes.Count; i++)
+        for (int i = 0; i < CollisionData.Faces.Count; i++)
         {
-            var mesh = CollisionData.Meshes[i];
-            var normal = mesh.Normal;
+            var face = CollisionData.Faces[i];
+            var normal = face.Normal;
             var rayDelta = ray.RayDelta;
 
             var nDotRayDelta = Vector3.Dot(normal, rayDelta);
 
+            //Needs to avoiding situation when Ray point to face that comes firstly than needed face.
             if (nDotRayDelta < 1e-6f)
-            {
                 continue;
-            }
 
-            var meshFirstVertex = CollisionData.Vertices[mesh.Indices[0]];
+            var meshFirstVertex = CollisionData.Vertices[face.Indices[0]];
             var t = Vector3.Dot(-normal, ray.Start - meshFirstVertex) / nDotRayDelta;
+            
+            //Needs to avoiding situation when Ray point to same place that face point at.  
+            if (t > 0)
+                continue;
+            
             var localRayEnd = ray.Start + rayDelta * t;
 
             var deltaMeshAndLocalRayStart = localRayEnd - meshFirstVertex;
-            var deltaV21 = CollisionData.Vertices[mesh.Indices[1]] - meshFirstVertex;
-            var deltaV31 = CollisionData.Vertices[mesh.Indices[2]] - meshFirstVertex;
+            var deltaV21 = CollisionData.Vertices[face.Indices[1]] - meshFirstVertex;
+            var deltaV31 = CollisionData.Vertices[face.Indices[2]] - meshFirstVertex;
 
             var u = Vector3.Dot(deltaMeshAndLocalRayStart, deltaV21);
             var v = Vector3.Dot(deltaMeshAndLocalRayStart, deltaV31);
@@ -172,9 +175,9 @@ public class Collision
         normal = Vector3.Zero;
         depth = float.MaxValue;
 
-        for (int i = 0; i < polygon1.Meshes.Count; i++)
+        for (int i = 0; i < polygon1.Faces.Count; i++)
         {
-            var mesh = polygon1.Meshes[i];
+            var mesh = polygon1.Faces[i];
             float currMin, currMax, t2Min, t2Max;
 
             ProjectionMinMaxVertices(mesh.Normal, polygon1.Vertices,
@@ -185,7 +188,7 @@ public class Collision
             if (currMin >= t2Max || t2Min >= currMax)
             {
                 mesh.Color = Colors.Red;
-                polygon2.Meshes[i].Color = Colors.Red;
+                polygon2.Faces[i].Color = Colors.Red;
                 return false;
             }
 
@@ -214,9 +217,9 @@ public class Collision
         var _normal = Vector3.Zero;
         var axisDepth = 0.0f;
 
-        for (int i = 0; i < polygon.Meshes.Count; i++)
+        for (int i = 0; i < polygon.Faces.Count; i++)
         {
-            var mesh = polygon.Meshes[i];
+            var mesh = polygon.Faces[i];
             _normal = mesh.Normal;
 
             ProjectionMinMaxVertices(mesh.Normal, polygon.Vertices,

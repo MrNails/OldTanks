@@ -91,8 +91,8 @@ internal class CollisionRenderGroup
         var collisionable = m_collisionables[0];
 
         m_verticesPerModel = collisionable.Collision.CollisionData.Vertices.Length;
-        for (int i = 0; i < collisionable.Collision.CollisionData.Meshes.Count; i++)
-            m_indicesPerModel += collisionable.Collision.CollisionData.Meshes[i].Indices.Length;
+        for (int i = 0; i < collisionable.Collision.CollisionData.Faces.Count; i++)
+            m_indicesPerModel += collisionable.Collision.CollisionData.Faces[i].Indices.Length;
 
         ResizeCollisionableData();
     }
@@ -109,9 +109,9 @@ internal class CollisionRenderGroup
             var collisionable = m_collisionables[0];
             for (int i = 0; i < m_collisionables.Capacity; i++)
             {
-                for (int j = 0, nonEmptyOffset = 0; j < collisionable.Collision.CollisionData.Meshes.Count; j++)
+                for (int j = 0, nonEmptyOffset = 0; j < collisionable.Collision.CollisionData.Faces.Count; j++)
                 {
-                    var mesh = collisionable.Collision.CollisionData.Meshes[j];
+                    var mesh = collisionable.Collision.CollisionData.Faces[j];
 
                     for (int iIndex = 0; iIndex < mesh.Indices.Length; iIndex++)
                         m_indices[i * m_indicesPerModel + nonEmptyOffset + iIndex] =

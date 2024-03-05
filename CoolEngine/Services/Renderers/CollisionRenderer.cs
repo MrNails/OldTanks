@@ -115,10 +115,10 @@ public class CollisionRenderer
     {
         var normals = ArrayPool<Vector3>.Shared.Rent(collisionable.Collision.CollisionData.Vertices.Length * 4);
 
-        for (int i = 0; i < collisionable.Collision.CollisionData.Meshes.Count; i++)
+        for (int i = 0; i < collisionable.Collision.CollisionData.Faces.Count; i++)
         {
             var normalsCount = 0;
-            var mesh = collisionable.Collision.CollisionData.Meshes[i];
+            var mesh = collisionable.Collision.CollisionData.Faces[i];
 
             normals[normalsCount] = new Vector3(new Vector4(mesh.Normal, 1) *
                                                 collisionable.Collision.CollisionData.PhysicObject.Transformation.ClearRotation());

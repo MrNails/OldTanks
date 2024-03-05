@@ -3,13 +3,13 @@ using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core;
 
-public class Mesh
+public class Face
 {
     private uint[] m_indices;
 
-    public Mesh() : this(Array.Empty<uint>()) { }
+    public Face() : this(Array.Empty<uint>()) { }
     
-    public Mesh(uint[] indices)
+    public Face(uint[] indices)
     {
         Indices = indices;
     }
@@ -29,9 +29,9 @@ public class Mesh
     public Vector3 Normal { get; set; }
     public Vector4 Color { get; set; } = Colors.Orange;
 
-    public Mesh Copy()
+    public Face Copy()
     {
-        return new Mesh
+        return new Face
         {
             Indices = m_indices,
             Normal = Normal
