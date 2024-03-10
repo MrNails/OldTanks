@@ -17,7 +17,6 @@ namespace OldTanks.Services;
 public sealed class GameManager : ObservableObject
 {
     private readonly ILogger m_logger;
-    private readonly LoggerService m_loggerService;
     private readonly SettingsService m_settingsService;
 
     private readonly Dictionary<string, IAssetLoader> m_assetLoaders;
@@ -35,18 +34,17 @@ public sealed class GameManager : ObservableObject
 
     public GameManager(LoggerService loggerService, SettingsService settingsService, World world)
     {
-        m_loggerService = loggerService;
-        m_logger = m_loggerService.CreateLogger();
+        m_logger = loggerService.CreateLogger();
         m_settingsService = settingsService;
 
         Textures = new ObservableCollection<string>();
         
         m_assetLoaders = new Dictionary<string, IAssetLoader>
         {
-            { nameof(ShaderLoader), new ShaderLoader(m_loggerService.CreateLogger("ShaderLog.txt")) },
-            { nameof(TextureLoader), new TextureLoader(m_loggerService.CreateLogger("TextureLog.txt")) },
-            { nameof(WaveFrontLoader), new WaveFrontLoader(m_loggerService.CreateLogger("WaveFontLog.txt")) },
-            { nameof(SkyBoxTextureLoader), new SkyBoxTextureLoader(m_loggerService.CreateLogger("TextureLog.txt")) },
+            { nameof(ShaderLoader), new ShaderLoader(loggerService.CreateLogger("ShaderLog.txt")) },
+            { nameof(TextureLoader), new TextureLoader(loggerService.CreateLogger("TextureLog.txt")) },
+            { nameof(WaveFrontLoader), new WaveFrontLoader(loggerService.CreateLogger("WaveFontLog.txt")) },
+            { nameof(SkyBoxTextureLoader), new SkyBoxTextureLoader(loggerService.CreateLogger("TextureLog.txt")) },
         };
 
         World = world;

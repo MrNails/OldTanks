@@ -2,6 +2,8 @@
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
 using Serilog;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace CoolEngine.Services.Loaders.TextureLoaders;
 
