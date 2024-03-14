@@ -256,9 +256,7 @@ public partial class MainWindow : GameWindow
                 break;
             case Keys.R:
                 m_rotation = new Vector3();
-                m_currentObject.X = 0;
-                m_currentObject.Y = 0;
-                m_currentObject.Z = 0;
+                m_currentObject.Position = Vector3.Zero;
                 break;
             case Keys.O:
                 m_drawFaceNumber = !m_drawFaceNumber;
@@ -353,7 +351,7 @@ public partial class MainWindow : GameWindow
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
-        m_tbCamRotation.Text = m_currentObject.Direction.ToString();
+        m_tbCamRotation.Text = m_currentObject.Rotation.ToString();
         m_tbPosition.Text = m_currentObject.Position.ToString();
         m_tbRotation.Text = m_rotation.ToString();
         m_tbHaveCollision.Text = "<empty>";
@@ -456,7 +454,7 @@ public partial class MainWindow : GameWindow
         FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
         wall = new Cube
-            { Size = new Vector3(20, 5, 2f), Position = new Vector3(9.95f, 1, 0), Direction = new Vector3(0, 90, 0) };
+            { Size = new Vector3(20, 5, 2f), Position = new Vector3(9.95f, 1, 0), Rotation = Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(90), 0) };
         wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(wall);
 
@@ -538,20 +536,22 @@ public partial class MainWindow : GameWindow
         if (KeyboardState.IsKeyDown(Keys.LeftControl))
             speedMultiplier = 3f;
 
+        var camRotation = m_world.CurrentCamera.Rotation.ToEulerAngles();
+        
         var posDelta = Vector3.Zero;
         if (KeyboardState.IsKeyDown(Keys.D))
             posDelta += Vector3.Normalize(
-                            Vector3.Cross(m_world.CurrentCamera.Direction, m_world.CurrentCamera.CameraUp)) *
+                            Vector3.Cross(camRotation, m_world.CurrentCamera.CameraUp)) *
                         camRBody.Velocity.X * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.A))
             posDelta -= Vector3.Normalize(
-                            Vector3.Cross(m_world.CurrentCamera.Direction, m_world.CurrentCamera.CameraUp)) *
+                            Vector3.Cross(camRotation, m_world.CurrentCamera.CameraUp)) *
                         camRBody.Velocity.X * timeDelta * speedMultiplier;
 
         if (KeyboardState.IsKeyDown(Keys.W))
-            posDelta += m_world.CurrentCamera.Direction * camRBody.Velocity.Z * timeDelta * speedMultiplier;
+            posDelta += camRotation * camRBody.Velocity.Z * timeDelta * speedMultiplier;
         else if (KeyboardState.IsKeyDown(Keys.S))
-            posDelta -= m_world.CurrentCamera.Direction * camRBody.Velocity.Z * timeDelta * speedMultiplier;
+            posDelta -= camRotation * camRBody.Velocity.Z * timeDelta * speedMultiplier;
 
         if (KeyboardState.IsKeyDown(Keys.Space))
             posDelta += m_world.CurrentCamera.CameraUp * camRBody.Velocity.Y * timeDelta * speedMultiplier;
@@ -616,12 +616,12 @@ public partial class MainWindow : GameWindow
             if (KeyboardState.IsKeyDown(Keys.X))
                 m_world.Player.CameraOffsetAngle += new Vector2(1, 0);
 
-            if (KeyboardState.IsKeyDown(Keys.C))
-            {
-                m_world.Player.Camera.Pitch = m_world.Player.Pitch;
-
-                m_world.Player.CameraOffset = new Vector3(-1, 1, 0);
-            }
+            // if (KeyboardState.IsKeyDown(Keys.C))
+            // {
+            //     m_world.Player.Camera.Pitch = m_world.Player.Pitch;
+            //
+            //     m_world.Player.CameraOffset = new Vector3(-1, 1, 0);
+            // }
         }
     }
 
@@ -661,7 +661,7 @@ public partial class MainWindow : GameWindow
                     {
                         HandleCameraMove(elapsedTime);
                         var cam = m_world.CurrentCamera;
-                        m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + cam.Direction * 100);
+                        m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + (cam.Rotation.ToEulerAngles()) * 100);
                     }
 
                     HandleObjectMove(elapsedTime);
@@ -718,11 +718,15 @@ public partial class MainWindow : GameWindow
 
             if (m_mouseDown)
             {
+                var xRad = MathHelper.DegreesToRadians(deltaX * m_userSettings.Sensitivity);
+                var yRad = MathHelper.DegreesToRadians(-deltaY * m_userSettings.Sensitivity);
+                m_world.CurrentCamera.Rotation *= Quaternion.FromEulerAngles(new Vector3(xRad, yRad, 0));
                 // Apply the camera pitch and yaw (we clamp the pitch in the camera class)
-                m_world.CurrentCamera.Yaw += deltaX * m_userSettings.Sensitivity;
-                m_world.CurrentCamera.Pitch +=
-                    -deltaY * m_userSettings
-                        .Sensitivity; // Reversed since y-coordinates range from bottom to top
+
+                // m_world.CurrentCamera.Yaw += deltaX * m_userSettings.Sensitivity;
+                // m_world.CurrentCamera.Pitch +=
+                //     -deltaY * m_userSettings
+                //         .Sensitivity; // Reversed since y-coordinates range from bottom to top
             }
         }
     }
@@ -766,9 +770,9 @@ public partial class MainWindow : GameWindow
             if (worldObj.Visible)
             {
                 var scale = worldObj.Size / 2;
-                var rotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Direction.X)) *
-                               Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Direction.Y)) *
-                               Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Direction.Z));
+                var rotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)) *
+                               Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
+                               Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z));
 
                 for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Count; meshIdx++)
                 {

@@ -75,10 +75,10 @@ public partial class MainWindow : ImGuiWindow
         if (cam == null)
             return;
 
-        if (e.PropertyName == nameof(Camera.Direction))
-        {
-            m_cameraRotationDragTextBox.Value = cam.Direction.ToSystemVector3();
-        }
+        // if (e.PropertyName == nameof(Camera.Rotation))
+        // {
+        //     m_cameraRotationDragTextBox.Value = cam.Rotation.ToSystemVector3();
+        // }
     }
     
     private void ShowTextureWindowOnClick(ImGuiButton sender, EventArgs e)

@@ -18,7 +18,7 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
     private bool m_haveTransformation;
     
     private Vector3 m_position;
-    private Vector3 m_direction;
+    private Quaternion m_rotation;
     private Vector3 m_cameraOffset;
     private Vector2 m_cameraOffsetAngle;
     private Vector4 m_color;
@@ -88,12 +88,12 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         }
     }
 
-    public Vector3 Direction
+    public Quaternion Rotation
     {
-        get => m_direction;
+        get => m_rotation;
         set
         {
-            SetField(ref m_direction, new Vector3(value.X % 360, value.Y % 360, value.Z % 360));
+            SetField(ref m_rotation, value);
             m_haveTransformation = true;
         }
     }
@@ -178,37 +178,37 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
     public float Yaw
     {
-        get => m_direction.X;
+        get => m_rotation.X;
         set
         {
-            m_direction.X = value % 360;
+            m_rotation.X = value;
             m_haveTransformation = true;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(Direction));
+            OnPropertyChanged(nameof(Rotation));
         }
     }
 
     public float Pitch
     {
-        get => m_direction.Y;
+        get => m_rotation.Y;
         set
         {
-            m_direction.Y = value % 360;
+            m_rotation.Y = value;
             m_haveTransformation = true;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(Direction));
+            OnPropertyChanged(nameof(Rotation));
         }
     }
 
     public float Roll
     {
-        get => m_direction.Z;
+        get => m_rotation.Z;
         set
         {
-            m_direction.Z = value % 360;
+            m_rotation.Z = value;
             m_haveTransformation = true;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(Direction));
+            OnPropertyChanged(nameof(Rotation));
         }
     }
 
@@ -241,11 +241,9 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
     {
         if (!m_haveTransformation)
             return;
-
+        
         m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
-                      Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Yaw)) *
-                      Matrix4.CreateRotationY(MathHelper.DegreesToRadians(-Pitch)) *
-                      Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Roll)) *
+                      Matrix4.CreateFromQuaternion(Rotation) *
                       Matrix4.CreateTranslation(Position);
 
         Collision?.UpdateCollision();
@@ -260,19 +258,19 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
         RigidBody.OnTick(timeDelta, collisionIteration);
 
-        var rotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y));
+        var rotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y));
 
         EngineSettings.Current.GlobalLock.EnterWriteLock();
         
         Position += rotation * RigidBody.Velocity * timeDelta;
         
-        if (Camera != null)
-        {
-            var normalizedDirection = (Camera.Position - m_position).Normalized();
-
-            Camera.Yaw = (float)MathHelper.RadiansToDegrees(-Math.Atan2(normalizedDirection.Z, -normalizedDirection.X));
-            Camera.Pitch = (float)MathHelper.RadiansToDegrees(Math.Asin(-normalizedDirection.Y));
-        }
+        // if (Camera != null)
+        // {
+        //     var normalizedDirection = (Camera.Position - m_position).Normalized();
+        //
+        //     Camera.Yaw = (float)MathHelper.RadiansToDegrees(-Math.Atan2(normalizedDirection.Z, -normalizedDirection.X));
+        //     Camera.Pitch = (float)MathHelper.RadiansToDegrees(Math.Asin(-normalizedDirection.Y));
+        // }
         
         EngineSettings.Current.GlobalLock.ExitWriteLock();
     }
@@ -286,6 +284,6 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
                         Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X));
 
         Camera.Position = m_position + new Vector3(0, m_size.Y / 2, 0) +
-                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Direction.Y)) * camOffset;
+                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y)) * camOffset;
     }
 }

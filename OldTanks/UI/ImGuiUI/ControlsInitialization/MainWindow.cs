@@ -152,10 +152,10 @@ public partial class MainWindow
     private ImGuiFloat3DragTextBox m_selectedObjectPositionDragTextBox;
     
     
-    [BindableElement("Value", "Direction",
-        "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
-        "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
+    // [BindableElement("Value", "Rotation",
+    //     "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged",
+    //     "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+    //     "OldTanks.Helpers.UIVectorHelper.FromSystemVector3DegreesToGLVector3Radians", "OldTanks.Helpers.UIVectorHelper.FromGLVector3RadiansToSystemVector3Degrees")]
     private ImGuiFloat3DragTextBox m_selectedObjectRotationDragTextBox;
     
     [BindableElement("Value", "Size",

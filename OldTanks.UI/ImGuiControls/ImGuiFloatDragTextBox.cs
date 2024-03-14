@@ -9,10 +9,14 @@ public abstract class ImGuiFloatDragTextBoxBase<TValue> : ImGuiControl
     where TValue : IEquatable<TValue>
 {
     protected TValue m_value;
+    private float m_dragDelta;
 
     public event EventHandler<ImGuiFloatDragTextBoxBase<TValue>, ValueChangedEventArgs<TValue>>? ValueChanged;
-    
-    protected ImGuiFloatDragTextBoxBase(string name) : base(name) { }
+
+    protected ImGuiFloatDragTextBoxBase(string name) : base(name)
+    {
+        DragDelta = 1;
+    }
 
     public TValue Value
     {
@@ -27,6 +31,12 @@ public abstract class ImGuiFloatDragTextBoxBase<TValue> : ImGuiControl
                 
             ValueChanged?.Invoke(this, new ValueChangedEventArgs<TValue>(oldValue, value));
         }
+    }
+
+    public float DragDelta
+    {
+        get => m_dragDelta;
+        set => SetField(ref m_dragDelta, value);
     }
 
     public override void Draw()
@@ -54,7 +64,7 @@ public class ImGuiFloatDragTextBox : ImGuiFloatDragTextBoxBase<float>
 
     protected override void DrawDragTextBox()
     {
-        ImGui.DragFloat(Name, ref m_value);
+        ImGui.DragFloat(Name, ref m_value, DragDelta);
     }
 }
 
@@ -67,7 +77,7 @@ public class ImGuiFloat2DragTextBox : ImGuiFloatDragTextBoxBase<Vector2>
 
     protected override void DrawDragTextBox()
     {
-        ImGui.DragFloat2(Name, ref m_value);
+        ImGui.DragFloat2(Name, ref m_value, DragDelta);
     }
 }
 
@@ -80,7 +90,7 @@ public class ImGuiFloat3DragTextBox : ImGuiFloatDragTextBoxBase<Vector3>
 
     protected override void DrawDragTextBox()
     {
-        ImGui.DragFloat3(Name, ref m_value);
+        ImGui.DragFloat3(Name, ref m_value, DragDelta);
     }
 }
 
@@ -93,6 +103,6 @@ public class ImGuiFloat4DragTextBox : ImGuiFloatDragTextBoxBase<Vector4>
 
     protected override void DrawDragTextBox()
     {
-        ImGui.DragFloat4(Name, ref m_value);
+        ImGui.DragFloat4(Name, ref m_value, DragDelta);
     }
 }
