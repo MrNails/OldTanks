@@ -18,7 +18,7 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
     private bool m_haveTransformation;
     
     private Vector3 m_position;
-    private Quaternion m_rotation;
+    private Vector3 m_rotation;
     private Vector3 m_cameraOffset;
     private Vector2 m_cameraOffsetAngle;
     private Vector4 m_color;
@@ -88,7 +88,7 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         }
     }
 
-    public Quaternion Rotation
+    public Vector3 Rotation
     {
         get => m_rotation;
         set
@@ -243,7 +243,9 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
             return;
         
         m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
-                      Matrix4.CreateFromQuaternion(Rotation) *
+                      Matrix4.CreateRotationX(Yaw) *
+                      Matrix4.CreateRotationY(-Pitch) *
+                      Matrix4.CreateRotationZ(Roll) *
                       Matrix4.CreateTranslation(Position);
 
         Collision?.UpdateCollision();

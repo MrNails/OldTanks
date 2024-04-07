@@ -1,5 +1,6 @@
 ﻿using Common.Models;
 using CoolEngine.Services;
+using CoolEngine.Services.Extensions;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core;
@@ -122,8 +123,17 @@ public class RigidBody : ObservableObject
         if (m_velocity.X is > -0.01f and < 0.01f)
             m_velocity.X = 0;
 
+        // Velocity = new Vector3(0);
+
         Velocity += (Force / Weight + PhysicsConstants.GravityDirection * PhysicsConstants.FreeFallingAcceleration) *
                     timeDelta;
+
+        var gravitySpeed = Vector3.Dot(m_velocity, PhysicsConstants.GravityDirection);
+        
+        if (Math.Abs(gravitySpeed) > PhysicsConstants.MaxFreeFallingSpeed)
+        {
+            Velocity = Velocity.ReplaceComponent(PhysicsConstants.MaxFallingVelocity);
+        }
 
         if (collisionIteration == -1 || collisionIteration == EngineSettings.Current.CollisionIterations - 1)
         {

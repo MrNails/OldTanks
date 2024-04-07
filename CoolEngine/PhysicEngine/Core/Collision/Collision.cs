@@ -1,5 +1,6 @@
 ﻿using CoolEngine.Models;
 using CoolEngine.Services;
+using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
@@ -45,24 +46,34 @@ public class Collision
         
         for (int i = 0; i < m_currentCollision.Faces.Count; i++)
             m_currentCollision.Faces[i].Normal = Vector3.Normalize(new Vector3(new Vector4(m_originalCollision.Faces[i].Normal, 1) * rotation));
+        
+        CollisionData.UpdateBoundingBox();
     }
 
-    public bool CheckCollision(Collision t2, out Vector3 normal, out float depth)
+    public bool CheckCollision(Collision polygon2, out Vector3 normal, out float depth)
      {
          normal = Vector3.Zero;
          depth = float.MaxValue;
 
-         if (t2 == null || t2.CollisionData.PhysicObject == null)
+         if (polygon2?.CollisionData.PhysicObject == null ||
+             !AABBCollisionCheck(CollisionData, polygon2.CollisionData))
              return false;
 
-         return CollisionData.CollisionType == CollisionType.Sphere ?
-                 t2.CollisionData.CollisionType == CollisionType.Sphere ? 
-                     SphereXSphereCollision(CollisionData, t2.CollisionData, out normal, out depth) : 
-                     SphereOBBCollisionCheck(t2.CollisionData, CollisionData, out normal, out depth) 
-                    : 
-                 t2.CollisionData.CollisionType == CollisionType.Sphere ? 
-                     SphereOBBCollisionCheck(CollisionData, t2.CollisionData, out normal, out depth) : 
-                     OBBCollisionCheck(CollisionData, t2.CollisionData, out normal, out depth);
+         var p2CollData = polygon2.CollisionData;
+
+         return CollisionData.CollisionType switch
+         {
+             CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Polygon => 
+                 OBBCollisionCheck(CollisionData, p2CollData, out normal, out depth),
+             CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Sphere => 
+                 SphereOBBCollisionCheck(CollisionData, p2CollData, out normal, out depth),
+             CollisionType.Sphere when p2CollData.CollisionType == CollisionType.Polygon => 
+                 SphereOBBCollisionCheck(p2CollData, CollisionData, out normal, out depth),
+             CollisionType.Sphere when p2CollData.CollisionType == CollisionType.Sphere => 
+                 SphereXSphereCollision(CollisionData, p2CollData, out normal, out depth),
+             _ => throw new InvalidOperationException(
+                 $"Cannot check collisions with types: {CollisionData.CollisionType} and {p2CollData.CollisionType}")
+         };
      }
 
     public bool IntersectRay(Ray ray, out Vector3 intersectionResult)
@@ -90,6 +101,8 @@ public class Collision
 
         foreach (var mesh in originalCollision.Faces)
             m_currentCollision.Faces.Add(new Face(mesh.Indices) { Normal = mesh.Normal });
+
+        originalCollision.UpdateBoundingBox();
     }
 
     private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResult)
@@ -178,21 +191,19 @@ public class Collision
         for (int i = 0; i < polygon1.Faces.Count; i++)
         {
             var mesh = polygon1.Faces[i];
-            float currMin, currMax, t2Min, t2Max;
+            float poly1Min, poly1Max, poly2Min, poly2Max;
 
             ProjectionMinMaxVertices(mesh.Normal, polygon1.Vertices,
-                out currMin, out currMax);
+                out poly1Min, out poly1Max);
             ProjectionMinMaxVertices(mesh.Normal, polygon2.Vertices,
-                out t2Min, out t2Max);
+                out poly2Min, out poly2Max);
 
-            if (currMin >= t2Max || t2Min >= currMax)
+            if (poly1Min >= poly2Max || poly2Min >= poly1Max)
             {
-                mesh.Color = Colors.Red;
-                polygon2.Faces[i].Color = Colors.Red;
                 return false;
             }
 
-            var min = Math.Min(t2Max - currMin, currMax - t2Min);
+            var min = Math.Min(poly2Max - poly1Min, poly1Max - poly2Min);
             if (min < depth)
             {
                 normal = mesh.Normal;
@@ -315,40 +326,18 @@ public class Collision
         return idx;
     }
     
-    /// <summary>
-    /// Check collision between two physic objects
-    /// </summary>
-    /// <returns></returns>
-    private static void GetBoundingBoxCoords(Vector3[] vertices, out Vector3 min, out Vector3 max)
+    private static bool AABBCollisionCheck(CollisionData polygon1, CollisionData polygon2)
     {
-        min = new Vector3(float.MaxValue);
-        max = new Vector3(float.MinValue);
+        var poly1BB = polygon1.BoundingBox;
+        var poly2BB = polygon2.BoundingBox;
 
-        for (int j = 0; j < vertices.Length; j++)
-        {
-            var current = vertices[j];
-
-            if (max.X < current.X) max.X = current.X;
-            if (max.Y < current.Y) max.Y = current.Y;
-            if (max.Z < current.Z) max.Z = current.Z;
-
-            if (min.X > current.X) min.X = current.X;
-            if (min.Y > current.Y) min.Y = current.Y;
-            if (min.Z > current.Z) min.Z = current.Z;
-        }
+        return poly1BB.Min.GreaterOrEqualThan(poly2BB.Min) &&
+               poly1BB.Min.LowerOrEqualThan(poly2BB.Max) ||
+               poly1BB.Max.GreaterOrEqualThan(poly2BB.Min) &&
+               poly1BB.Max.LowerOrEqualThan(poly2BB.Max) ||
+               poly2BB.Min.GreaterOrEqualThan(poly1BB.Min) &&
+               poly2BB.Min.LowerOrEqualThan(poly1BB.Max) ||
+               poly2BB.Max.GreaterOrEqualThan(poly1BB.Min) &&
+               poly2BB.Max.LowerOrEqualThan(poly1BB.Max);
     }
-    
-    // private bool AABBCollisionCheck(IPhysicObject t2)
-    // {
-    //     var outerVertices = t2.Collision.CollisionData.Vertices;
-    //
-    //     for (int oJ = 0; oJ < outerVertices.Length; oJ++)
-    //     {
-    //         if (VectorExtensions.GreaterThan(m_maxVertex, outerVertices[oJ]) &&
-    //             VectorExtensions.LoverThan(m_minVertex, outerVertices[oJ]))
-    //             return true;
-    //     }
-    //
-    //     return false;
-    // }
 }

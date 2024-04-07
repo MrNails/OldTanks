@@ -15,4 +15,6 @@ public static class PhysicsConstants
     public static Vector3 GravityDirection = new Vector3(0, -1, 0);
 
     public static Vector3 MoveDirection = new Vector3(1, 0, 0);
+
+    public static Vector3 MaxFallingVelocity => MaxFreeFallingSpeed * GravityDirection;
 }

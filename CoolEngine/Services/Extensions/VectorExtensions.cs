@@ -19,4 +19,29 @@ public static class VectorExtensions
     public static Vector2 ToGLVector2(this System.Numerics.Vector2 source) => new (source.X, source.Y);
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static System.Numerics.Vector2 ToSystemVector2(this Vector2 source) => new (source.X, source.Y);
+
+    public static Vector3 ReplaceComponent(this Vector3 source, in Vector3 componentToReplace)
+    {
+        var local = source;
+        
+        if (componentToReplace.X != 0) local.X = componentToReplace.X;
+        if (componentToReplace.Y != 0) local.Y = componentToReplace.Y;
+        if (componentToReplace.Z != 0) local.Z = componentToReplace.Z;
+
+        return local;
+    }
+
+    public static bool GreaterOrEqualThan(this Vector3 source, in Vector3 target)
+    {
+        return source.X >= target.X &&
+               source.Y >= target.Y &&
+               source.Z >= target.Z;
+    }
+
+    public static bool LowerOrEqualThan(this Vector3 source, in Vector3 target)
+    {
+        return source.X <= target.X &&
+               source.Y <= target.Y &&
+               source.Z <= target.Z;
+    }
 }

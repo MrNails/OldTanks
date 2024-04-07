@@ -1,5 +1,4 @@
 ﻿using System.Buffers;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using Common.Extensions;
@@ -9,7 +8,6 @@ using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Models;
 using CoolEngine.PhysicEngine;
-using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
@@ -73,7 +71,7 @@ public partial class MainWindow : GameWindow
     private bool m_mouseDown;
     private bool m_freeCamMode;
 
-    private IPhysicObject m_currentObject;
+    private IMovable m_currentObject;
 
     private Vector2 m_lastMousePos;
     private bool m_firstMouseMove;
@@ -227,8 +225,8 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyDown(KeyboardKeyEventArgs e)
     {
-        if (e.Key == Keys.LeftControl)
-            m_currentObject.RigidBody.MaxSpeedMultiplier = 3;
+        if (e.Key == Keys.LeftControl && m_currentObject is IPhysicObject physObj)
+            physObj.RigidBody.MaxSpeedMultiplier = 3;
 
         base.OnKeyDown(e);
     }
@@ -246,7 +244,8 @@ public partial class MainWindow : GameWindow
                 ChangeCameraMode();
                 break;
             case Keys.LeftControl:
-                m_currentObject.RigidBody.MaxSpeedMultiplier = 1;
+                if (m_currentObject is IPhysicObject physObj)
+                    physObj.RigidBody.MaxSpeedMultiplier = 1;
                 break;
             case Keys.F:
                 EngineSettings.Current.PhysicsEnable = !EngineSettings.Current.PhysicsEnable;
@@ -347,6 +346,8 @@ public partial class MainWindow : GameWindow
         if (!m_readyToHandle)
             return;
 
+        var cam = m_world.CurrentCamera;
+        
         m_imGuiController.Update(this, (float)args.Time);
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
@@ -354,8 +355,6 @@ public partial class MainWindow : GameWindow
         m_tbCamRotation.Text = m_currentObject.Rotation.ToString();
         m_tbPosition.Text = m_currentObject.Position.ToString();
         m_tbRotation.Text = m_rotation.ToString();
-        m_tbHaveCollision.Text = "<empty>";
-        m_tbCurrentSpeed.Text = m_currentObject.RigidBody.Velocity.ToString();
 
         base.OnUpdateFrame(args);
     }
@@ -454,7 +453,7 @@ public partial class MainWindow : GameWindow
         FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
         wall = new Cube
-            { Size = new Vector3(20, 5, 2f), Position = new Vector3(9.95f, 1, 0), Rotation = Quaternion.FromEulerAngles(0, MathHelper.DegreesToRadians(90), 0) };
+            { Size = new Vector3(20, 5, 2f), Position = new Vector3(9.95f, 1, 0), Rotation =new Vector3(0, MathHelper.DegreesToRadians(90), 0) };
         wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(wall);
 
@@ -517,48 +516,8 @@ public partial class MainWindow : GameWindow
         #endregion
 
         m_world.CurrentCamera.FOV = 45;
-        m_world.CurrentCamera.Size = new Vector3(1);
-        m_world.CurrentCamera.Collision = new Collision(m_world.CurrentCamera,
-            GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
 
         m_interactionWorker.Start();
-    }
-
-    private void HandleCameraMove(float timeDelta)
-    {
-        if (!m_freeCamMode)
-            return;
-
-        var camRBody = m_world.CurrentCamera.RigidBody;
-
-        var speedMultiplier = 1f;
-
-        if (KeyboardState.IsKeyDown(Keys.LeftControl))
-            speedMultiplier = 3f;
-
-        var camRotation = m_world.CurrentCamera.Rotation.ToEulerAngles();
-        
-        var posDelta = Vector3.Zero;
-        if (KeyboardState.IsKeyDown(Keys.D))
-            posDelta += Vector3.Normalize(
-                            Vector3.Cross(camRotation, m_world.CurrentCamera.CameraUp)) *
-                        camRBody.Velocity.X * timeDelta * speedMultiplier;
-        else if (KeyboardState.IsKeyDown(Keys.A))
-            posDelta -= Vector3.Normalize(
-                            Vector3.Cross(camRotation, m_world.CurrentCamera.CameraUp)) *
-                        camRBody.Velocity.X * timeDelta * speedMultiplier;
-
-        if (KeyboardState.IsKeyDown(Keys.W))
-            posDelta += camRotation * camRBody.Velocity.Z * timeDelta * speedMultiplier;
-        else if (KeyboardState.IsKeyDown(Keys.S))
-            posDelta -= camRotation * camRBody.Velocity.Z * timeDelta * speedMultiplier;
-
-        if (KeyboardState.IsKeyDown(Keys.Space))
-            posDelta += m_world.CurrentCamera.CameraUp * camRBody.Velocity.Y * timeDelta * speedMultiplier;
-        else if (KeyboardState.IsKeyDown(Keys.LeftShift))
-            posDelta -= m_world.CurrentCamera.CameraUp * camRBody.Velocity.Y * timeDelta * speedMultiplier;
-
-        m_world.CurrentCamera.Position += posDelta;
     }
 
     private void HandleObjectMove(float timeDelta)
@@ -659,9 +618,9 @@ public partial class MainWindow : GameWindow
 
                     if (m_freeCamMode)
                     {
-                        HandleCameraMove(elapsedTime);
                         var cam = m_world.CurrentCamera;
-                        m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + (cam.Rotation.ToEulerAngles()) * 100);
+                        cam.Move(elapsedTime, KeyboardState);
+                        m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + cam.Rotation * 100);
                     }
 
                     HandleObjectMove(elapsedTime);
@@ -705,6 +664,13 @@ public partial class MainWindow : GameWindow
 
     private void HandleMouseMove()
     {
+        const int leftMargin = 10;
+        const int rightMargin = 27;
+        const int topMargin = 20;
+        const int bottomMargin = 50;
+        const int defaultDeltaX = 3;
+        const int defaultDeltaY = 2;
+        
         if (m_firstMouseMove)
         {
             m_lastMousePos = MousePosition;
@@ -712,21 +678,33 @@ public partial class MainWindow : GameWindow
         }
         else
         {
-            var deltaX = MousePosition.X - m_lastMousePos.X;
-            var deltaY = MousePosition.Y - m_lastMousePos.Y;
+            var posX = Math.Min(Math.Max(MousePosition.X, leftMargin), Size.X - rightMargin);
+            var posY = Math.Min(Math.Max(MousePosition.Y, topMargin), Size.Y - bottomMargin);
+            
+            var deltaX = 0f;
+            var deltaY = 0f;
+
+            if (posX == leftMargin)
+                deltaX = -defaultDeltaX;
+            else if (posX == Size.X - rightMargin)
+                deltaX = defaultDeltaX;
+            else 
+                deltaX = MousePosition.X - m_lastMousePos.X;
+            
+            if (posY == topMargin)
+                deltaY = -defaultDeltaY;
+            else if (posY == Size.Y - bottomMargin)
+                deltaY = defaultDeltaY;
+            else
+                deltaY = MousePosition.Y - m_lastMousePos.Y;
+            
             m_lastMousePos = new Vector2(MousePosition.X, MousePosition.Y);
 
             if (m_mouseDown)
             {
-                var xRad = MathHelper.DegreesToRadians(deltaX * m_userSettings.Sensitivity);
-                var yRad = MathHelper.DegreesToRadians(-deltaY * m_userSettings.Sensitivity);
-                m_world.CurrentCamera.Rotation *= Quaternion.FromEulerAngles(new Vector3(xRad, yRad, 0));
-                // Apply the camera pitch and yaw (we clamp the pitch in the camera class)
-
-                // m_world.CurrentCamera.Yaw += deltaX * m_userSettings.Sensitivity;
-                // m_world.CurrentCamera.Pitch +=
-                //     -deltaY * m_userSettings
-                //         .Sensitivity; // Reversed since y-coordinates range from bottom to top
+                var sensitivity = m_userSettings.Sensitivity;
+                
+                m_world.CurrentCamera.Rotate(deltaX * sensitivity, deltaY * sensitivity);
             }
         }
     }

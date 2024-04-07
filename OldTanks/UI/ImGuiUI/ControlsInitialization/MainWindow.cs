@@ -22,7 +22,6 @@ public partial class MainWindow
         m_pushForceDragTextBox = new ImGuiFloat3DragTextBox("Push force");
         m_cameraPositionDragTextBox = new ImGuiFloat3DragTextBox("CPosition");
         m_cameraRotationDragTextBox = new ImGuiFloat3DragTextBox("CRotation");
-        m_cameraSizeDragTextBox = new ImGuiFloat3DragTextBox("CSize");
         
         m_cameraFreeModeCheckBox = new ImGuiCheckBox("Camera free mode");
         m_textBlock1 = new ImGuiTextBlock("WorldObjectsTextBlock") { Text = "World objects"};
@@ -99,7 +98,6 @@ public partial class MainWindow
         panel.Children.Add(new ImGuiTextBlock("CameraData") { Text = "Camera data"});
         panel.Children.Add(m_cameraPositionDragTextBox);
         panel.Children.Add(m_cameraRotationDragTextBox);
-        panel.Children.Add(m_cameraSizeDragTextBox);
         panel.Children.Add(m_cameraFreeModeCheckBox);
         panel.Children.Add(new ImGuiNewLine());
         panel.Children.Add(m_columnsControl);
@@ -121,12 +119,6 @@ public partial class MainWindow
     private ImGuiFloat3DragTextBox m_cameraPositionDragTextBox;
 
     private ImGuiFloat3DragTextBox m_cameraRotationDragTextBox;
-
-    [BindableElement("Value", "Size",
-        "m_gameManager.World.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
-        "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
-    private ImGuiFloat3DragTextBox m_cameraSizeDragTextBox;
 
     private ImGuiCheckBox m_cameraFreeModeCheckBox;
     private ImGuiColumnsControl m_columnsControl;

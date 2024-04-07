@@ -1,55 +1,48 @@
 ﻿using Common.Models;
-using CoolEngine.PhysicEngine.Core;
-using CoolEngine.PhysicEngine.Core.Collision;
-using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
-public class Camera : ObservableObject, IPhysicObject
+public class Camera : ObservableObject, IMovable
 {
     private bool m_isLookAtChanged;
 
-    private Quaternion m_rotation;
-    private Vector3 m_position;
     private float m_fov;
+    private float m_pitch;
+    private float m_speedMultiplier;
+    
+    private Vector3 m_rotation;
+    private Vector3 m_position;
+    private Vector3 m_cameraUp;
+    private Vector3 m_velocity;
 
     private Matrix4 m_lookAt;
-    private Collision m_collision;
-    private Vector3 m_size;
-    private Matrix4 m_transform;
 
-    private bool m_haveTransformation;
-    private RigidBody m_rigidBody;
-
-    public Camera() : this(new Vector3(0, 0, 0))
+    public Camera() : this(new Vector3(0, 0, 0), new Vector3(MathHelper.DegreesToRadians(90), 0, 0), Vector3.UnitY)
     {
     }
 
-    public Camera(Vector3 position)
+    public Camera(Vector3 position, Vector3 rotation, Vector3 cameraUp)
     {
-        m_position = position;
-        m_rotation = Quaternion.FromEulerAngles(MathHelper.DegreesToRadians(90), 0, 0);
+        CameraUp = cameraUp;
+        Rotation = rotation;
+        Position = position;
+        
         FOV = 45;
-
-        RigidBody = new RigidBody
-        {
-            MaxSpeed = 100,
-            MaxBackSpeed = 100,
-            MaxSpeedMultiplier = 1,
-            Velocity = new Vector3(5),
-        };
+        SpeedMultiplier = 3;
+        
+        Velocity = new Vector3(5);
     }
 
-    public Quaternion Rotation
+    public Vector3 Rotation
     {
         get => m_rotation;
         set
         {
-            m_rotation = value;
+            m_rotation = value.Normalized();
             m_isLookAtChanged = true;
-            m_haveTransformation = true;
             OnPropertyChanged();
         }
     }
@@ -61,28 +54,20 @@ public class Camera : ObservableObject, IPhysicObject
         {
             m_position = value;
             m_isLookAtChanged = true;
-            m_haveTransformation = true;
             OnPropertyChanged();
         }
     }
 
-    public Vector3 CameraUp => Vector3.UnitY;
-
-    public bool NeedTransformationApply => m_haveTransformation;
-    
-    public Matrix4 Transformation => m_transform;
-
-    public RigidBody RigidBody
+    public Vector3 CameraUp
     {
-        get => m_rigidBody;
+        get => m_cameraUp;
         set
         {
-            if (m_rigidBody == value)
-            {
+            if (value == m_cameraUp) 
                 return;
-            }
-
-            m_rigidBody = value ?? throw new ArgumentNullException(nameof(value));
+            
+            m_cameraUp = value.Normalized();
+            m_isLookAtChanged = true;
             OnPropertyChanged();
         }
     }
@@ -98,6 +83,18 @@ public class Camera : ObservableObject, IPhysicObject
         }
     }
 
+    public Vector3 Velocity
+    {
+        get => m_velocity;
+        set => SetField(ref m_velocity, value);
+    }
+
+    public float SpeedMultiplier
+    {
+        get => m_speedMultiplier;
+        set => SetField(ref m_speedMultiplier, value);
+    }
+
     public float X
     {
         get => m_position.X;
@@ -110,7 +107,6 @@ public class Camera : ObservableObject, IPhysicObject
 
             m_position.X = value;
             m_isLookAtChanged = true;
-            m_haveTransformation = true;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Position));
         }
@@ -128,7 +124,6 @@ public class Camera : ObservableObject, IPhysicObject
 
             m_position.Y = value;
             m_isLookAtChanged = true;
-            m_haveTransformation = true;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Position));
         }
@@ -146,7 +141,6 @@ public class Camera : ObservableObject, IPhysicObject
 
             m_position.Z = value;
             m_isLookAtChanged = true;
-            m_haveTransformation = true;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Position));
         }
@@ -167,111 +161,58 @@ public class Camera : ObservableObject, IPhysicObject
         }
     }
 
-    public Collision? Collision
+    /// <summary>
+    /// Rotate camera based on delta of mouse position
+    /// </summary>
+    /// <param name="xDelta">Mouse position X delta</param>
+    /// <param name="yDelta">Mouse position Y delta</param>
+    public virtual void Rotate(float xDelta, float yDelta)
     {
-        get => m_collision;
-        set
-        {
-            if (value == m_collision)
-            {
-                return;
-            }
-
-            if (value == null)
-                throw new ArgumentNullException(nameof(value));
-            
-            m_collision = value;
-            OnPropertyChanged();
-        }
-    }
-
-    public Vector3 Size
-    {
-        get => m_size;
-        set
-        {
-            if (m_size == value)
-            {
-                return;
-            }
-
-            m_size = value;
-            m_haveTransformation = true;
-            OnPropertyChanged();
-        }
-    }
-
-    public float Width
-    {
-        get => m_size.X;
-        set
-        {
-            if (m_size.X == value)
-            {
-                return;
-            }
-
-            m_size.X = value;
-            m_haveTransformation = true;
-
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Size));
-        }
-    }
-
-    public float Height
-    {
-        get => m_size.Y;
-        set
-        {
-            if (m_size.Y == value)
-            {
-                return;
-            }
-
-            m_size.Y = value;
-            m_haveTransformation = true;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Size));
-        }
-    }
-
-    public float Length
-    {
-        get => m_size.Z;
-        set
-        {
-            if (m_size.Z == value)
-            {
-                return;
-            }
-
-            m_size.Z = value; 
-            m_haveTransformation = true;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Size));
-        }
-    }
-
-    public void ApplyTransformation()
-    {
-        if (!m_haveTransformation)
-            return;
-
-        m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
-                      Matrix4.CreateFromQuaternion(Rotation) *
-                      Matrix4.CreateTranslation(Position);
+        var prevPitch = m_pitch;
+        m_pitch = Math.Clamp(m_pitch + yDelta, -80, 80);
         
-        m_collision?.UpdateCollision();
+        var xRad = -MathHelper.DegreesToRadians(xDelta);
+        var yRad = MathHelper.DegreesToRadians(m_pitch - prevPitch);
 
-        m_haveTransformation = false;
+        var u = Vector3.Cross(CameraUp, Rotation);
+
+        var q = Quaternion.FromAxisAngle(CameraUp, xRad) * 
+                Quaternion.FromAxisAngle(u, yRad);
+        
+        Rotation = q * m_rotation;
     }
 
-    public void Move(float timeDelta, int collisionIteration = -1) {}
+    public virtual void Move(float timeDelta, KeyboardState keyboardState)
+    {
+        var speedMultiplier = 1f;
+
+        if (keyboardState.IsKeyDown(Keys.LeftControl))
+            speedMultiplier = SpeedMultiplier;
+
+        var posDelta = Vector3.Zero;
+        if (keyboardState.IsKeyDown(Keys.D))
+            posDelta += Vector3.Normalize(Vector3.Cross(m_rotation, m_cameraUp)) *
+                        m_velocity.X * timeDelta * speedMultiplier;
+        else if (keyboardState.IsKeyDown(Keys.A))
+            posDelta -= Vector3.Normalize(Vector3.Cross(m_rotation, m_cameraUp)) *
+                        m_velocity.X * timeDelta * speedMultiplier;
+
+        if (keyboardState.IsKeyDown(Keys.W))
+            posDelta += m_rotation * m_velocity.Z * timeDelta * speedMultiplier;
+        else if (keyboardState.IsKeyDown(Keys.S))
+            posDelta -= m_rotation * m_velocity.Z * timeDelta * speedMultiplier;
+
+        if (keyboardState.IsKeyDown(Keys.Space))
+            posDelta += m_cameraUp * m_velocity.Y * timeDelta * speedMultiplier;
+        else if (keyboardState.IsKeyDown(Keys.LeftShift))
+            posDelta -= m_cameraUp * m_velocity.Y * timeDelta * speedMultiplier;
+
+        Position += posDelta;
+    }
     
     private void ChangedLookAt()
     {
-        m_lookAt = Matrix4.LookAt(Position, Position + m_rotation.ToEulerAngles(), CameraUp);
+        m_lookAt = Matrix4.LookAt(m_position, m_position + m_rotation, CameraUp);
         m_isLookAtChanged = false;
     }
 }
