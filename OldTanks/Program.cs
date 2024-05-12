@@ -24,6 +24,7 @@ public static class Program
         using var mainWindow = new MainWindow("Test", SetUpSettings(), loggerService);
 
         mainWindow.Run();
+        
 
         return 0;
     }
