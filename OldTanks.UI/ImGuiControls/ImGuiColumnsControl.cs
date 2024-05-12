@@ -61,6 +61,8 @@ public class ImGuiColumnsControl : ImGuiControl, IControlsContainer
         if (!IsVisible || m_columnsAmount == 0)
             return;
         
+        base.Draw();
+        
         ImGui.Columns(m_columnsAmount);
 
         foreach (var columnAndControls in _controlsColumn)

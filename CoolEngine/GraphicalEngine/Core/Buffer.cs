@@ -16,7 +16,7 @@ public sealed class Buffer<T> : IDisposable
         
         Id = GL.GenBuffer();
         
-        Log.Logger.Information("Buffer {BufferTarget} object: {Id}", BufferTarget, Id);
+        Log.Logger.Information("Buffer {BufferTarget} object with {Id} created.", BufferTarget, Id);
         
         Use();
         GL.BufferData(bufferTarget, maxElementsAmount * sizeof(T), data, usageHint);
@@ -59,6 +59,8 @@ public sealed class Buffer<T> : IDisposable
         GL.DeleteBuffer(Id);
         
         m_disposed = true;
+        
+        Log.Logger.Information("Buffer {BufferTarget} object with {Id} deleted.", BufferTarget, Id);
     }
 
     public void Dispose()

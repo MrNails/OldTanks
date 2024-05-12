@@ -114,7 +114,7 @@ public partial class MainWindow
 
     [BindableElement("Value", "Position",
         "m_gameManager.World.CurrentCamera", "CoolEngine.GraphicalEngine.Core.Camera", "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)",
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_cameraPositionDragTextBox;
 
@@ -125,12 +125,12 @@ public partial class MainWindow
     private ImGuiTextBlock m_textBlock1;
     
     [TriggerUpdateOn("SelectionChanged", 
-        "OldTanks.UI.ImGuiControls.ImGuiListBox<OldTanks.Models.WorldObject> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<OldTanks.UI.ImGuiControls.SelectionChangedArgs<OldTanks.Models.WorldObject>> e", 
+        "OldTanks.UI.ImGuiControls.ImGuiListBox<OldTanks.Models.WorldObject> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<OldTanks.UI.ImGuiControls.SelectionChangedArgs<OldTanks.Models.WorldObject>> e", 
         "m_worldObjectsListBox.SelectedItem")]
-    [BindableElement("SelectedItem.Scene", "SelectedScene", 
-        "m_textureWindow", "CoolEngine.GraphicalEngine.Core.Scene",
+    [BindableElement("SelectedItem", "SelectedDrawable", 
+        "m_textureWindow", "CoolEngine.Services.Interfaces.IDrawable",
         "SelectionChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiListBox<OldTanks.Models.WorldObject> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<OldTanks.UI.ImGuiControls.SelectionChangedArgs<OldTanks.Models.WorldObject>> e)",
+        "(OldTanks.UI.ImGuiControls.ImGuiListBox<OldTanks.Models.WorldObject> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<OldTanks.UI.ImGuiControls.SelectionChangedArgs<OldTanks.Models.WorldObject>> e)",
         bindingWay: BindingWay.OneWayToSource)]
     private ImGuiListBox<WorldObject> m_worldObjectsListBox;
     
@@ -139,32 +139,32 @@ public partial class MainWindow
     
     [BindableElement("Value", "Position",
         "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_selectedObjectPositionDragTextBox;
     
     
     // [BindableElement("Value", "Rotation",
     //     "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged",
-    //     "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+    //     "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
     //     "OldTanks.Helpers.UIVectorHelper.FromSystemVector3DegreesToGLVector3Radians", "OldTanks.Helpers.UIVectorHelper.FromGLVector3RadiansToSystemVector3Degrees")]
     private ImGuiFloat3DragTextBox m_selectedObjectRotationDragTextBox;
     
     [BindableElement("Value", "Size",
         "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_selectedObjectSizeDragTextBox;
     
     [BindableElement("Value", "CameraOffset",
         "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_selectedObjectCameraOffsetDragTextBox;
     
     [BindableElement("Value", "CameraOffsetAngle",
         "m_worldObjectsListBox.SelectedItem", "OldTanks.Models.WorldObject",  "ValueChanged", 
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector2> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector2> e)", 
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector2> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector2> e)", 
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector2", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector2")]
     private ImGuiFloat2DragTextBox m_selectedObjectCameraOffsetAngleDragTextBox;
     
@@ -173,50 +173,50 @@ public partial class MainWindow
     [BindableElement("IsChecked", "IsStatic",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody", 
         "Checked",
-        "(OldTanks.UI.ImGuiControls.ImGuiCheckBox sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<bool> e)")]
+        "(OldTanks.UI.ImGuiControls.ImGuiCheckBox sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<bool> e)")]
     private ImGuiCheckBox m_isStaticCheckBox;
     
     [BindableElement("Value", "CenterOfMass",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody",  "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_centerOfMassDragTextBox;
     
     [BindableElement("Value", "Velocity",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody",  
         "ValueChanged", 
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<System.Numerics.Vector3> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<System.Numerics.Vector3> e)", 
         "CoolEngine.Services.Extensions.VectorExtensions.ToGLVector3", "CoolEngine.Services.Extensions.VectorExtensions.ToSystemVector3")]
     private ImGuiFloat3DragTextBox m_velocityDragTextBox;
     
     [BindableElement("Value", "DefaultJumpForce",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody", 
         "ValueChanged", 
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<float> e)")]
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<float> e)")]
     private ImGuiFloatDragTextBox m_jumpForceDragTextBox;
     
     [BindableElement("Value", "MaxSpeed",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody", 
         "ValueChanged",
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<float> e)")]
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<float> e)")]
     private ImGuiFloatDragTextBox m_maxSpeedDragTextBox;
     
     [BindableElement("Value", "MaxBackSpeed",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody", 
         "ValueChanged", 
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<float> e)")]
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<float> e)")]
     private ImGuiFloatDragTextBox m_maxBackSpeedDragTextBox;
     
     [BindableElement("Value", "MaxSpeedMultiplier",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody", 
         "ValueChanged", 
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<float> e)")]
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<float> e)")]
     private ImGuiFloatDragTextBox m_speedMultiplierDragTextBox;
     
     [BindableElement("Value", "Weight",
         "m_worldObjectsListBox.SelectedItem.RigidBody", "CoolEngine.PhysicEngine.Core.RigidBody", 
         "ValueChanged", 
-        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, OldTanks.UI.Services.EventArgs.ValueChangedEventArgs<float> e)")]
+        "(OldTanks.UI.ImGuiControls.ImGuiFloatDragTextBoxBase<float> sender, Common.Infrastructure.EventArgs.ValueChangedEventArgs<float> e)")]
     private ImGuiFloatDragTextBox m_weightDragTextBox;
 
     private ImGuiButton m_showTextureWindow;

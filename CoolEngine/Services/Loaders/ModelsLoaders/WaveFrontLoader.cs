@@ -22,20 +22,6 @@ public sealed class WaveFrontLoader : IAssetLoader
     private static readonly int[] s_quadIndices = new int[] { 0, 1, 3, 1, 2, 3 };
     private static readonly char s_splitSeparator = ' ';
 
-    private sealed class FaceData
-    {
-        public uint[] VertexIndices { get; init; }
-        public uint[] TextureIndices { get; init; }
-        public uint[] NormalIndices { get; init; }
-
-        public FaceData(uint[] vertexIndices, uint[] textureIndices, uint[] normalIndices)
-        {
-            VertexIndices = vertexIndices;
-            TextureIndices = textureIndices;
-            NormalIndices = normalIndices;
-        }
-    }
-
     private readonly ILogger m_logger;
 
     public WaveFrontLoader(ILogger logger)
@@ -49,12 +35,10 @@ public sealed class WaveFrontLoader : IAssetLoader
         var fSizeInKb = (int)(fInfo.Length / 1024 < 1 ? 1 : fInfo.Length / 1024);
 
         var name = string.Empty;
-
-        var scene = new Scene();
-
+        
         var lastOffset = new uint[3];
 
-        var faceData = new List<FaceData>(fSizeInKb < 5 ? 200 : 500);
+        var faceData = new List<Face>(fSizeInKb < 5 ? 200 : 500);
         var vertices = new List<Vector3>(fSizeInKb < 5 ? 60 : 300);
         var textureCoords = new List<Vector2>(fSizeInKb < 5 ? 60 : 300);
         var normals = new List<Vector3>(fSizeInKb < 5 ? 30 : 200);
@@ -66,7 +50,8 @@ public sealed class WaveFrontLoader : IAssetLoader
         var parseError = false;
 
         var tempArray = new float[3];
-
+        var meshes = new List<Mesh>();
+        
         using (var reader = new StreamReader(path, Encoding.UTF8))
         {
             for (int currLine = 1; !reader.EndOfStream; currLine++)
@@ -116,7 +101,7 @@ public sealed class WaveFrontLoader : IAssetLoader
                 {
                     if (verticesStarted && (textureStarted || normalsStarted || facesStarted))
                     {
-                        scene.Meshes.Add(CreateMeshFromData(vertices, textureCoords, normals, faceData));
+                        meshes.Add(CreateMeshFromData(vertices, textureCoords, normals, faceData));
 
                         lastOffset[0] += (uint)vertices.Count;
                         lastOffset[1] += (uint)textureCoords.Count;
@@ -172,7 +157,7 @@ public sealed class WaveFrontLoader : IAssetLoader
                         return;
                     
                     if (faceType == FaceType.Triangle)
-                        faceData.Add(new FaceData(faceTmpArr[0], faceTmpArr[1], faceTmpArr[2]));
+                        faceData.Add(new Face(faceTmpArr[0], faceTmpArr[1], faceTmpArr[2]));
                     else
                         HandleQuadFace(faceData, texturesExists, normalsExists, faceTmpArr);
                 }
@@ -181,10 +166,10 @@ public sealed class WaveFrontLoader : IAssetLoader
 
         if (!parseError)
         {
-            scene.Meshes.Add(CreateMeshFromData(vertices, textureCoords, normals, faceData));
+            meshes.Add(CreateMeshFromData(vertices, textureCoords, normals, faceData));
         }
 
-        GlobalCache<Scene>.Default.AddOrUpdateItem(name, scene);
+        GlobalCache<Scene>.Default.AddOrUpdateItem(name, new Scene(meshes.ToArray()));
     }
     
     private bool ParseLineData(uint[][] faceTmpArr, string[] faceDataLine, int currLine, uint[] lastOffset)
@@ -218,13 +203,13 @@ public sealed class WaveFrontLoader : IAssetLoader
         return true;
     }
     
-    private static void HandleQuadFace(List<FaceData> faceData, bool texturesExists, bool normalsExists, uint[][] faceTmpArr)
+    private static void HandleQuadFace(List<Face> faceData, bool texturesExists, bool normalsExists, uint[][] faceTmpArr)
     {
-        faceData.Add(new FaceData(new uint[3],
+        faceData.Add(new Face(new uint[3],
             texturesExists ? new uint[3] : Array.Empty<uint>(),
             normalsExists ? new uint[3] : Array.Empty<uint>()));
 
-        faceData.Add(new FaceData(new uint[3],
+        faceData.Add(new Face(new uint[3],
             texturesExists ? new uint[3] : Array.Empty<uint>(),
             normalsExists ? new uint[3] : Array.Empty<uint>()));
 
@@ -234,29 +219,23 @@ public sealed class WaveFrontLoader : IAssetLoader
             var faceArrCurrentIndex = i % 3;
             var faceDataCurrentIndex = i / 3;
             
-            faceData[faceDataStartIndex + faceDataCurrentIndex].VertexIndices[faceArrCurrentIndex] = faceTmpArr[0][s_quadIndices[i]];
+            faceData[faceDataStartIndex + faceDataCurrentIndex].Indices[faceArrCurrentIndex] = faceTmpArr[0][s_quadIndices[i]];
 
             if (texturesExists)
                 faceData[faceDataStartIndex + faceDataCurrentIndex].TextureIndices[faceArrCurrentIndex] = faceTmpArr[1][s_quadIndices[i]];
 
             if (normalsExists)
-                faceData[faceDataStartIndex + faceDataCurrentIndex].NormalIndices[faceArrCurrentIndex] = faceTmpArr[2][s_quadIndices[i]];
+                faceData[faceDataStartIndex + faceDataCurrentIndex].NormalsIndices[faceArrCurrentIndex] = faceTmpArr[2][s_quadIndices[i]];
         }
     }
     
     private static Mesh CreateMeshFromData(List<Vector3> vertices, List<Vector2> textureCoords,
-        List<Vector3> normals, List<FaceData> faceDatas)
+        List<Vector3> normals, IReadOnlyList<Face> faceDatas)
     {
-        var mesh = new Mesh(vertices.ToArray(),
+        return new Mesh(vertices.ToArray(),
             textureCoords.Count == 0 ? Array.Empty<Vector2>() : textureCoords.ToArray(),
-            normals.Count == 0 ? Array.Empty<Vector3>() : normals.ToArray());
-
-        for (int i = 0; i < faceDatas.Count; i++)
-            mesh.Faces.Add(new Face(faceDatas[i].VertexIndices,
-                faceDatas[i].TextureIndices,
-                faceDatas[i].NormalIndices));
-
-        return mesh;
+            normals.Count == 0 ? Array.Empty<Vector3>() : normals.ToArray(),
+            faceDatas.ToArray());
     }
 
     /// <summary>

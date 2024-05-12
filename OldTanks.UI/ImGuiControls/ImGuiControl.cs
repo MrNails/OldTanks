@@ -1,4 +1,5 @@
 ﻿using Common.Models;
+using ImGuiNET;
 using OldTanks.UI.Services;
 using OldTanks.UI.Services.Interfaces;
 
@@ -14,9 +15,9 @@ public abstract class ImGuiControl : ObservableObject, IControl
         IsVisible = true;
         ControlHandler.Current!.RegisterControl(this);
     }
-    
+
     public bool IsVisible { get; set; }
-    
+
     public string Name
     {
         get => m_name;
@@ -29,14 +30,20 @@ public abstract class ImGuiControl : ObservableObject, IControl
         }
     }
 
-    public virtual void Draw() {}
+    public float? Width { get; set; }
+
+    public virtual void Draw()
+    {
+        if (Width.HasValue)
+            ImGui.PushItemWidth(Width.Value);
+    }
 
     public bool Equals(IControl? x, IControl? y)
     {
         if (ReferenceEquals(x, y)) return true;
         if (ReferenceEquals(x, null)) return false;
         if (ReferenceEquals(y, null)) return false;
-        
+
         return x.Name == y.Name && x.IsVisible == y.IsVisible;
     }
 

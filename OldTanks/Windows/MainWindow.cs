@@ -129,7 +129,7 @@ public partial class MainWindow : GameWindow
         m_rotation = new Vector3(0, 0, 0);
 
         m_interactionWorker = new Thread(WorldHandler) { IsBackground = true };
-        // m_testThread = new Thread(SpawnObjects) { IsBackground = true };
+        m_testThread = new Thread(SpawnObjects) { IsBackground = true };
 
         m_controlHandler = new ControlHandler();
         m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager)
@@ -180,7 +180,7 @@ public partial class MainWindow : GameWindow
 
                 m_readyToHandle = true;
                 
-                // m_testThread.Start();
+                m_testThread.Start();
             });
 
         EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
@@ -282,54 +282,55 @@ public partial class MainWindow : GameWindow
         lock (m_locker)
         {
             m_fps = 1.0 / args.Time;
-        }
 
-        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit |
+                     ClearBufferMask.StencilBufferBit);
 
-        GL.Enable(EnableCap.DepthTest);
-        GL.Enable(EnableCap.CullFace);
+            GL.Enable(EnableCap.DepthTest);
+            GL.Enable(EnableCap.CullFace);
 
-        GL.DepthFunc(DepthFunction.Lequal);
-        ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
-        GL.DepthFunc(DepthFunction.Less);
+            GL.DepthFunc(DepthFunction.Lequal);
+            ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
+            GL.DepthFunc(DepthFunction.Less);
 
-        var projection = EngineSettings.Current.Projection;
-        if (!m_debugView)
-            m_objectRenderer.Render(m_world.CurrentCamera, ref projection);
-        // ObjectRendererOld.DrawElements(m_world.CurrentCamera);
-        else
-            CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera, m_font, drawVerticesPositions: true);
+            var projection = EngineSettings.Current.Projection;
+            if (!m_debugView)
+                m_objectRenderer.Render(m_world.CurrentCamera, ref projection);
+            // ObjectRendererOld.DrawElements(m_world.CurrentCamera);
+            else
+                CollisionRenderer.DrawElementsCollision(m_world.CurrentCamera, m_font, drawVerticesPositions: true);
 
-        OnRenderPrimitives();
+            OnRenderPrimitives();
 
-        GL.Disable(EnableCap.CullFace);
-        GL.Disable(EnableCap.DepthTest);
+            GL.Disable(EnableCap.CullFace);
+            GL.Disable(EnableCap.DepthTest);
 
-        foreach (var control in m_controls)
-            control.Draw();
+            foreach (var control in m_controls)
+                control.Draw();
 
-        foreach (var worldObject in m_world.WorldObjects)
-        {
-            if (!string.IsNullOrEmpty(worldObject.Name))
+            foreach (var worldObject in m_world.WorldObjects)
             {
-                TextRenderer.DrawText3D(m_font, worldObject.Name, m_world.CurrentCamera,
-                    new TextDrawInformation
-                    {
-                        Color = Colors.Red,
-                        OriginPosition = worldObject.Position,
-                        SelfPosition = new Vector3(0, worldObject.Size.Y / 2, 0),
-                        Scale = 0.05f,
-                    }, true);
+                if (!string.IsNullOrEmpty(worldObject.Name))
+                {
+                    TextRenderer.DrawText3D(m_font, worldObject.Name, m_world.CurrentCamera,
+                        new TextDrawInformation
+                        {
+                            Color = Colors.Red,
+                            OriginPosition = worldObject.Position,
+                            SelfPosition = new Vector3(0, worldObject.Size.Y / 2, 0),
+                            Scale = 0.05f,
+                        }, true);
+                }
             }
+
+            EngineSettings.Current.GlobalLock.EnterWriteLock();
+
+            m_controlHandler.HandleControls();
+
+            EngineSettings.Current.GlobalLock.ExitWriteLock();
+
+            m_imGuiController.Render();
         }
-
-        EngineSettings.Current.GlobalLock.EnterWriteLock();
-
-        m_controlHandler.HandleControls();
-
-        EngineSettings.Current.GlobalLock.ExitWriteLock();
-
-        m_imGuiController.Render();
 
         Context.SwapBuffers();
 
@@ -398,18 +399,19 @@ public partial class MainWindow : GameWindow
 
     private void SpawnObjects()
     {
-        var objAmount = 2500;
+        var objAmount = 10000;
         var rand = Random.Shared;
+        var textures = new [] { "wall-texture", "Brick", "awesomeface", "Container", "FloorTile" };
 
         for (int i = 0; i < objAmount; i++)
         {
             var cube = new Cube
             {
                 Size = new Vector3(1),
-                Position = new Vector3(rand.Next(-50, 50), rand.Next(-50, 50), rand.Next(-50, 50)),
+                Position = new Vector3(rand.Next(-75, 75), rand.Next(-75, 75), rand.Next(-75, 75)),
             };
             
-            FillObject(cube, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
+            FillObject(cube, GlobalCache<Texture>.Default.GetItemOrDefault(textures[rand.Next(0, textures.Length)]));
 
             lock (m_locker)
             {
@@ -435,8 +437,14 @@ public partial class MainWindow : GameWindow
 
     private void FillObject(IDrawable drawable, Texture texture)
     {
+        var textureObjectInfo = new TexturedObjectInfo(drawable);
+        
         foreach (var mesh in drawable.Scene.Meshes)
-            mesh.TextureData.Texture = texture;
+        {
+            textureObjectInfo[mesh] = new TextureData { Texture = texture };
+        }
+        
+        drawable.TexturedObjectInfos.Add(textureObjectInfo);
     }
 
     private void InitDefaultObjects()
@@ -446,20 +454,25 @@ public partial class MainWindow : GameWindow
 
         #region Static objects
 
-        var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10) };
+        var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Name = "Wall 1" };
         wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(wall);
 
         FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
         wall = new Cube
-            { Size = new Vector3(20, 5, 2f), Position = new Vector3(9.95f, 1, 0), Rotation =new Vector3(0, MathHelper.DegreesToRadians(90), 0) };
+        {
+            Size = new Vector3(20, 5, 2f), 
+            Position = new Vector3(9.95f, 1, 0), 
+            Rotation =new Vector3(0, MathHelper.DegreesToRadians(90), 0),
+            Name = "Wall 2"
+        };
         wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(wall);
 
         FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
-        var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0) };
+        var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0), Name = "Floor 1" };
         floor.Collision = new Collision(floor, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
         tempObjects.Add(floor);
 
@@ -489,7 +502,7 @@ public partial class MainWindow : GameWindow
         {
             Size = new Vector3(5, 1, 10),
             Position = new Vector3(0, 5, 0),
-            Name = $"Cube 1"
+            Name = $"Dynamic Cube 1"
         };
         dynamicCube.Collision =
             new Collision(dynamicCube, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
@@ -507,8 +520,7 @@ public partial class MainWindow : GameWindow
             wObject.RigidBody.Restitution = 0.4f;
             wObject.RigidBody.DefaultJumpForce = -250;
 
-            foreach (var mesh in wObject.Scene.Meshes)
-                mesh.TextureData.Texture = GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture");
+            FillObject(wObject, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
         }
 
         m_world.WorldObjects.AddRange(tempObjects);
@@ -752,11 +764,11 @@ public partial class MainWindow : GameWindow
                                Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
                                Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z));
 
-                for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Count; meshIdx++)
+                for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Length; meshIdx++)
                 {
                     var mesh = worldObj.Scene.Meshes[meshIdx];
 
-                    for (int k = 0; k < mesh.Faces.Count; k++)
+                    for (int k = 0; k < mesh.Faces.Length; k++)
                     {
                         for (int l = 0; l < mesh.Faces[k].NormalsIndices.Length; l++)
                         {
@@ -828,7 +840,7 @@ public partial class MainWindow : GameWindow
         m_primitivesShader.SetMatrix4("view", m_world.CurrentCamera.LookAt);
         m_primitivesShader.SetVector4("color", Colors.Red);
 
-        DrawPositionsAndCentersOfMass(m_primitivesShader);
+        // DrawPositionsAndCentersOfMass(m_primitivesShader);
 
         if (m_drawNormals)
             DrawNormals(m_primitivesShader);

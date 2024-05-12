@@ -1,4 +1,4 @@
-﻿namespace OldTanks.UI.Services.EventArgs;
+﻿namespace Common.Infrastructure.EventArgs;
 
 public readonly struct ValueChangedEventArgs<TValue> : IEquatable<ValueChangedEventArgs<TValue>>
 {

@@ -2,11 +2,13 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using Common;
 using Common.Extensions;
+using Common.Infrastructure.Delegates;
+using Common.Infrastructure.EventArgs;
 using Common.Models;
 using ImGuiNET;
 using OldTanks.UI.Services;
-using OldTanks.UI.Services.EventArgs;
 
 namespace OldTanks.UI.ImGuiControls;
 
@@ -75,6 +77,8 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
             
             if (m_items != null)
                 FillValuesArray(0, m_items.Count);
+            
+            SelectedIndex = -1;
         }
     }
     
@@ -132,9 +136,12 @@ public class ImGuiListBox<T> : ImGuiControl, IDisposable
     {
         if (!IsVisible || m_items == null)
             return;
+        
+        base.Draw();
 
         var index = m_selectedIndex;
-        ImGui.ListBox(Label ?? string.Empty, ref index, m_valuesToDraw, m_items!.Count);
+        
+        ImGui.ListBox(Label ?? Name, ref index, m_valuesToDraw, m_items!.Count, 5);
 
         SelectedIndex = index;
     }

@@ -1,7 +1,9 @@
 ﻿using System.Numerics;
+using Common;
+using Common.Infrastructure.Delegates;
+using Common.Infrastructure.EventArgs;
 using ImGuiNET;
 using OldTanks.UI.Services;
-using OldTanks.UI.Services.EventArgs;
 
 namespace OldTanks.UI.ImGuiControls;
 
@@ -43,6 +45,8 @@ public abstract class ImGuiFloatDragTextBoxBase<TValue> : ImGuiControl
     {
         if (!IsVisible)
             return;
+        
+        base.Draw();
 
         var oldValue = m_value;
         

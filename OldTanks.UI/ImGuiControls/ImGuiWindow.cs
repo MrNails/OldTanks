@@ -16,6 +16,8 @@ public class ImGuiWindow : ImGuiControlContainer, IDisposable
     public override void Draw()
     {
         if (!IsVisible) return;
+        
+        base.Draw();
 
         var open = IsVisible;
 
