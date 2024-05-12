@@ -78,66 +78,66 @@ public static class ObjectRendererOld
                drawSceneInfo.Drawables.Remove(drawable);
     }
     
-    public static void DrawElements(Camera camera)
-    {
-        foreach (var elemPair in m_sceneBuffers)
-        {
-            var drawSceneInfo = elemPair.Value;
-
-            if (elemPair.Key == typeof(SkyBox) ||
-                drawSceneInfo.Drawables.Count == 0)
-                continue;
-
-            drawSceneInfo.Shader.Use();
-            drawSceneInfo.Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
-            drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
-
-            for (int i = 0; i < drawSceneInfo.Drawables.Count; i++)
-            {
-                var element = drawSceneInfo.Drawables[i];
-
-                if (!element.Visible)
-                    continue;
-
-                drawSceneInfo.Shader.SetMatrix4("model", element.Transformation);
-                drawSceneInfo.Shader.SetVector4("color", Colors.White);
-
-                for (int j = 0; j < element.Scene.Meshes.Count; j++)
-                {
-                    var mesh = element.Scene.Meshes[j];
-                    DrawObjectInfo drawObjectInfo;
-
-                    //Find existing draw mesh info and if it don't exists - create it
-                    if (!drawSceneInfo.Buffers.TryGetValue(j, out drawObjectInfo))
-                    {
-                        drawObjectInfo = CreateDrawMeshInfo(mesh, drawSceneInfo.Shader);
-                        drawSceneInfo.Buffers.Add(j, drawObjectInfo);
-                    }
-
-                    drawSceneInfo.Shader.SetMatrix2("textureTransform",
-                        Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
-                        Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle)));
-
-                    GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
-
-                    if (mesh.TextureData.Texture.Handle == 0 || !mesh.HasTextureCoords)
-                    {
-                        drawSceneInfo.Shader.SetVector4("color", new Vector4(0xAA, 0x55, 0x6F, 1));
-                        drawSceneInfo.Shader.SetBool("hasTexture", false);
-                    }
-                    else
-                        drawSceneInfo.Shader.SetBool("hasTexture", true);
-                    
-                    mesh.TextureData.Texture.Use(TextureUnit.Texture0);
-
-                    if (drawObjectInfo.IndicesLength != 0)
-                        GL.DrawElements(BeginMode.Triangles, drawObjectInfo.IndicesLength, DrawElementsType.UnsignedInt, 0);
-                    else
-                        GL.DrawArrays(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength);
-                }
-            }
-        }
-    }
+    // public static void DrawElements(Camera camera)
+    // {
+    //     foreach (var elemPair in m_sceneBuffers)
+    //     {
+    //         var drawSceneInfo = elemPair.Value;
+    //
+    //         if (elemPair.Key == typeof(SkyBox) ||
+    //             drawSceneInfo.Drawables.Count == 0)
+    //             continue;
+    //
+    //         drawSceneInfo.Shader.Use();
+    //         drawSceneInfo.Shader.SetMatrix4("projection", EngineSettings.Current.Projection);
+    //         drawSceneInfo.Shader.SetMatrix4("view", camera.LookAt);
+    //
+    //         for (int i = 0; i < drawSceneInfo.Drawables.Count; i++)
+    //         {
+    //             var element = drawSceneInfo.Drawables[i];
+    //
+    //             if (!element.Visible)
+    //                 continue;
+    //
+    //             drawSceneInfo.Shader.SetMatrix4("model", element.Transformation);
+    //             drawSceneInfo.Shader.SetVector4("color", Colors.White);
+    //
+    //             for (int j = 0; j < element.Scene.Meshes.Length; j++)
+    //             {
+    //                 var mesh = element.Scene.Meshes[j];
+    //                 DrawObjectInfo drawObjectInfo;
+    //
+    //                 //Find existing draw mesh info and if it don't exists - create it
+    //                 if (!drawSceneInfo.Buffers.TryGetValue(j, out drawObjectInfo))
+    //                 {
+    //                     drawObjectInfo = CreateDrawMeshInfo(mesh, drawSceneInfo.Shader);
+    //                     drawSceneInfo.Buffers.Add(j, drawObjectInfo);
+    //                 }
+    //
+    //                 drawSceneInfo.Shader.SetMatrix2("textureTransform",
+    //                     Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
+    //                     Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle)));
+    //
+    //                 GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
+    //
+    //                 if (mesh.TextureData.Texture.Handle == 0 || !mesh.HasTextureCoords)
+    //                 {
+    //                     drawSceneInfo.Shader.SetVector4("color", new Vector4(0xAA, 0x55, 0x6F, 1));
+    //                     drawSceneInfo.Shader.SetBool("hasTexture", false);
+    //                 }
+    //                 else
+    //                     drawSceneInfo.Shader.SetBool("hasTexture", true);
+    //                 
+    //                 mesh.TextureData.Texture.Use(TextureUnit.Texture0);
+    //
+    //                 if (drawObjectInfo.IndicesLength != 0)
+    //                     GL.DrawElements(BeginMode.Triangles, drawObjectInfo.IndicesLength, DrawElementsType.UnsignedInt, 0);
+    //                 else
+    //                     GL.DrawArrays(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength);
+    //             }
+    //         }
+    //     }
+    // }
 
     public static void DrawSkyBox(SkyBox skyBox, Camera camera)
     {
@@ -238,7 +238,7 @@ public static class ObjectRendererOld
             ? Array.Empty<uint>()
             : ArrayPool<uint>.Shared.Rent(indicesLength);
 
-        for (int i = 0, vIdx = 0; i < mesh.Faces.Count; i++)
+        for (int i = 0, vIdx = 0; i < mesh.Faces.Length; i++)
         {
             var face = mesh.Faces[i];
 

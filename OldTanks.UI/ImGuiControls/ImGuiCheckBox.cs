@@ -1,6 +1,8 @@
-﻿using ImGuiNET;
+﻿using Common;
+using Common.Infrastructure.Delegates;
+using Common.Infrastructure.EventArgs;
+using ImGuiNET;
 using OldTanks.UI.Services;
-using OldTanks.UI.Services.EventArgs;
 
 namespace OldTanks.UI.ImGuiControls;
 
@@ -20,6 +22,8 @@ public class ImGuiCheckBox : ImGuiControl
 
     public override void Draw()
     {
+        base.Draw();
+        
         if (!IsVisible)
             return;
 

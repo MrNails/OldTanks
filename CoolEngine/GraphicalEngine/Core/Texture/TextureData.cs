@@ -1,13 +1,15 @@
 ﻿using Common.Models;
+using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 
-public sealed class TextureData : ObservableObject, ICloneable
+public sealed class TextureData : ObservableObject, ICloneable, IColorable
 {
+    private float m_rotationAngle;
     private Vector2 m_position;
     private Vector2 m_scale;
-    private float m_rotationAngle;
+    private Vector4 m_color;
     
     private Texture m_texture;
 
@@ -38,6 +40,12 @@ public sealed class TextureData : ObservableObject, ICloneable
         set => SetField(ref m_rotationAngle, value);
     }
 
+    public Vector4 Color
+    {
+        get => m_color;
+        set => SetField(ref m_color, value);
+    }
+    
     public Texture Texture
     {
         get => m_texture;

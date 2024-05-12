@@ -17,6 +17,8 @@ public class ImGuiPanel : ImGuiControl, IControlsContainer
         if (!IsVisible)
             return;
 
+        base.Draw();
+        
         foreach (var child in Children)
             child.Draw();
     }

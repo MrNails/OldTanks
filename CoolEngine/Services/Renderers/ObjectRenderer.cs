@@ -2,26 +2,37 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Runtime.InteropServices;
+using Common.Extensions;
 using Common.Models;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Services.Delegates;
+using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
+using MeshTextureGroup = Dictionary<Texture, Dictionary<IDrawable, TextureData>>;
+
+file static class ObjectRendererConstants
+{
+    public const int DefaultMaxInstancedElements_ = 32;
+    public const int MaxPerInstanceElements_ = 15;
+    
+    public static readonly Vector4 DefaultEmptyTextureColor_ = new Vector4(0xAA, 0x55, 0x6F, 1);
+}
+
+//TODO: Add TextureChanged event to drawable and subscribe on it for texture changing
 public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     where T: IDrawable
 {
-    public static readonly int DEFAULT_MAX_INSTANCED_ELEMENTS = 32;
-    public static readonly Vector4 DEFAULT_EMPTY_TEXTURE_COLOR = new Vector4(0xAA, 0x55, 0x6F, 1);
-    public static readonly int MAX_PER_INSTANCE_ELEMENTS = 5;
-    
     private readonly Dictionary<Scene, DrawSceneInfo> m_sceneBuffers;
     private readonly Dictionary<Scene, DrawSceneInfo> m_instancedSceneBuffers;
-
+    private readonly Dictionary<Mesh, MeshTextureGroup> m_meshTextures;
+    
     private bool m_isActive;
 
     private Shader? m_shader;
@@ -32,6 +43,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     {
         m_sceneBuffers = new Dictionary<Scene, DrawSceneInfo>();
         m_instancedSceneBuffers = new Dictionary<Scene, DrawSceneInfo>();
+        m_meshTextures = new Dictionary<Mesh, MeshTextureGroup>();
         IsActive = true;
     }
     
@@ -104,37 +116,108 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
 
     private void SortInstancedAndPerInstanceObjects()
     {
+        //Traverse via scene buffers for finding drawables list drawables count per texture > MaxPerInstanceElements_
         foreach (var sceneBuffer in m_sceneBuffers)
         {
-            if (sceneBuffer.Value.Drawables.Count > MAX_PER_INSTANCE_ELEMENTS)
-                m_instancedSceneBuffers.Add(sceneBuffer.Key, sceneBuffer.Value);
+            foreach (var (texture, group) in sceneBuffer.Value.Drawables)
+            {
+                if (group.Count <= ObjectRendererConstants.MaxPerInstanceElements_) 
+                    continue;
+
+                m_instancedSceneBuffers.TryGetAndAddIfNotExists(sceneBuffer.Key)
+                    .Drawables.Add(texture, group);
+            }
         }
         
-        foreach (var sceneBuffer in m_instancedSceneBuffers)
-            m_sceneBuffers.Remove(sceneBuffer.Key);
+        foreach (var instancedSceneBuffer in m_instancedSceneBuffers)
+        {
+            if (!m_sceneBuffers.TryGetValue(instancedSceneBuffer.Key, out var drawSceneInfo)) 
+                continue;
+            
+            foreach (var keyValuePair in instancedSceneBuffer.Value.Drawables)
+            {
+                drawSceneInfo.Drawables.Remove(keyValuePair.Key);
+            }
+
+            if (drawSceneInfo.Drawables.Count != 0) 
+                continue;
+                
+            m_sceneBuffers.Remove(instancedSceneBuffer.Key);
+            drawSceneInfo.TransformationsBuffer?.Dispose();
+        }
     }
     
     private bool AddDrawable(IDrawable drawable)
     {
         var drawableScene = drawable.Scene;
-        
-        if (!m_instancedSceneBuffers.TryGetValue(drawableScene, out var drawSceneInfo) && 
-            !m_sceneBuffers.TryGetValue(drawableScene, out drawSceneInfo))
+
+        var fromInstancedBuffer = m_instancedSceneBuffers.TryGetValue(drawableScene, out var instancedDrawSceneInfo);
+        var fromSceneBuffer = m_sceneBuffers.TryGetValue(drawableScene, out var drawSceneInfo);
+
+        if (!fromInstancedBuffer && !fromSceneBuffer)
         {
             drawSceneInfo = new DrawSceneInfo();
             m_sceneBuffers.Add(drawableScene, drawSceneInfo);
-        } 
-        else if (InstancedShader != null && 
-                 !m_instancedSceneBuffers.ContainsKey(drawableScene) && 
-                 drawSceneInfo.Drawables.Count > MAX_PER_INSTANCE_ELEMENTS)
-        {
-            m_sceneBuffers.Remove(drawableScene);
-            m_instancedSceneBuffers[drawableScene] = drawSceneInfo;
         }
         
-        drawSceneInfo.Drawables.Add(drawable);
+        AddDrawableToInstancedGroup(drawable, drawSceneInfo, instancedDrawSceneInfo, drawableScene);
+        
+        AddTextureGroup(drawable);
+        
+        foreach (var drawableTexturedObjectInfo in drawable.TexturedObjectInfos)
+        {
+            drawableTexturedObjectInfo.TextureChanged += DrawableTextureChanged;
+        }
 
         return true;
+    }
+
+    private void AddDrawableToInstancedGroup(IDrawable drawable, DrawSceneInfo? drawSceneInfo,
+        DrawSceneInfo? instancedDrawSceneInfo, Scene drawableScene)
+    {
+        if (InstancedShader is null) 
+            return;
+        
+        foreach (var texture in drawable.GetUniqueTexturesFromDrawable())
+        {
+            List<IDrawable>? instancedDrawables = null;
+            List<IDrawable>? uniqueDrawables = null;
+            var haveDrawables = drawSceneInfo?.Drawables.TryGetValue(texture, out uniqueDrawables) ?? false;
+            var haveInstancedDrawables = instancedDrawSceneInfo?.Drawables.TryGetValue(texture, out instancedDrawables) ?? false;
+                
+            if (!haveDrawables && !haveInstancedDrawables && drawSceneInfo is not null)
+            {
+                uniqueDrawables = new List<IDrawable> { drawable };
+                drawSceneInfo.Drawables.Add(texture, uniqueDrawables);
+            }
+            else if (!haveDrawables && haveInstancedDrawables)
+            {
+                instancedDrawables!.Add(drawable);
+            }
+            else if (haveDrawables && !haveInstancedDrawables &&
+                     uniqueDrawables!.Count > ObjectRendererConstants.MaxPerInstanceElements_)
+            {
+                if (instancedDrawSceneInfo is null)
+                {
+                    instancedDrawSceneInfo = new DrawSceneInfo();
+                    m_instancedSceneBuffers.Add(drawableScene, instancedDrawSceneInfo);
+                }
+                    
+                uniqueDrawables.Add(drawable);
+                instancedDrawSceneInfo.Drawables.Add(texture, uniqueDrawables);
+                drawSceneInfo!.Drawables.Remove(texture);
+
+                if (drawSceneInfo.Drawables.Count != 0) 
+                    continue;
+                    
+                drawSceneInfo.TransformationsBuffer?.Dispose();
+                m_sceneBuffers.Remove(drawableScene);
+            }
+            else
+            {
+                uniqueDrawables?.Add(drawable);
+            }
+        }
     }
 
     private void AddDrawables(IList<T> drawables)
@@ -147,11 +230,73 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         }
     }
 
+    private void AddTextureGroup(IDrawable drawable)
+    {
+        for (var i = 0; i < drawable.Scene.Meshes.Length; i++)
+        {
+            var mesh = drawable.Scene.Meshes[i];
+            
+            //Group by texture every texture data
+            var groupedTextures = drawable.TexturedObjectInfos
+                .GroupBy(key => key.TexturedMeshes[mesh].Texture,
+                         v => v.TexturedMeshes[mesh]);
+            
+            if (m_meshTextures.TryGetValue(mesh, out var textureGroup))
+            {
+                foreach (var groupedTexture in groupedTextures)
+                {
+                    if (textureGroup.TryGetValue(groupedTexture.Key, out var textureDatas))
+                    {
+                        foreach (var textureData in groupedTexture)
+                        {
+                            textureDatas.Add(drawable, textureData);
+                        }
+                    }
+                    else
+                    {
+                        textureGroup[groupedTexture.Key] = groupedTexture.ToDictionary(_ => drawable);
+                    }
+                }
+            }
+            else
+            {
+                textureGroup = groupedTextures.ToDictionary(k => k.Key, 
+                                                            v => v.ToDictionary(_ => drawable));
+                m_meshTextures.Add(mesh, textureGroup);
+            }
+        }
+    }
+    
     private bool RemoveDrawable(IDrawable drawable)
     {
-        return (m_sceneBuffers.TryGetValue(drawable.Scene, out var drawSceneInfo) || 
-                m_instancedSceneBuffers.TryGetValue(drawable.Scene, out drawSceneInfo)) &&
-               drawSceneInfo.Drawables.Remove(drawable);
+        var existsInSceneBuffer = m_sceneBuffers.TryGetValue(drawable.Scene, out var drawSceneInfo);
+        var existsInInstancedSceneBuffer = m_instancedSceneBuffers.TryGetValue(drawable.Scene, out var drawInstancedSceneInfo);
+
+        if (!existsInSceneBuffer && !existsInInstancedSceneBuffer)
+        {
+            return false;
+        }
+        
+        var removed = false;
+        foreach (var texture in drawable.GetUniqueTexturesFromDrawable())
+        {
+            if (drawSceneInfo?.Drawables.TryGetValue(texture, out var uniqueDrawables) == true)
+            {
+                removed |= uniqueDrawables.Remove(drawable);
+            }
+            
+            if (drawInstancedSceneInfo?.Drawables.TryGetValue(texture, out var uniqueInstancedDrawables) == true)
+            {
+                removed |= uniqueInstancedDrawables.Remove(drawable);
+            }
+        }
+        
+        foreach (var drawableTexturedObjectInfo in drawable.TexturedObjectInfos)
+        {
+            drawableTexturedObjectInfo.TextureChanged -= DrawableTextureChanged;
+        }
+
+        return removed;
     }
 
     private void RenderInternal(Dictionary<Scene, DrawSceneInfo> sceneInfos, Shader shader, Camera camera, ref Matrix4 projection, bool isInstanceRendering)
@@ -165,7 +310,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         shader.SetMatrix4("projection", projection);
         shader.SetMatrix4("view", camera.LookAt);
 
-        Action<DrawSceneInfo, Mesh, DrawObjectInfo, Shader> renderExecute = isInstanceRendering 
+        ActionRef<RenderDto> renderExecute = isInstanceRendering 
                 ? RenderInstanced 
                 : RenderPerInstance;
         
@@ -174,75 +319,98 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             var drawSceneInfo = elemPair.Value;
             var meshes = elemPair.Key.Meshes;
 
-            for (int i = 0; i < meshes.Count; i++)
+            for (int i = 0; i < meshes.Length; i++)
             {
                 var mesh = meshes[i];
+                var textureGroup = m_meshTextures[mesh];
                 
-                //Find existing draw mesh info and if it don't exists - create it
-                var key = (mesh, shader);
-                if (!drawSceneInfo.MeshDrawInfos.TryGetValue(key, out var drawObjectInfo))
+                foreach (var (texture, group) in textureGroup)
                 {
-                    drawObjectInfo = CreateDrawMeshInfo(mesh, shader);
+                    texture.Use(TextureUnit.Texture0);
+                    
+                    //Find existing draw mesh info and if it doesn't exist - create it
+                    var key = (mesh, shader);
+                    if (!drawSceneInfo.MeshDrawInfos.TryGetValue(key, out var drawObjectInfo))
+                    {
+                        drawObjectInfo = CreateDrawMeshInfo(mesh, shader);
 
-                    drawSceneInfo.MeshDrawInfos.Add(key, drawObjectInfo);
+                        drawSceneInfo.MeshDrawInfos.Add(key, drawObjectInfo);
+                    }
+
+                    GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
+
+                    var renderDto = new RenderDto(mesh, shader, texture, group, drawObjectInfo, drawSceneInfo);
+                    
+                    renderExecute(ref renderDto);
                 }
-
-                GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
-                
-                renderExecute(drawSceneInfo, mesh, drawObjectInfo, shader);
             }
         }
         
         ClearBindState();
     }
 
-    private void RenderPerInstance(DrawSceneInfo drawSceneInfo, Mesh mesh, DrawObjectInfo drawObjectInfo, Shader shader)
+    private void RenderPerInstance(ref RenderDto renderDto)
     {
-        for (int j = 0; j < drawSceneInfo.Drawables.Count; j++)
+        if (!renderDto.DrawSceneInfo.Drawables.TryGetValue(renderDto.Texture, out var sceneDrawables))
         {
-            var element = drawSceneInfo.Drawables[j];
+            return;
+        }
+        
+        var drawables = renderDto.Drawables;
+        var mesh = renderDto.Mesh;
+        var verticesLength = renderDto.DrawObjectInfo.VerticesLength;
+        
+        for (int j = 0; j < sceneDrawables.Count; j++)
+        {
+            var element = sceneDrawables[j];
 
             if (!element.Visible)
                 continue;
+
+            var textureData = drawables[element];
 
             Shader!.SetMatrix4("model", element.Transformation);
             Shader.SetVector4("color", Colors.White);
 
             Shader.SetMatrix2("textureTransform",
-                Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
-                Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle)));
+                Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
+                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)));
 
-            if (mesh.TextureData.Texture.Handle == 0 || !mesh.HasTextureCoords)
+            if (textureData.Texture.IsEmpty || !mesh.HasTextureCoords)
             {
-                Shader.SetVector4("color", DEFAULT_EMPTY_TEXTURE_COLOR);
+                Shader.SetVector4("color", ObjectRendererConstants.DefaultEmptyTextureColor_);
                 Shader.SetBool("hasTexture", false);
             }
             else
                 Shader.SetBool("hasTexture", true);
-
-            mesh.TextureData.Texture.Use(TextureUnit.Texture0);
             
-            GL.DrawArrays(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength);
+            GL.DrawArrays(PrimitiveType.Triangles, 0, verticesLength);
         }
     }
     
-    private void RenderInstanced(DrawSceneInfo drawSceneInfo, Mesh mesh, DrawObjectInfo drawObjectInfo, Shader shader)
+    private void RenderInstanced(ref RenderDto renderDto)
     {
+        if (!renderDto.DrawSceneInfo.Drawables.TryGetValue(renderDto.Texture, out var sceneDrawables))
+        {
+            return;
+        }
+        
+        var drawables = renderDto.Drawables;
+        var mesh = renderDto.Mesh;
+        var drawObjectInfo = renderDto.DrawObjectInfo;
+        var drawSceneInfo = renderDto.DrawSceneInfo;
+        
         var buffer = drawSceneInfo.TransformationsBuffer;
-        var needBufferRecreate = buffer == null || buffer.MaxElementsInBuffer < drawSceneInfo.Drawables.Count;
-        var maxElements = GetMaxBufferElements(drawSceneInfo, needBufferRecreate, buffer);
+        var needBufferRecreate = buffer == null || buffer.MaxElementsInBuffer < sceneDrawables.Count;
+        var maxElements = GetMaxBufferElements(sceneDrawables.Count, buffer);
 
         var modelsData = ArrayPool<ModelData>.Shared.Rent(maxElements);
-        mesh.TextureData.Texture.Use(TextureUnit.Texture0);
         
-        var haveTexture = mesh.TextureData.Texture != Texture.Empty && mesh.HasTextureCoords;
-        var textTransform = Matrix2.CreateScale(mesh.TextureData.Scale.X, mesh.TextureData.Scale.Y) *
-                            Matrix2.CreateRotation(MathHelper.DegreesToRadians(mesh.TextureData.RotationAngle));
         var hiddenElementsAmount = 0;
         
-        for (int j = 0; j < drawSceneInfo.Drawables.Count; j++)
+        for (int j = 0; j < sceneDrawables.Count; j++)
         {
-            var element = drawSceneInfo.Drawables[j];
+            var element = sceneDrawables[j];
 
             if (!element.Visible)
             {
@@ -250,23 +418,28 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
                 continue;
             }
 
+            var textureData = drawables[element];
+            var haveTexture = !textureData.Texture.IsEmpty && mesh.HasTextureCoords;
+            var textTransform = Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
+                                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle));
+
             modelsData[j] = new ModelData(element.Transformation, 
-                haveTexture ? Colors.White : DEFAULT_EMPTY_TEXTURE_COLOR, 
+                haveTexture ? Colors.White : ObjectRendererConstants.DefaultEmptyTextureColor_, 
                 textTransform, haveTexture ? 1 : 0);
         }
         
-        if (hiddenElementsAmount == drawSceneInfo.Drawables.Count)
+        if (hiddenElementsAmount == sceneDrawables.Count)
             return;
 
         if (needBufferRecreate)
         {
             buffer?.Dispose();
-            buffer = RecreateBuffer(drawObjectInfo, shader, maxElements);
+            buffer = RecreateBuffer(drawObjectInfo, renderDto.Shader, maxElements);
             
             drawSceneInfo.TransformationsBuffer = buffer;
         }
 
-        var drawablesToDraw = drawSceneInfo.Drawables.Count - hiddenElementsAmount;
+        var drawablesToDraw = sceneDrawables.Count - hiddenElementsAmount;
         
         buffer!.FillData(modelsData, drawablesToDraw);
         
@@ -290,19 +463,60 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         }
     }
     
-    private static int GetMaxBufferElements(DrawSceneInfo drawSceneInfo, bool needBufferRecreate, Buffer<ModelData>? buffer)
+    private void DrawableTextureChanged(TexturedObjectInfo sender, TexturedObjectInfo.TextureChangedArg e)
     {
-        var elementsAmount = drawSceneInfo.Drawables.Count;
-        var newElementsAmount = DEFAULT_MAX_INSTANCED_ELEMENTS;
-        
-        while (elementsAmount > newElementsAmount)
+        var drawable = e.Drawable;
+        var existsInSceneBuffer = m_sceneBuffers.TryGetValue(drawable.Scene, out var drawSceneInfo);
+        var existsInInstancedSceneBuffer = m_instancedSceneBuffers.TryGetValue(drawable.Scene, out var drawInstancedSceneInfo);
+
+        if (!existsInSceneBuffer && !existsInInstancedSceneBuffer)
         {
-            newElementsAmount *= 2;
+            return;
         }
+
+        if (m_meshTextures.TryGetValue(e.Mesh, out var textureGroup) &&
+            textureGroup.TryGetValue(e.OldTexture, out var oldTextureGroupDrawables))
+        {
+            oldTextureGroupDrawables.Remove(drawable);
+            var newTextureGroupDrawables = textureGroup.TryGetAndAddIfNotExists(e.NewTexture);
+            newTextureGroupDrawables[drawable] = e.TextureData;
+        }
+
+        UpdateTextureForSceneInfo(e, existsInSceneBuffer ? drawSceneInfo! : drawInstancedSceneInfo!, drawable);
+    }
+
+    private static void UpdateTextureForSceneInfo(in TexturedObjectInfo.TextureChangedArg e, DrawSceneInfo drawSceneInfo, IDrawable drawable)
+    {
+        if (drawSceneInfo.Drawables.TryGetValue(e.OldTexture, out var oldDrawablesList))
+        {
+            oldDrawablesList.Remove(drawable);
+        }
+
+        drawSceneInfo.Drawables.TryGetAndAddIfNotExists(e.NewTexture)
+            .Add(drawable);
+    }
+
+    private static int GetMaxBufferElements(int currentDrawablesAmount, Buffer<ModelData>? buffer)
+    {
+        var newElementsAmount = (int)Math.Pow(2, Math.Ceiling(Math.Log(currentDrawablesAmount) / Math.Log(2)));
+        newElementsAmount = Math.Max(newElementsAmount, ObjectRendererConstants.DefaultMaxInstancedElements_);
         
-        return needBufferRecreate 
-            ? buffer?.MaxElementsInBuffer * 2 ?? newElementsAmount 
-            : buffer!.MaxElementsInBuffer;
+        if (buffer is null)
+        {
+            return newElementsAmount;
+        }
+
+        if (buffer.MaxElementsInBuffer > currentDrawablesAmount)
+        {
+            return buffer.MaxElementsInBuffer;
+        }
+
+        if (buffer.MaxElementsInBuffer * 2 > currentDrawablesAmount)
+        {
+            return buffer.MaxElementsInBuffer * 2;
+        }
+
+        return newElementsAmount;
     }
     
     private static void ClearBindState()
@@ -327,12 +541,10 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     
     private static DrawObjectInfo CreateDrawMeshInfo(Mesh mesh, Shader shader)
     {
-        int vao = 0, vbo = 0;
-
         var verticesLength = mesh.Faces.Sum(f => f.Indices.Length);
         var vertexRentArr = ArrayPool<Vertex>.Shared.Rent(verticesLength);
         
-        for (int i = 0, vIdx = 0; i < mesh.Faces.Count; i++)
+        for (int i = 0, vIdx = 0; i < mesh.Faces.Length; i++)
         {
             var face = mesh.Faces[i];
         
@@ -344,13 +556,13 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             }
         }
         
-        vbo = GL.GenBuffer();
+        var vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
         GL.BufferData(BufferTarget.ArrayBuffer, verticesLength * Vertex.SizeInBytes, vertexRentArr, BufferUsageHint.StaticDraw);
 
         ArrayPool<Vertex>.Shared.Return(vertexRentArr);
 
-        vao = GL.GenVertexArray();
+        var vao = GL.GenVertexArray();
         GL.BindVertexArray(vao);
 
         shader.SetAttributeData("iPos", 3, VertexAttribPointerType.Float, Vertex.SizeInBytes, 0);
@@ -380,10 +592,18 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
 
         public static unsafe int SizeInBytes => sizeof(ModelData);
     }
+
+    private readonly record struct RenderDto(
+        Mesh Mesh,
+        Shader Shader,
+        Texture Texture,
+        Dictionary<IDrawable, TextureData> Drawables,
+        DrawObjectInfo DrawObjectInfo,
+        DrawSceneInfo DrawSceneInfo);
     
     private sealed class DrawSceneInfo
     {
-        public List<IDrawable> Drawables { get; } = new();
+        public Dictionary<Texture, List<IDrawable>> Drawables { get; } = new();
         public Dictionary<(Mesh, Shader), DrawObjectInfo> MeshDrawInfos { get; } = new();
         
         public Buffer<ModelData>? TransformationsBuffer { get; set; }

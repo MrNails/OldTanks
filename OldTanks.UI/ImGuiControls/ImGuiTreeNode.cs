@@ -22,6 +22,8 @@ public class ImGuiTreeNode : ImGuiControl, IControlsContainer
 
         if (!IsExpanded || !IsVisible)
             return;
+        
+        base.Draw();
 
         foreach (var child in Children)
             child.Draw();

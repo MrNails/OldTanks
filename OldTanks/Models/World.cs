@@ -70,7 +70,7 @@ public class World
             {
                 var wObj = m_objects[i];
 
-                wObj.Move(timeDelta, itr);
+                // wObj.Move(timeDelta, itr);
 
                 if (!wObj.RigidBody.IsStatic)
                     wObj.RigidBody.OnGround = false;
@@ -78,6 +78,7 @@ public class World
                 wObj.ApplyTransformation();
             }
 
+            continue;
             for (int i = 0; i < m_objects.Count - 1; i++)
             {
                 for (int j = i + 1; j < m_objects.Count; j++)

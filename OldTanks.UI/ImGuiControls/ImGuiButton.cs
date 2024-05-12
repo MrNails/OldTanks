@@ -1,4 +1,6 @@
-﻿using ImGuiNET;
+﻿using Common;
+using Common.Infrastructure.Delegates;
+using ImGuiNET;
 using OldTanks.UI.Services;
 
 namespace OldTanks.UI.ImGuiControls;
@@ -13,7 +15,9 @@ public class ImGuiButton : ImGuiControl
     {
         if (!IsVisible)
             return;
-
+        
+        base.Draw();
+        
         if (ImGui.Button(Name))
             Click?.Invoke(this, EventArgs.Empty);
     }

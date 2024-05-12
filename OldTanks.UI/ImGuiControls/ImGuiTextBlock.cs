@@ -16,6 +16,10 @@ public class ImGuiTextBlock : ImGuiControl
 
     public override void Draw()
     {
-        if (IsVisible) ImGui.Text(Text);
+        if (!IsVisible) 
+            return;
+        
+        base.Draw();
+        ImGui.Text(Text);
     }
 }

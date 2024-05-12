@@ -5,24 +5,17 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public sealed class Mesh
 {
-    public Mesh(Vector3[] vertices) : this(vertices, Array.Empty<Vector2>(), Array.Empty<Vector3>()) { }
+    public Mesh(Vector3[] vertices, Face[] faces) : this(vertices, Array.Empty<Vector2>(), Array.Empty<Vector3>(), faces) { }
     
-    public Mesh(Vector3[] vertices, Vector2[] textureCoords, Vector3[] normals)
+    public Mesh(Vector3[] vertices, Vector2[] textureCoords, Vector3[] normals, Face[] faces)
     {
-        Vertices = vertices;
-        TextureCoords = textureCoords;
-        Normals = normals;
-
-        TextureData = new TextureData();
-
-        Faces = new List<Face>();
+        Vertices = vertices ?? throw new ArgumentNullException(nameof(vertices));;
+        TextureCoords = textureCoords ?? throw new ArgumentNullException(nameof(textureCoords));;
+        Normals = normals ?? throw new ArgumentNullException(nameof(normals));;
+        Faces = faces ?? throw new ArgumentNullException(nameof(faces));
     }
-
-
-    public List<Face> Faces { get; }
     
-    public TextureData TextureData { get; }
-
+    public Face[] Faces { get; }
     
     public Vector3[] Vertices { get; }
 
@@ -37,17 +30,6 @@ public sealed class Mesh
     
     public Mesh Copy()
     {
-        var mesh = new Mesh(Vertices, TextureCoords, Normals);
-        mesh.TextureData.Texture = TextureData.Texture;
-
-        for (int i = 0; i < Faces.Count; i++)
-            mesh.Faces.Add(new Face(Faces[i].Indices, Faces[i].TextureIndices, Faces[i].NormalsIndices));
-
-        return mesh;
-    }
-
-    public int SizeInBytes()
-    {
-        return Vector3.SizeInBytes * (Vertices.Length + Normals.Length) + Vector2.SizeInBytes * TextureCoords.Length;
+        return new Mesh(Vertices.ToArray(), TextureCoords.ToArray(), Normals.ToArray(), Faces.ToArray());
     }
 }

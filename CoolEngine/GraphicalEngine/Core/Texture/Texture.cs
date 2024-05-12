@@ -21,6 +21,8 @@ public class Texture : IDisposable, IEquatable<Texture>
     
     public bool Disposed { get; private set; }
 
+    public bool IsEmpty => this == Empty;
+
     public static Texture CurrentUsingTexture { get; private set; } = Empty;
     
     public override string ToString()

@@ -1,5 +1,7 @@
-﻿using Common.Models;
+﻿using System.Collections.ObjectModel;
+using Common.Models;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
@@ -11,8 +13,6 @@ namespace OldTanks.Models;
 
 public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, IWatchable
 {
-    private readonly Scene m_scene;
-    
     private string m_name;
     
     private bool m_haveTransformation;
@@ -38,11 +38,13 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
         RigidBody = new RigidBody();
 
-        m_scene = scene ??
+        Scene = scene ??
                   throw new ObjectException(currType, $"Cannot create {currType.Name}. Scene is not exists");
     }
 
-    public Scene Scene => m_scene;
+    public Scene Scene { get; }
+
+    public ObservableCollection<TexturedObjectInfo> TexturedObjectInfos { get; } = new();
 
     public bool NeedTransformationApply => m_haveTransformation;
 

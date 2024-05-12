@@ -4,15 +4,32 @@ namespace CoolEngine.GraphicalEngine.Core;
 
 public sealed class Scene
 {
-    public List<Mesh> Meshes { get; } = new();
+    public Scene(Mesh[] meshes)
+    {
+        Meshes = meshes;
+        EvaluateSceneCenter();
+    }
+    
+    public Mesh[] Meshes { get; }
 
     public Vector3 Center { get; private set; }
     
-    public void EvaluateSceneCenter()
+    public Scene Copy()
     {
-        Vector3 min = new Vector3(float.MaxValue), max = new Vector3(float.MinValue);
+        var copiedMeshes = new Mesh[Meshes.Length];
 
-        for (int i = 0; i < Meshes.Count; i++)
+        for (int i = 0; i < Meshes.Length; i++)
+            copiedMeshes[i] = Meshes[i].Copy();
+
+        return new Scene(copiedMeshes);
+    }
+    
+    private void EvaluateSceneCenter()
+    {
+        var min = new Vector3(float.MaxValue);
+        var max = new Vector3(float.MinValue);
+
+        for (int i = 0; i < Meshes.Length; i++)
         {
             var vertices = Meshes[i].Vertices;
             
@@ -27,26 +44,7 @@ public sealed class Scene
                 if (max.Z < vertices[j].Z) min.Z = vertices[j].Z;
             }
         }
-
-
+        
         Center = (min + max) / 2.0f;
-    }
-
-    public Scene Copy()
-    {
-        var newScene = new Scene
-        {
-            Center = Center
-        };
-
-        foreach (var mesh in Meshes)
-            newScene.Meshes.Add(mesh.Copy());
-
-        return newScene;
-    }
-
-    public int SizeInBytes()
-    {
-        return Meshes.Sum(m => m.SizeInBytes());
     }
 }

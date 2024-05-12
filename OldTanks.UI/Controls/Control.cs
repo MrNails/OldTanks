@@ -32,6 +32,8 @@ public abstract class Control : IControl
             m_name = value;
         }
     }
+    
+    public float? Width { get; set; }
 
     public virtual void Draw() {  }
 

@@ -107,6 +107,7 @@ namespace OldTanks.UI.ImGuiControls
             if (!IsVisible)
                 return;
             
+            base.Draw();
             ImGui.InputText(Name, ref m_text, m_maxLength, m_flags);
         }
 
