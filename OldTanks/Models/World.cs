@@ -6,6 +6,7 @@ using CoolEngine.PhysicEngine;
 using CoolEngine.Services;
 using OldTanks.Services.Misc;
 using OpenTK.Mathematics;
+using Serilog;
 
 namespace OldTanks.Models;
 
@@ -62,6 +63,7 @@ public class World
         var depth = 0f;
         var collisionIters = EngineSettings.Current.CollisionIterations;
         
+        
         timeDelta /= collisionIters;
 
         for (int itr = 0; itr < collisionIters; itr++)
@@ -70,15 +72,14 @@ public class World
             {
                 var wObj = m_objects[i];
 
-                // wObj.Move(timeDelta, itr);
+                wObj.Move(timeDelta, itr);
 
                 if (!wObj.RigidBody.IsStatic)
                     wObj.RigidBody.OnGround = false;
 
                 wObj.ApplyTransformation();
             }
-
-            continue;
+            
             for (int i = 0; i < m_objects.Count - 1; i++)
             {
                 for (int j = i + 1; j < m_objects.Count; j++)
@@ -97,8 +98,12 @@ public class World
                         continue;
                     }
                     
+                    Log.Logger.Information("Normal: {Normal}; Depth: {Depth}", normal.ToString(), depth.ToString());
+                    
                     var dot = Vector3.Dot(normal, PhysicsConstants.GravityDirection);
 
+                    Log.Logger.Information("First on ground: {First}; Second on ground: {Second}; {Dot}", dot < 0, dot > 0, dot);
+                    
                     if (first.RigidBody.IsStatic)
                     {
                         second.Position += normal * depth;

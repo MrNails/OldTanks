@@ -15,6 +15,7 @@ using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Misc;
 using CoolEngine.Services.Renderers;
 using OldTanks.DataModels;
+using OldTanks.Infrastructure;
 using OldTanks.UI.Controls;
 using OldTanks.Models;
 using OldTanks.Services;
@@ -399,6 +400,8 @@ public partial class MainWindow : GameWindow
 
     private void SpawnObjects()
     {
+        return;
+        
         var objAmount = 10000;
         var rand = Random.Shared;
         var textures = new [] { "wall-texture", "Brick", "awesomeface", "Container", "FloorTile" };
@@ -454,33 +457,35 @@ public partial class MainWindow : GameWindow
 
         #region Static objects
 
-        var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Name = "Wall 1" };
-        wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
-        tempObjects.Add(wall);
+        // var wall = new Cube { Size = new Vector3(10, 2, 5), Position = new Vector3(0, 0, -10), Name = "Wall 1" };
+        // wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
+        // tempObjects.Add(wall);
+        //
+        // FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
-        FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
-
-        wall = new Cube
+        var wall = new Cube
         {
-            Size = new Vector3(20, 5, 2f), 
-            Position = new Vector3(9.95f, 1, 0), 
-            Rotation =new Vector3(0, MathHelper.DegreesToRadians(90), 0),
+            Size = new Vector3(2), 
+            Position = new Vector3(), 
+            Rotation =new Vector3(),
             Name = "Wall 2"
         };
-        wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
+        wall.Collision = new Collision(wall, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
         tempObjects.Add(wall);
-
+        
         FillObject(wall, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
-        var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0), Name = "Floor 1" };
-        floor.Collision = new Collision(floor, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
-        tempObjects.Add(floor);
+        // var floor = new Cube { Size = new Vector3(20, 1, 20), Position = new Vector3(0, -2, 0), Name = "Floor 1" };
+        // floor.Collision = new Collision(floor, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
+        // tempObjects.Add(floor);
+        //
+        // FillObject(floor, GlobalCache<Texture>.Default.GetItemOrDefault("FloorTile"));
 
-        FillObject(floor, GlobalCache<Texture>.Default.GetItemOrDefault("FloorTile"));
-
-        // sphere = new Sphere { Size = new Vector3(2, 2, 2), Position = new Vector3(0, 0, -1) };
-        // sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
-        // tempObjects.Add(sphere);
+        sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(0, 5, 0) };
+        sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.SphereCollisionName));
+        tempObjects.Add(sphere);
+        
+        FillObject(sphere, GlobalCache<Texture>.Default.GetItemOrDefault("wall-texture"));
 
         // FillObject(sphere, GlobalCache<Texture>.GetItemOrDefault("Brick"));
 
@@ -500,16 +505,17 @@ public partial class MainWindow : GameWindow
 
         var dynamicCube = new Cube
         {
-            Size = new Vector3(5, 1, 10),
-            Position = new Vector3(0, 5, 0),
-            Name = $"Dynamic Cube 1"
+            Size = new Vector3(1),
+            Position = new Vector3(0, 2, 1.5f),
+            Rotation = new Vector3(MathHelper.DegreesToRadians(45), 0, 0),
+            Name = "Dynamic Cube 1"
         };
         dynamicCube.Collision =
-            new Collision(dynamicCube, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
+            new Collision(dynamicCube, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
         tempObjects.Add(dynamicCube);
 
-        // sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(2, 0, -1) };
-        // sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.GetItemOrDefault("SphereCollision"));
+        // sphere = new Sphere { Size = new Vector3(1, 1, 1), Position = new Vector3(0, 5, 0) };
+        // sphere.Collision = new Collision(sphere, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.SphereCollisionName));
         // tempObjects.Add(sphere);
 
         foreach (var wObject in tempObjects)
@@ -545,11 +551,6 @@ public partial class MainWindow : GameWindow
                 m_world.Player.Pitch += 1;
             else if (KeyboardState.IsKeyDown(Keys.A))
                 m_world.Player.Pitch -= 1;
-
-            // if (KeyboardState.IsKeyDown(Keys.W))
-            //     rigidBody.Force += rigidBody.Acceleration * timeDelta * (rigidBody.Speed < 0 ? 5 : 1);
-            // else if (KeyboardState.IsKeyDown(Keys.S))
-            //     rigidBody.Force -= rigidBody.Acceleration * timeDelta * (rigidBody.Speed > 0 ? 5 : 1);
 
             if (KeyboardState.IsKeyDown(Keys.W))
                 rigidBody.Force += m_engineSettings.MovementDirectionUnit * 15;
@@ -610,8 +611,9 @@ public partial class MainWindow : GameWindow
                 while (!m_exit)
                 {
                     Thread.Sleep(5);
-                    
+
                     var elapsedTime = (float)stopWatch.Elapsed.TotalSeconds;
+                    var elapsedTime2 = (float)0.001;//stopWatch.Elapsed.TotalSeconds;
                     stopWatch.Restart();
 
                     HandleKeyboardInputs(elapsedTime);
@@ -635,13 +637,13 @@ public partial class MainWindow : GameWindow
                         m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + cam.Rotation * 100);
                     }
 
-                    HandleObjectMove(elapsedTime);
+                    HandleObjectMove(elapsedTime2);
 
                     HandleMouseMove();
 
                     // m_collisionCalculation = true;
 
-                    m_world.CollideObjects(elapsedTime);
+                    m_world.CollideObjects(elapsedTime2);
 
                     var previousLength = float.MaxValue;
                     var tmpIntersectedPoint = Vector3.Zero;

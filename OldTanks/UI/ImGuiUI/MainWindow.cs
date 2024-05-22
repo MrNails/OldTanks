@@ -4,6 +4,7 @@ using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Renderers;
+using OldTanks.Infrastructure;
 using OldTanks.Models;
 using OldTanks.Services;
 using OldTanks.UI.ImGuiControls;
@@ -109,7 +110,7 @@ public partial class MainWindow : ImGuiWindow
                 IsStatic = true
             }
         };
-        cube.Collision = new Collision(cube, GlobalCache<CollisionData>.Default.GetItemOrDefault("CubeCollision"));
+        cube.Collision = new Collision(cube, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
 
         m_gameManager.World.WorldObjects.Add(cube);
         CollisionRenderer.AddCollision(cube);
