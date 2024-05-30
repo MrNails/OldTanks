@@ -77,15 +77,16 @@ public class CollisionRenderer
         foreach (var elementPair in m_drawCollisions)
         {
             var element = elementPair.Value;
-
+            
             element.UpdateCollisionablesData();
+            
+            if (element.Vertices.Length == 0)
+                continue;
 
             GL.BindVertexArray(element.DrawObjectInfo.VertexArrayObject);
 
             PrepareCollisionToDraw(element);
-
-            // GL.LineWidth(lineWidth);
-
+            
             if (element.IndicesPerModel != 0)
                 GL.DrawElements(BeginMode.Lines, element.IndicesPerModel * element.ActiveCount,
                     DrawElementsType.UnsignedInt, 0);
