@@ -2,6 +2,7 @@
 using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
 using OpenTK.Mathematics;
+using Serilog;
 
 namespace CoolEngine.PhysicEngine.Core;
 
@@ -127,6 +128,8 @@ public class RigidBody : ObservableObject
 
         Velocity += (Force / Weight + PhysicsConstants.GravityDirection * PhysicsConstants.FreeFallingAcceleration) *
                     timeDelta;
+
+        // Velocity = 5000 * PhysicsConstants.GravityDirection * timeDelta;
 
         var gravitySpeed = Vector3.Dot(m_velocity, PhysicsConstants.GravityDirection);
         

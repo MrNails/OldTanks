@@ -18,4 +18,17 @@ public static class ArrayExtensions
             array[i] = defaultValue;
         }
     }
+
+    public static bool Contains<T>(this T[] array, T element) where T: notnull
+    {
+        for (int i = 0; i < array.Length; i++)
+        {
+            if (array[i].Equals(element))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

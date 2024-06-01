@@ -39,7 +39,7 @@ public sealed class CollisionData
     
     public BoundingBox BoundingBox { get; private set; }
     
-    public IPhysicObject? PhysicObject { get; set; }
+    public IPhysicObject PhysicObject { get; set; }
     
     public CollisionType CollisionType { get; }
 
@@ -48,17 +48,25 @@ public sealed class CollisionData
         var min = new Vector3(float.MaxValue);
         var max = new Vector3(float.MinValue);
 
-        for (int j = 0; j < m_vertices.Length; j++)
+        if (CollisionType == CollisionType.Sphere)
         {
-            var current = m_vertices[j];
+            min = PhysicObject.Position - new Vector3(PhysicObject.Width / 2);
+            max = PhysicObject.Position + new Vector3(PhysicObject.Width / 2);
+        }
+        else
+        {
+            for (int j = 0; j < m_vertices.Length; j++)
+            {
+                var current = m_vertices[j];
 
-            if (max.X < current.X) max.X = current.X;
-            if (max.Y < current.Y) max.Y = current.Y;
-            if (max.Z < current.Z) max.Z = current.Z;
+                if (max.X < current.X) max.X = current.X;
+                if (max.Y < current.Y) max.Y = current.Y;
+                if (max.Z < current.Z) max.Z = current.Z;
 
-            if (min.X > current.X) min.X = current.X;
-            if (min.Y > current.Y) min.Y = current.Y;
-            if (min.Z > current.Z) min.Z = current.Z;
+                if (min.X > current.X) min.X = current.X;
+                if (min.Y > current.Y) min.Y = current.Y;
+                if (min.Z > current.Z) min.Z = current.Z;
+            }
         }
 
         BoundingBox = new BoundingBox(min, max);

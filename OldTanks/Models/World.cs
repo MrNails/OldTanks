@@ -53,10 +53,25 @@ public class World
 
     public WorldObject? Player { get; set; }
 
+    public int AmountOfFrames { get; set; } = 1;
+    private int UpdatedFrames { get; set; }
+    public bool Stop { get; set; } = true;
+    public bool IsActive { get; set; }
+    
     public SkyBox SkyBox => m_skyBox;
 
     public void CollideObjects(float timeDelta)
     {
+        if (IsActive && Stop)
+        {
+            for (int i = 0; i < m_objects.Count; i++)
+            {
+                m_objects[i].ApplyTransformation();
+            }
+            return;
+        }
+
+        UpdatedFrames++;
         var haveCollision = false;
         var normal = Vector3.Zero;
         var depth = 0f;
@@ -70,15 +85,14 @@ public class World
             {
                 var wObj = m_objects[i];
 
-                // wObj.Move(timeDelta, itr);
+                wObj.Move(timeDelta, itr);
 
                 if (!wObj.RigidBody.IsStatic)
                     wObj.RigidBody.OnGround = false;
 
                 wObj.ApplyTransformation();
             }
-
-            continue;
+            
             for (int i = 0; i < m_objects.Count - 1; i++)
             {
                 for (int j = i + 1; j < m_objects.Count; j++)
@@ -98,21 +112,24 @@ public class World
                     }
                     
                     var dot = Vector3.Dot(normal, PhysicsConstants.GravityDirection);
-
+                    var directionMove = (first.Position - second.Position).Normalized();
+                    var directionType = Vector3.Dot(directionMove, normal);
+                    
                     if (first.RigidBody.IsStatic)
                     {
-                        second.Position += normal * depth;
+                        second.Position += normal * depth * (directionType < 0 ? 1 : -1);
                         second.RigidBody.OnGround = dot < 0;
                     }
                     else if (second.RigidBody.IsStatic)
                     {
-                        first.Position -= normal * depth;
+                        first.Position += normal * depth * (directionType > 0 ? 1 : -1);
                         first.RigidBody.OnGround = dot > 0;
                     }
                     else
                     {
-                        first.Position -= normal * depth / 2;
-                        second.Position += normal * depth / 2;
+                        var transformedNormal = normal * depth / 2;
+                        first.Position += transformedNormal * (directionType > 0 ? 1 : -1);
+                        second.Position += transformedNormal * (directionType < 0 ? 1 : -1);
 
                         first.RigidBody.OnGround = dot > 0;
                         second.RigidBody.OnGround = dot < 0;
@@ -125,6 +142,12 @@ public class World
                 }
             }
         }
+
+        if (UpdatedFrames >= AmountOfFrames)
+        {
+            UpdatedFrames = 0;
+            Stop = true;
+        }
     }
 
     private void ResolveColliding(WorldObject o1, WorldObject o2, in Vector3 normal)
@@ -135,21 +158,6 @@ public class World
             o1.RigidBody.Velocity += relativeSpeed * PhysicsConstants.GravityDirection;
         if (o2.RigidBody.OnGround)
             o2.RigidBody.Velocity -= relativeSpeed * PhysicsConstants.GravityDirection;
-        
-        // var dotProduct = Vector3.Dot(relativeSpeed, normal);
-        //
-        // if (dotProduct > 0)
-        //     return;
-        //
-        // var minRestitution = Math.Min(o1.RigidBody.Restitution, o2.RigidBody.Restitution);
-        //
-        // var j = -(1f + minRestitution) * dotProduct;
-        // j /= 1 / o1.RigidBody.Weight + 1 / o2.RigidBody.Weight;
-        //
-        // var impulse = j * normal;
-        //
-        // o1.RigidBody.Velocity -= impulse * 1 / o1.RigidBody.Weight;
-        // o2.RigidBody.Velocity += impulse * 1 / o2.RigidBody.Weight;
     }
 
     public class CamerasCollection : IEnumerable<Camera>

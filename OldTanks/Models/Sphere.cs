@@ -1,14 +1,19 @@
-﻿using CoolEngine.GraphicalEngine.Core;
-using CoolEngine.PhysicEngine.Core;
+﻿using Common.Extensions;
+using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
-using CoolEngine.Services.Loaders;
+using OldTanks.Infrastructure;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Models;
 
 public class Sphere : WorldObject
 {
+    static Sphere()
+    {
+        GlobalCache<CollisionData>.Default.AddOrUpdateItem(CollisionConstants.SphereCollisionName, new CollisionData(CollisionType.Sphere));
+    }
+    
     public Sphere() : base(GlobalCache<Scene>.Default.GetItemOrDefault("Sphere"))
     {
     }
@@ -26,9 +31,9 @@ public class Sphere : WorldObject
         {
             base.Width = value;
             
-            if (Height != value)
+            if (!Height.ApproximateEqual(value))
                 Height = value;
-            if (Length != value)
+            if (!Length.ApproximateEqual(value))
                 Length = value;
         }
     }
@@ -40,9 +45,9 @@ public class Sphere : WorldObject
         {
             base.Height = value;
 
-            if (Width != value)
+            if (!Width.ApproximateEqual(value))
                 Width = value;
-            if (Length != value)
+            if (!Length.ApproximateEqual(value))
                 Length = value;
         }
     }
@@ -54,9 +59,9 @@ public class Sphere : WorldObject
         {
             base.Length = value;
             
-            if (Width != value)
+            if (!Width.ApproximateEqual(value))
                 Width = value;
-            if (Height != value)
+            if (!Height.ApproximateEqual(value))
                 Height = value;
         }
     }
