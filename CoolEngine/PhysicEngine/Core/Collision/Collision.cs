@@ -1,5 +1,5 @@
-﻿using CoolEngine.Models;
-using CoolEngine.Services;
+﻿using Common.Extensions;
+using CoolEngine.Models;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Mathematics;
@@ -55,8 +55,7 @@ public class Collision
          normal = Vector3.Zero;
          depth = float.MaxValue;
 
-         if (polygon2?.CollisionData.PhysicObject == null ||
-             !AABBCollisionCheck(CollisionData, polygon2.CollisionData))
+         if (!AABBCollisionCheck(CollisionData, polygon2.CollisionData))
              return false;
 
          var p2CollData = polygon2.CollisionData;
@@ -105,7 +104,7 @@ public class Collision
         originalCollision.UpdateBoundingBox();
     }
 
-    private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResult)
+    private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResultPoint)
     {
         for (int i = 0; i < CollisionData.Faces.Count; i++)
         {
@@ -138,7 +137,7 @@ public class Collision
             if (u >= 0 && u <= Vector3.Dot(deltaV21, deltaV21) &&
                 v >= 0 && v <= Vector3.Dot(deltaV31, deltaV31))
             {
-                intersectionResult = localRayEnd;
+                intersectionResultPoint = localRayEnd;
                 return true;
             }
         }
@@ -148,37 +147,46 @@ public class Collision
     
     private bool IntersectRayWithSphere(Ray ray, ref Vector3 intersectionResult)
     {
-        var rayDelta = ray.RayDelta;
-        var rayLength = rayDelta.Length;
         var sphereCenter = CollisionData.PhysicObject.Position;
-        var sphereSize = CollisionData.PhysicObject.Width;
+        var sphereRadius = CollisionData.PhysicObject.Width / 2;
+        
+        var rayToSphereDirectionalVector = ray.Start - sphereCenter;
+        var rayDirection = -ray.RayDelta.Normalized();
+        var a = Vector3.Dot(rayDirection, rayDirection);
+        var b = 2 * Vector3.Dot(rayDirection, rayToSphereDirectionalVector);
+        var c = Vector3.Dot(rayToSphereDirectionalVector, rayToSphereDirectionalVector) - sphereRadius * sphereRadius;
 
-        var rayToSphereVector = ray.Start - sphereCenter;
-        var rayToSphereLength = Math.Abs(rayToSphereVector.Length);
+        if (!Common.Helpers.MathHelper.QuadraticEquation(a, b, c, out var intersectPoint1, out var intersectPoint2))
+            return false;
 
-        if (rayLength < rayToSphereLength - sphereSize)
-            return true;
-
-        var rayDirection = rayDelta.Normalized();
-        var localEnd = ray.Start + rayDirection * (rayToSphereLength - sphereSize);
-
-        if (Math.Abs((localEnd - sphereCenter).Length) <= sphereSize)
+        if (intersectPoint1 < 0)
         {
-            intersectionResult = localEnd;
-            return true;
+            intersectPoint1 = intersectPoint2;
+
+            if (intersectPoint1 < 0)
+                return false;
         }
 
-        return false;
+        intersectionResult = ray.Start + rayDirection * intersectPoint1;
+
+        return true;
     }
     
     private static bool SphereXSphereCollision(CollisionData sphere1, CollisionData sphere2, out Vector3 normal, out float depth)
     {
-        var distance = Math.Abs(Vector3.Distance(sphere1.PhysicObject!.Position, sphere2.PhysicObject!.Position));
-        var radii = (sphere1.PhysicObject!.Width + sphere2.PhysicObject!.Width) / 2;
-
-        normal = (sphere2.PhysicObject.Position - sphere1.PhysicObject.Position).Normalized();
+        var physObj1 = sphere1.PhysicObject;
+        var physObj2 = sphere2.PhysicObject;
         
-        depth = Math.Abs(radii - sphere2.PhysicObject!.Width) / 2;
+        var directionalVector = physObj1.Position - physObj2.Position;
+        
+        var distance = directionalVector.Length;
+        var radii = (physObj1.Width + physObj2.Width) / 2;
+
+        normal = -directionalVector.Normalized();
+        
+        var sphere1EndPoint = physObj1.Position + normal * (physObj1.Width / 2);
+
+        depth = physObj2.Width / 2 - Vector3.Distance(sphere1EndPoint, physObj2.Position); 
         
         return distance <= radii;
     }
@@ -188,16 +196,30 @@ public class Collision
         normal = Vector3.Zero;
         depth = float.MaxValue;
 
+
+        if (!OBBCollisionCheckLoop(polygon1, polygon2, ref normal, ref depth)) 
+            return false;
+        
+        if (!OBBCollisionCheckLoop(polygon2, polygon1, ref normal, ref depth)) 
+            return false;
+
+        if (Vector3.Dot(polygon2.PhysicObject.Position - polygon1.PhysicObject.Position, normal) < 0)
+            normal = -normal;
+
+        return true;
+    }
+
+    private static bool OBBCollisionCheckLoop(CollisionData polygon1, CollisionData polygon2, ref Vector3 normal, ref float depth)
+    {
         for (int i = 0; i < polygon1.Faces.Count; i++)
         {
-            var mesh = polygon1.Faces[i];
-            float poly1Min, poly1Max, poly2Min, poly2Max;
+            var face = polygon1.Faces[i];
 
-            ProjectionMinMaxVertices(mesh.Normal, polygon1.Vertices,
-                out poly1Min, out poly1Max);
-            ProjectionMinMaxVertices(mesh.Normal, polygon2.Vertices,
-                out poly2Min, out poly2Max);
-
+            ProjectionMinMaxVertices(face.Normal, polygon1.Vertices,
+                out var poly1Min, out var poly1Max);
+            ProjectionMinMaxVertices(face.Normal, polygon2.Vertices,
+                out var poly2Min, out var poly2Max);
+            
             if (poly1Min >= poly2Max || poly2Min >= poly1Max)
             {
                 return false;
@@ -206,78 +228,53 @@ public class Collision
             var min = Math.Min(poly2Max - poly1Min, poly1Max - poly2Min);
             if (min < depth)
             {
-                normal = mesh.Normal;
+                normal = face.Normal;
                 depth = min;
             }
         }
 
-        if (Vector3.Dot(polygon2.PhysicObject!.Position - polygon1.PhysicObject!.Position, normal) < 0)
-            normal = -normal;
-
         return true;
     }
     
-    //TODO: Fix sphere obb collision check
     private static bool SphereOBBCollisionCheck(CollisionData polygon, CollisionData sphere, out Vector3 normal, out float depth)
     {
         normal = Vector3.Zero;
         depth = float.MaxValue;
 
-        float currMin, currMax, t2Min, t2Max;
-        
-        var _normal = Vector3.Zero;
-        var axisDepth = 0.0f;
+        float polygonProjMin; float polygonProjMax;
+        float sphereProjMin; float sphereProjMax;
+        float intersectionDepth;
+        var closestFacePointsIndex = polygon.Vertices.ClosestPointIndex(sphere.PhysicObject.Position);
 
+        if (closestFacePointsIndex == -1)
+            return false;
+        
         for (int i = 0; i < polygon.Faces.Count; i++)
         {
-            var mesh = polygon.Faces[i];
-            _normal = mesh.Normal;
+            var face = polygon.Faces[i];
 
-            ProjectionMinMaxVertices(mesh.Normal, polygon.Vertices,
-                out currMin, out currMax);
-            SphereProjectionMinMaxVertices(mesh.Normal, sphere.PhysicObject!.Position, sphere.PhysicObject.Width / 2,
-                out t2Min, out t2Max);
+            ProjectionMinMaxVertices(face.Normal, polygon.Vertices,
+                out polygonProjMin, out polygonProjMax);
+            SphereProjectionMinMaxVertices(face.Normal, sphere.PhysicObject.Position, sphere.PhysicObject.Width / 2,
+                out sphereProjMin, out sphereProjMax);
 
-            if (currMin >= t2Max || t2Min >= currMax)
+            if (polygonProjMin >= sphereProjMax || sphereProjMin >= polygonProjMax)
             {
-                mesh.Color = Colors.Red;
                 return false;
             }
 
-            axisDepth = Math.Min(t2Max - currMin, currMax - t2Min);
-            if (axisDepth < depth)
+            intersectionDepth = Math.Min(sphereProjMax - polygonProjMin, polygonProjMax - sphereProjMin);
+            if (intersectionDepth < depth)
             {
-                normal = mesh.Normal;
-                depth = axisDepth;
+                normal = face.Normal;
+                depth = intersectionDepth;
+            }
+            else if (intersectionDepth.ApproximateEqual(depth) &&
+                     face.Indices.Contains((uint)closestFacePointsIndex))
+            {
+                normal = face.Normal;
             }
         }
-
-        var cpIdx = ClosestPointIndex(sphere.PhysicObject!.Position, polygon.Vertices);
-        
-        if (cpIdx == -1)
-            return false;
-        
-        _normal = polygon.Vertices[cpIdx] - sphere.PhysicObject!.Position;
-        _normal.Normalize();
-        
-        ProjectionMinMaxVertices(_normal, polygon.Vertices,
-            out currMin, out currMax);
-        SphereProjectionMinMaxVertices(_normal, sphere.PhysicObject!.Position, sphere.PhysicObject!.Width / 2,
-            out t2Min, out t2Max);
-        
-        if (currMin >= t2Max || t2Min >= currMax)
-            return false;
-        
-        axisDepth = Math.Min(t2Max - currMin, currMax - t2Min);
-        if (axisDepth < depth)
-        {
-            normal = _normal;
-            depth = axisDepth;
-        }
-        
-        //TODO: Fix collision detection for dynamic sphere
-        if (Vector3.Dot(polygon.PhysicObject!.Position - sphere.PhysicObject!.Position, normal) < 0)
-            normal = -normal;
         
         return true;
     }
@@ -307,37 +304,17 @@ public class Collision
         if (min > max)
             (min, max) = (max, min);
     }
-
-    private static int ClosestPointIndex(in Vector3 to, Vector3[] vertices)
-    {
-        var length = float.MaxValue;
-        int idx = -1;
-        
-        for (int i = 0; i < vertices.Length; i++)
-        {
-            var tmpLength = Vector3.Distance(vertices[i], to);
-            if (length > tmpLength)
-            {
-                length = tmpLength;
-                idx = i;
-            }
-        }
-
-        return idx;
-    }
     
     private static bool AABBCollisionCheck(CollisionData polygon1, CollisionData polygon2)
     {
         var poly1BB = polygon1.BoundingBox;
         var poly2BB = polygon2.BoundingBox;
 
-        return poly1BB.Min.GreaterOrEqualThan(poly2BB.Min) &&
-               poly1BB.Min.LowerOrEqualThan(poly2BB.Max) ||
-               poly1BB.Max.GreaterOrEqualThan(poly2BB.Min) &&
-               poly1BB.Max.LowerOrEqualThan(poly2BB.Max) ||
-               poly2BB.Min.GreaterOrEqualThan(poly1BB.Min) &&
-               poly2BB.Min.LowerOrEqualThan(poly1BB.Max) ||
-               poly2BB.Max.GreaterOrEqualThan(poly1BB.Min) &&
-               poly2BB.Max.LowerOrEqualThan(poly1BB.Max);
+        return poly1BB.Min.X <= poly2BB.Max.X &&
+               poly1BB.Max.X >= poly2BB.Min.X &&
+               poly1BB.Min.Y <= poly2BB.Max.Y &&
+               poly1BB.Max.Y >= poly2BB.Min.Y &&
+               poly1BB.Min.Z <= poly2BB.Max.Z &&
+               poly1BB.Max.Z >= poly2BB.Min.Z;
     }
 }

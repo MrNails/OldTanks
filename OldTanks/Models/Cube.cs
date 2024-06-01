@@ -1,6 +1,7 @@
 ﻿using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
+using OldTanks.Infrastructure;
 using OpenTK.Mathematics;
 using Face = CoolEngine.PhysicEngine.Core.Face;
 
@@ -39,7 +40,7 @@ public class Cube : WorldObject
         collisionData.Faces.Add(new Face(leftCollisionIndices) { Normal = new Vector3(-1, 0, 0)});
         collisionData.Vertices = collisionVertices;
         
-        GlobalCache<CollisionData>.Default.AddOrUpdateItem("CubeCollision", collisionData);
+        GlobalCache<CollisionData>.Default.AddOrUpdateItem(CollisionConstants.CubeCollisionName, collisionData);
     }
     
     public Cube() : base(GlobalCache<Scene>.Default.GetItemOrDefault("Cube_Cube.005"))

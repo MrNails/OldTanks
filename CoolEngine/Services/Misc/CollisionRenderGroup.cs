@@ -123,6 +123,7 @@ internal class CollisionRenderGroup
             }
         }
 
+        m_drawObjectInfo?.Dispose();
         m_drawObjectInfo = CreateDrawInfo();
     }
 
