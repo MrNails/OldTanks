@@ -55,8 +55,7 @@ public class Collision
          normal = Vector3.Zero;
          depth = float.MaxValue;
 
-         if (polygon2.CollisionData.PhysicObject == null ||
-             !AABBCollisionCheck(CollisionData, polygon2.CollisionData))
+         if (!AABBCollisionCheck(CollisionData, polygon2.CollisionData))
              return false;
 
          var p2CollData = polygon2.CollisionData;
@@ -151,36 +150,43 @@ public class Collision
         var sphereCenter = CollisionData.PhysicObject.Position;
         var sphereRadius = CollisionData.PhysicObject.Width / 2;
         
-        var rayToSphere = ray.Start - sphereCenter;
+        var rayToSphereDirectionalVector = ray.Start - sphereCenter;
         var rayDirection = -ray.RayDelta.Normalized();
         var a = Vector3.Dot(rayDirection, rayDirection);
-        var b = 2 * Vector3.Dot(rayDirection, rayToSphere);
-        var c = Vector3.Dot(rayToSphere, rayToSphere) - sphereRadius * sphereRadius;
+        var b = 2 * Vector3.Dot(rayDirection, rayToSphereDirectionalVector);
+        var c = Vector3.Dot(rayToSphereDirectionalVector, rayToSphereDirectionalVector) - sphereRadius * sphereRadius;
 
-        if (!Common.Helpers.MathHelper.QuadraticEquation(a, b, c, out var x1, out var x2))
+        if (!Common.Helpers.MathHelper.QuadraticEquation(a, b, c, out var intersectPoint1, out var intersectPoint2))
             return false;
 
-        if (x1 < 0)
+        if (intersectPoint1 < 0)
         {
-            x1 = x2;
+            intersectPoint1 = intersectPoint2;
 
-            if (x1 < 0)
+            if (intersectPoint1 < 0)
                 return false;
         }
 
-        intersectionResult = ray.Start + rayDirection * x1;
+        intersectionResult = ray.Start + rayDirection * intersectPoint1;
 
         return true;
     }
     
     private static bool SphereXSphereCollision(CollisionData sphere1, CollisionData sphere2, out Vector3 normal, out float depth)
     {
-        var distance = Math.Abs(Vector3.Distance(sphere1.PhysicObject!.Position, sphere2.PhysicObject!.Position));
-        var radii = (sphere1.PhysicObject!.Width + sphere2.PhysicObject!.Width) / 2;
-
-        normal = (sphere2.PhysicObject.Position - sphere1.PhysicObject.Position).Normalized();
+        var physObj1 = sphere1.PhysicObject;
+        var physObj2 = sphere2.PhysicObject;
         
-        depth = Math.Abs(radii - sphere2.PhysicObject!.Width) / 2;
+        var directionalVector = physObj1.Position - physObj2.Position;
+        
+        var distance = directionalVector.Length;
+        var radii = (physObj1.Width + physObj2.Width) / 2;
+
+        normal = -directionalVector.Normalized();
+        
+        var sphere1EndPoint = physObj1.Position + normal * (physObj1.Width / 2);
+
+        depth = physObj2.Width / 2 - Vector3.Distance(sphere1EndPoint, physObj2.Position); 
         
         return distance <= radii;
     }
@@ -191,10 +197,10 @@ public class Collision
         depth = float.MaxValue;
 
 
-        if (!ObbCollisionCheckLoop(polygon1, polygon2, ref normal, ref depth)) 
+        if (!OBBCollisionCheckLoop(polygon1, polygon2, ref normal, ref depth)) 
             return false;
         
-        if (!ObbCollisionCheckLoop(polygon2, polygon1, ref normal, ref depth)) 
+        if (!OBBCollisionCheckLoop(polygon2, polygon1, ref normal, ref depth)) 
             return false;
 
         if (Vector3.Dot(polygon2.PhysicObject.Position - polygon1.PhysicObject.Position, normal) < 0)
@@ -203,7 +209,7 @@ public class Collision
         return true;
     }
 
-    private static bool ObbCollisionCheckLoop(CollisionData polygon1, CollisionData polygon2, ref Vector3 normal, ref float depth)
+    private static bool OBBCollisionCheckLoop(CollisionData polygon1, CollisionData polygon2, ref Vector3 normal, ref float depth)
     {
         for (int i = 0; i < polygon1.Faces.Count; i++)
         {
