@@ -38,8 +38,7 @@ public sealed class ImGuiImage : ImGuiControl
     {
         if (!IsVisible || 
             m_size.X == 0 || 
-            m_size.Y == 0 ||
-            m_textureId == 0)
+            m_size.Y == 0)
             return;
         
         ImGui.Image(m_textureId, m_size);
