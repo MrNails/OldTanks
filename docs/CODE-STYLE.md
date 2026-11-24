@@ -66,7 +66,7 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 | Feature branch | `feature/OT-<n>`: new work, improvements, docs (e.g. `feature/OT-1`) |
 | Bug branch | `bug/OT-<n>`: a fix for something that does not work as intended |
 | Task number | One sequence across both prefixes, incrementing, never reused. OT-1 is the documentation start (2026-11-24); take the highest `OT-<n>` in `git log --all` plus one |
-| Base and target | Branch from `develop`; open the pull request into `develop`. `develop` reaches `master` through its own pull request (as PR #4 did) |
+| Base and target | Branch from `master`; open the pull request into `master` (Denys, 2026-11-24). `develop` is no longer used: it stopped at PR #7 and lacks OT-1 |
 | Commit message | The task id, then the change in the imperative, first line ≤ 72 characters (e.g. `OT-1 Add project documentation`) |
 
 The branch naming is Denys's rule (2026-11-24). Before it, branches had descriptive names (`bug/CollisionFix`, `bug/FixDeterminingOnGroundState`) and commit subjects were past-tense sentences. The commit-message form is carried over from ArbBot with the documentation start; change it here if it does not fit.

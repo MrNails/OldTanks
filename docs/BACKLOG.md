@@ -12,7 +12,8 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 
 ## Ticketed
 
-- **OT-1 Documentation start** (`feature/OT-1`, 2026-11-24): this knowledge base, the `AGENTS.md` guides, the README and the docs test project. Open until merged into `develop`.
+- ~~**OT-1 Documentation start**~~ (`feature/OT-1`, 2026-11-24): this knowledge base, the `AGENTS.md` guides, the README and the docs test project. Merged into `master` by PR #8.
+- **OT-2 Mentor pipeline** (`feature/OT-2`, 2026-11-24): the project's `.claude/skills/mentor-pipeline/`, and `master` as the working branch in the docs. Open until merged into `master`.
 
 ## Planned
 

@@ -2,7 +2,7 @@
 
 > **Project knowledge:** [docs/PROJECT-KNOWLEDGE.md](docs/PROJECT-KNOWLEDGE.md)
 
-Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, five projects, `net7.0` (generator `netstandard2.0`), OpenTK 4.8.1, ImGui.NET, Serilog; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `develop`.
+Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, five projects, `net7.0` (generator `netstandard2.0`), OpenTK 4.8.1, ImGui.NET, Serilog; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
 
 ## Session bootstrap
 
@@ -43,6 +43,7 @@ Exhaustive for the repository root.
 | `OldTanks/Assets/` | Shaders, textures, skyboxes, models, fonts; copied to the output on build ([asset pipeline](docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md)) |
 | `tests/` | Test projects: `OldTanks.Docs.Tests` (NUnit, `net10.0`), the documentation checks |
 | `docs/` | The knowledge base; index [docs/README.md](docs/README.md) |
+| `.claude/skills/` | Project skills for Claude Code: [mentor-pipeline](.claude/skills/mentor-pipeline/SKILL.md) (agent tiers by risk, plan and brief templates, the review checklist, the calibration table). Personal settings and worktrees under `.claude/` stay git-ignored |
 | `OldTanks.sln` | The solution |
 | `OldTanks.sln.DotSettings.user` | A tracked per-user Rider file ([BACKLOG](docs/BACKLOG.md#platform-and-build)) |
 
