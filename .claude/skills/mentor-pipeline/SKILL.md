@@ -51,7 +51,7 @@ Pick the tier by the riskiest file the plan touches, not by how good the plan is
 1. **Read** what the root `AGENTS.md` "Session bootstrap" lists: `docs/PROJECT-KNOWLEDGE.md`, the newest `docs/sessions/SESSION-LOG.md` entry, the owning page from `docs/README.md`, the area's `KNOWN-ISSUES` entries, `docs/CODE-STYLE.md`, and for engine or game work `docs/plans/ENGINES-AND-TANK-GAME.md`. Memory (`MEMORY.md`). The last rows of calibration.md.
 2. **Navigation tools.** Check whether Gortex covers this checkout (the session-start note says so). On 2026-11-24 it does not, so you and every agent use the built-in Read, Grep and Glob, and check callers by hand. Once Denys tracks the repository, follow the global CLAUDE.md: `explore`, `change(operation:"impact")` before an edit, `change(operation:"detect")` after. Write whichever applies into the briefs.
 3. **The checkout is shared.** Visual Studio and other sessions write into it. Check `git status --short`; delete untracked `~RF<hex>.TMP` leftovers as the global CLAUDE.md says, and name them. Never switch branches, stash or reset without asking.
-4. **Branch:** `feature/OT-<n>` for new work, improvements and docs, `bug/OT-<n>` for a fix, from `develop`. Propose `<n>` as the highest `OT-<n>` in `git log --all` plus one and confirm it with Denys at the go (step 1.7). If the checkout is on another task's branch, on `develop` or on `master`, ask before creating or switching.
+4. **Branch:** `feature/OT-<n>` for new work, improvements and docs, `bug/OT-<n>` for a fix, from `master` (Denys, 2026-11-24; `develop` is no longer used). Propose `<n>` as the highest `OT-<n>` in `git log --all` plus one and confirm it with Denys at the go (step 1.7). If the checkout is on another task's branch or on `master` with uncommitted work, ask before creating or switching.
 5. **Baseline**, before any dispatch. Keep the three result lines for the briefs:
    ```
    dotnet build OldTanks.sln --no-incremental
@@ -126,7 +126,7 @@ Lead with the outcome. Then the goal or root cause, the tier and why, the files 
 
 - the app check, when the change shows in the running game;
 - the commit on the task branch, subject starting with `OT-<n>`;
-- a PR into `develop`, never into `master` (`develop` reaches `master` through its own PR).
+- a PR into `master`.
 
 No code in prose; commands in fenced blocks.
 

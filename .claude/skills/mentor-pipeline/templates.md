@@ -10,7 +10,7 @@ Saved as `plan-OT-<n>.md` in the session's scratchpad directory. The implementer
 # OT-<n> — <title>
 
 - **Tier:** high | standard | mechanical — <the riskiest file, and why>; reviewer effort <xhigh | max | high>
-- **Branch:** feature/OT-<n> | bug/OT-<n>, from develop at <sha>
+- **Branch:** feature/OT-<n> | bug/OT-<n>, from master at <sha>
 - **Goal:** <one paragraph; for a bug, the root cause with file:line anchors and every entry point>
 - **Spec source:** <Denys's spec document and sections, or "none: engineering only">
 - **Source plan:** <docs/plans/<NAME>.md §…, or none>

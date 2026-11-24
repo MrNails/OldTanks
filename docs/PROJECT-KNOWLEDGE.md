@@ -17,7 +17,7 @@ The value of the code is in the engine pieces (instanced rendering, collision te
 ## 2. Current state
 
 - **Repository:** https://github.com/MrNails/OldTanks. 75 commits from 2022-03-22 to 2024-06-01, then idle until the documentation start on 2026-11-24.
-- **Branches:** `master` at PR #4 (`2e4c6cb`); `develop` two merged fixes ahead (PR #5, spawned objects displaying; PR #7, on-ground detection). Work branches from `develop` as `feature/OT-<n>` or `bug/OT-<n>` ([CODE-STYLE](CODE-STYLE.md#git-rules)).
+- **Branches:** `master` is the working branch (Denys, 2026-11-24): work branches from it as `feature/OT-<n>` or `bug/OT-<n>` and comes back by pull request ([CODE-STYLE](CODE-STYLE.md#git-rules)). OT-1 is in `master` through PR #8 (`55678e0`), on top of the earlier `develop` fixes (PR #5, spawned objects displaying; PR #7, on-ground detection). `develop` stopped at PR #7 and is no longer used.
 - **Works (read from code; not run on 2026-11-24):** the sandbox scene with gravity and collisions; free camera; textured, instanced rendering; skybox; HUD; debug view of collision shapes; picking ray; the ImGui debug and texture windows with two-way editing of position, rotation, size and most body properties; spawning, deleting and retexturing objects ([features](OldTanks/FEATURES-OVERVIEW.md)).
 - **Not built:** a player (`World.Player` is never set, [KI-001](KNOWN-ISSUES.md#ki-001-the-player-is-never-assigned)), tanks, game rules, levels, lighting, materials, sound, tests of the game code, CI. Several controls are wired to nothing ([BACKLOG](BACKLOG.md#unwired-features)).
 - **Build:** 0 errors and 165 warnings with SDK 10.0.401. It targets `net7.0`, which is out of support, and the PC had no .NET 7 runtime, so the game was not started ([BUILD](BUILD.md)).
@@ -74,6 +74,5 @@ References, packages, threads and singletons: [ARCHITECTURE](ARCHITECTURE.md).
 
 ## 7. Open questions
 
-- Is `develop` → `master` still the release flow, or should `master` simply follow `develop`?
 - Which .NET to retarget to (`net10.0` matches the installed SDK)?
 - Is the face-normal-only collision test a deliberate simplification ([KI-016](KNOWN-ISSUES.md#ki-016-polygon-tests-use-face-normals-only))?

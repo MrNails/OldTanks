@@ -2,7 +2,7 @@
 
 > **Project knowledge:** [docs/PROJECT-KNOWLEDGE.md](docs/PROJECT-KNOWLEDGE.md)
 
-Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, five projects, `net7.0` (generator `netstandard2.0`), OpenTK 4.8.1, ImGui.NET, Serilog; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `develop`.
+Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, five projects, `net7.0` (generator `netstandard2.0`), OpenTK 4.8.1, ImGui.NET, Serilog; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
 
 ## Session bootstrap
 

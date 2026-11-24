@@ -56,4 +56,4 @@ The knowledge base is in [docs/](docs/README.md): architecture, rendering, asset
 
 ## Contributing
 
-Branch from `develop` as `feature/OT-<n>` or `bug/OT-<n>` and open the pull request into `develop`. Conventions: [docs/CODE-STYLE.md](docs/CODE-STYLE.md).
+Branch from `master` as `feature/OT-<n>` or `bug/OT-<n>` and open the pull request into `master`. Conventions: [docs/CODE-STYLE.md](docs/CODE-STYLE.md).
