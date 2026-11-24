@@ -54,7 +54,7 @@ References, packages, threads and singletons: [ARCHITECTURE](ARCHITECTURE.md).
 
 ## 5. Conventions
 
-- **Docs:** [DOCUMENTATION-GUIDE](DOCUMENTATION-GUIDE.md). **Code and Git:** [CODE-STYLE](CODE-STYLE.md).
+- **Docs:** [DOCUMENTATION-GUIDE](DOCUMENTATION-GUIDE.md). **Code and Git:** [CODE-STYLE](CODE-STYLE.md). **Agent work:** the [mentor pipeline](../.claude/skills/mentor-pipeline/SKILL.md) (adapted from ArbBot and AnalysisTools): the mentor plans, a tiered implementer codes, one opus reviewer checks, a documenter updates the docs.
 - **Units and axes:** Y up, gravity -Y, metres and seconds by intent; the default camera looks along +X. Object rotation should be radians but is not read consistently ([KI-002](KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another)); the debug window shows degrees.
 - **Assets are fetched by name** from `GlobalCache<T>`; a model's name is its OBJ object name, not its file name.
 - **Language:** docs, code and commits in English; conversation in whatever language Denys uses.

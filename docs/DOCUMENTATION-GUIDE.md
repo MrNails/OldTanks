@@ -39,6 +39,7 @@ Every page under `docs/` opens with its H1, then this block. `README.md` files a
 | A decision worth keeping with its reason | `ARCHITECTURE-DECISIONS.md`, next `ADR-nnn` (create on first need; record the reason given, never an inferred one) |
 | Term definitions | `knowledge/GLOSSARY.md` |
 | Per-session journal | `sessions/SESSION-LOG.md` (§5) |
+| How agents run a task: tiers, briefs, review checklist, calibration | `.claude/skills/mentor-pipeline/` (outside `docs/`; changed only with Denys's agreement, the calibration rows aside) |
 
 Create a new page only for a genuinely new topic; otherwise extend the owning page. File names are SCREAMING-KEBAB-CASE.
 

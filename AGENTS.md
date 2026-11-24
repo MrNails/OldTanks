@@ -43,6 +43,7 @@ Exhaustive for the repository root.
 | `OldTanks/Assets/` | Shaders, textures, skyboxes, models, fonts; copied to the output on build ([asset pipeline](docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md)) |
 | `tests/` | Test projects: `OldTanks.Docs.Tests` (NUnit, `net10.0`), the documentation checks |
 | `docs/` | The knowledge base; index [docs/README.md](docs/README.md) |
+| `.claude/skills/` | Project skills for Claude Code: [mentor-pipeline](.claude/skills/mentor-pipeline/SKILL.md) (agent tiers by risk, plan and brief templates, the review checklist, the calibration table). Personal settings and worktrees under `.claude/` stay git-ignored |
 | `OldTanks.sln` | The solution |
 | `OldTanks.sln.DotSettings.user` | A tracked per-user Rider file ([BACKLOG](docs/BACKLOG.md#platform-and-build)) |
 

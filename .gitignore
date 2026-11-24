@@ -9,3 +9,8 @@ appsettings.json
 
 .idea
 .vs
+
+# Claude Code: personal settings, worktrees and runtime state stay local; .claude/skills/ is shared
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock
