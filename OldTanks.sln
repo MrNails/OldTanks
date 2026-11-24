@@ -13,6 +13,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Common", "Common\Common.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks.UI.SourceGenerators", "OldTanks.UI.SourceGenerators\OldTanks.UI.SourceGenerators.csproj", "{1FF73113-7AED-4E30-B711-8224AE0D728E}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks.Docs.Tests", "tests\OldTanks.Docs.Tests\OldTanks.Docs.Tests.csproj", "{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,9 +43,16 @@ Global
 		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1FF73113-7AED-4E30-B711-8224AE0D728E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {27902F3C-9C4A-4686-AB28-B12D9B9EA896}

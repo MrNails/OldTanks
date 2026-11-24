@@ -111,19 +111,19 @@ public class World
                         continue;
                     }
                     
-                    var dot = Vector3.Dot(normal, PhysicsConstants.GravityDirection);
                     var directionMove = (first.Position - second.Position).Normalized();
                     var directionType = Vector3.Dot(directionMove, normal);
+                    var onGroundValue = Vector3.Dot(directionMove, PhysicsConstants.GravityDirection);
                     
                     if (first.RigidBody.IsStatic)
                     {
                         second.Position += normal * depth * (directionType < 0 ? 1 : -1);
-                        second.RigidBody.OnGround = dot < 0;
+                        second.RigidBody.OnGround = onGroundValue > 0;
                     }
                     else if (second.RigidBody.IsStatic)
                     {
                         first.Position += normal * depth * (directionType > 0 ? 1 : -1);
-                        first.RigidBody.OnGround = dot > 0;
+                        first.RigidBody.OnGround = onGroundValue < 0;
                     }
                     else
                     {
@@ -131,8 +131,8 @@ public class World
                         first.Position += transformedNormal * (directionType > 0 ? 1 : -1);
                         second.Position += transformedNormal * (directionType < 0 ? 1 : -1);
 
-                        first.RigidBody.OnGround = dot > 0;
-                        second.RigidBody.OnGround = dot < 0;
+                        first.RigidBody.OnGround = onGroundValue < 0;
+                        second.RigidBody.OnGround = onGroundValue > 0;
                     }
                         
                     ResolveColliding(first, second, normal);

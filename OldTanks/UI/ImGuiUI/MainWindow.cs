@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
@@ -31,7 +32,7 @@ public partial class MainWindow : ImGuiWindow
         m_gameManager.World.CurrentCamera.PropertyChanged += CurrentCameraPropertyChanged;
         m_gameManager.World.CurrentCamera.PropertyChanged += __CurrentCameraGeneratedBindingMethodToObject;
     }
-    
+
     private void InitWorldObjectsBindings()
     {
         foreach (var worldObject in m_gameManager.World.WorldObjects)
@@ -56,6 +57,7 @@ public partial class MainWindow : ImGuiWindow
                     worldObject.PropertyChanged += __SelectedItemGeneratedBindingMethodToObject;
                     worldObject.RigidBody.PropertyChanged += __RigidBodyGeneratedBindingMethodToObject;
                 }
+
                 break;
             case NotifyCollectionChangedAction.Remove:
                 foreach (WorldObject worldObject in e.OldItems!)
@@ -63,8 +65,7 @@ public partial class MainWindow : ImGuiWindow
                     worldObject.PropertyChanged -= __SelectedItemGeneratedBindingMethodToObject;
                     worldObject.RigidBody.PropertyChanged -= __RigidBodyGeneratedBindingMethodToObject;
                 }
-                break;
-            default:
+
                 break;
         }
     }
@@ -76,25 +77,30 @@ public partial class MainWindow : ImGuiWindow
         if (cam == null)
             return;
 
-        // if (e.PropertyName == nameof(Camera.Rotation))
-        // {
-        //     m_cameraRotationDragTextBox.Value = cam.Rotation.ToSystemVector3();
-        // }
+        if (e.PropertyName == nameof(Camera.Rotation))
+        {
+            m_cameraRotationDragTextBox.Value = cam.Rotation.ToSystemVector3();
+        }
     }
-    
+
     private void ShowTextureWindowOnClick(ImGuiButton sender, EventArgs e)
     {
-        m_textureWindow ??= new TextureWindow("Texture window", m_gameManager) { Title = "Texture window" };
+        m_textureWindow ??= new TextureWindow("Texture window", m_gameManager)
+        {
+            Title = "Texture window",
+            SelectedDrawable = m_worldObjectsListBox.SelectedItem
+        };
+        
         m_textureWindow.Show();
     }
-    
+
     private void DeleteObjectOnClick(ImGuiButton sender, EventArgs e)
     {
         var selectedItem = m_worldObjectsListBox.SelectedItem;
-        
-        if (selectedItem == null) 
+
+        if (selectedItem == null)
             return;
-        
+
         ObjectRendererOld.RemoveDrawable(selectedItem);
         CollisionRenderer.RemoveCollision(selectedItem);
         m_gameManager.World.WorldObjects.Remove(selectedItem);
@@ -110,7 +116,18 @@ public partial class MainWindow : ImGuiWindow
                 IsStatic = true
             }
         };
-        cube.Collision = new Collision(cube, GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
+        cube.Collision = new Collision(cube,
+            GlobalCache<CollisionData>.Default.GetItemOrDefault(CollisionConstants.CubeCollisionName));
+
+        var texturedObjInfo = new TexturedObjectInfo(cube);
+
+        for (int i = 0; i < cube.Scene.Meshes.Length; i++)
+        {
+            var mesh = cube.Scene.Meshes[i];
+            texturedObjInfo[mesh] = new TextureData();
+        }
+
+        cube.TexturedObjectInfos.Add(texturedObjInfo);
 
         m_gameManager.World.WorldObjects.Add(cube);
         CollisionRenderer.AddCollision(cube);
