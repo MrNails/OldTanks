@@ -1,0 +1,76 @@
+# Code Style
+
+| Field        | Value  |
+|--------------|--------|
+| Status       | Living |
+| Last updated | 2026-11-24 |
+| Verified against | 2026-11-24; develop at d32cbbf; claims about the existing code |
+
+---
+
+The conventions the code already follows, written down so new code matches. Where the code is mixed, the rule names the majority form; don't rename old code only for style.
+
+## Language and project settings
+
+- **C# 11 on `net7.0`** with `ImplicitUsings` and `Nullable` enabled in every runtime project; the generator is `netstandard2.0` with `LangVersion latest`.
+- **Nullable:** new code adds no nullable warnings to the [baseline](BUILD.md#2-build). Use `?` for "may be absent" and the `!` operator only where an invariant guarantees a value (a cache entry that startup has loaded).
+- **Unsafe code** only in `CoolEngine` (`AllowUnsafeBlocks`), for `sizeof` and buffer uploads.
+- **File-scoped namespaces** (`namespace X;`) matching the folder path. A few files still use block namespaces.
+
+## Naming
+
+| Element | Form | Example |
+|---------|------|---------|
+| Private instance field | `m_camelCase` | `m_currentCamera` |
+| Private static field, including `static readonly` | `s_camelCase` | `s_instance`, `s_maxRenderAmount` |
+| Private `const` | `PascalCase` (a few use `PascalCase_`) | `DefaultRenderCapacity` |
+| Public static readonly field | `PascalCase` | `PhysicsConstants.FreeFallingAcceleration` |
+| Types, methods, properties, events | `PascalCase` | `ApplyTransformation` |
+| Event handler method | `<Source>On<Event>` (the IDE default) or `<Source><Event>` | `SpawnObjectOnClick`, `WorldObjectsCollectionChanged` |
+| Generated members | `__` prefix | `__RigidBodyGeneratedBindingMethodToObject` (never write `__` names by hand) |
+
+Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`_current`) use a bare `_`; some static fields use `m_` (`CollisionRenderer.m_drawCollisions`, `ObjectRendererOld.m_sceneBuffers`); some `static readonly` constants use `PascalCase_` (`MaxShaderAttributeSize_`). Leave them until the file is touched for other reasons.
+
+## Patterns
+
+- **Observable properties:** derive from `Common.Models.ObservableObject` and set through `SetField(ref m_field, value)`, which raises `PropertyChanged` only on change. A property that changes a part of another (`WorldObject.X` of `Position`) raises both names.
+- **Events:** `Common.Infrastructure.Delegates.EventHandler<TSender, TArg>` with a typed sender; value changes use `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`.
+- **Window classes are split in two partial files:** behaviour in `<Name>.cs`, controls (fields and the method that builds the tree) in `ControlsInitialization/<Name>.cs`; the game window's HUD is in `Windows/ControlWindows/MainWindow.cs`.
+- **Caches by name:** shared assets are fetched from `CoolEngine.Services.GlobalCache<T>.Default` by name; keep names in a constants class (`OldTanks.Infrastructure.CollisionConstants`) rather than as scattered literals.
+- **GL calls only on the GL thread** ([ARCHITECTURE §3](ARCHITECTURE.md#3-getting-work-onto-the-gl-thread)). A type that owns GL objects implements `IDisposable`.
+- **`#region`** is used to group overrides and object setup in long classes; optional.
+
+## Math types
+
+- **OpenTK.Mathematics** (`Vector3`, `Matrix4`, `Quaternion`) everywhere in the engine and the game.
+- **System.Numerics** only in ImGui controls, because ImGui.NET takes those types.
+- **Convert at the boundary** with `CoolEngine.Services.Extensions.VectorExtensions` (`ToGLVector3`, `ToSystemVector3`, and the `Vector2` pair), and with `OldTanks.Helpers.UIVectorHelper` where the UI shows degrees and the object stores radians.
+- **Float comparison:** `Common.Extensions.PrimitiveExtensions.ApproximateEqual` **with an explicit epsilon**. Its default, `float.Epsilon` (about 1.4e-45), makes it an exact comparison, and the existing callers (`Sphere`, `Collision.SphereOBBCollisionCheck`) rely on that default.
+
+## Logging
+
+- **Serilog** `ILogger` from `OldTanks.Services.LoggerService.CreateLogger`, or the static `Log.Logger` where no logger is injected.
+- **Message templates with named properties** (`"Model {ModelName} loaded."`), never string interpolation in the template.
+- **GL debug output** already reaches the log through `AddGLMessageHandling`; don't add `GL.GetError` polling.
+
+## Comments and language
+
+- Code, comments, logs and commit messages in **English**. (`RigidBody` has two Russian comments, "density" and "restitution"; translate them when the file is next edited.)
+- XML doc comments on engine APIs whose behaviour is not obvious from the name (`Dispatcher.Invoke` vs `Post`, `EngineSettings.GetWindowY`).
+- `TODO:` comments exist; an item worth doing goes to [BACKLOG](BACKLOG.md) too.
+
+## Git rules
+
+| Rule | Format |
+|------|--------|
+| Feature branch | `feature/OT-<n>`: new work, improvements, docs (e.g. `feature/OT-1`) |
+| Bug branch | `bug/OT-<n>`: a fix for something that does not work as intended |
+| Task number | One sequence across both prefixes, incrementing, never reused. OT-1 is the documentation start (2026-11-24); take the highest `OT-<n>` in `git log --all` plus one |
+| Base and target | Branch from `develop`; open the pull request into `develop`. `develop` reaches `master` through its own pull request (as PR #4 did) |
+| Commit message | The task id, then the change in the imperative, first line ≤ 72 characters (e.g. `OT-1 Add project documentation`) |
+
+The branch naming is Denys's rule (2026-11-24). Before it, branches had descriptive names (`bug/CollisionFix`, `bug/FixDeterminingOnGroundState`) and commit subjects were past-tense sentences. The commit-message form is carried over from ArbBot with the documentation start; change it here if it does not fit.
+
+- **No build output or IDE state:** `bin/`, `obj/`, `.vs/`, `.idea/` are git-ignored.
+- **Build and test before committing:** `dotnet build OldTanks.sln` with 0 errors and no new warnings, then `dotnet test OldTanks.sln`.
+- **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks.

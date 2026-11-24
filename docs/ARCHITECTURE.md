@@ -1,0 +1,97 @@
+# Architecture
+
+| Field        | Value  |
+|--------------|--------|
+| Status       | Living |
+| Last updated | 2026-11-24 |
+| Verified against | 2026-11-24; develop at d32cbbf; whole page |
+
+---
+
+How the five projects fit together, which thread does what, and the process-wide state everything leans on. Feature detail lives on the feature pages linked from each section.
+
+## 1. Solution layout
+
+`OldTanks.sln`, five SDK-style projects, all `net7.0` except the generator, plus the test project `tests/OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)).
+
+| Project | Type | Target | Role |
+|---------|------|--------|------|
+| `Common` | Library | `net7.0` | Dependency-free helpers: `Common.Models.ObservableObject`, `Common.Services.SettingsService` (JSON settings), typed-sender `Common.Infrastructure.Delegates.EventHandler<TSender, TArg>`, `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`, math and collection extensions |
+| `CoolEngine` | Library | `net7.0`, unsafe allowed, C# 11 | The engine: OpenGL rendering, asset loaders, physics and collision detection, the dispatcher, global caches |
+| `OldTanks.UI` | Library | `net7.0` | UI layer over the engine: the `ControlHandler`, screen-text controls, ImGui control wrappers, the ImGui renderer |
+| `OldTanks.UI.SourceGenerators` | Roslyn source generator | `netstandard2.0` | Generates two-way bindings for the ImGui debug window from attributes ([BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md)) |
+| `OldTanks` | Console exe | `net7.0`, C# 11 | The game: `Program`, the OpenTK window, the world and its objects, the ImGui debug windows, the `Assets/` folder |
+
+**References** (exactly as in the `.csproj` files):
+
+| Project | References |
+|---------|-----------|
+| `Common` | none |
+| `CoolEngine` | `Common` |
+| `OldTanks.UI` | `Common`, `CoolEngine` |
+| `OldTanks.UI.SourceGenerators` | none (Roslyn packages only) |
+| `OldTanks` | `CoolEngine`, `OldTanks.UI`, and `OldTanks.UI.SourceGenerators` with `OutputItemType="Analyzer"` (it runs as a generator and its attribute types are also referenced) |
+
+**Packages:** `CoolEngine` has OpenTK 4.8.1, FreeTypeSharp 1.1.3, SixLabors.ImageSharp 3.1.3, Serilog 3.0.1 (+ `Sinks.File` 5.0.0, `Sinks.FastConsole` 2.4.0) and MIConvexHull 1.1.19.1019 (referenced, not used by any code). `OldTanks.UI` has ImGui.NET 1.89.9.3 and OpenTK 4.8.1. `OldTanks` adds `Serilog.Sinks.Console` 4.1.0. The generator uses `Microsoft.CodeAnalysis.CSharp` 4.7.0. Versions sit on each `<PackageReference>`; there is no central package management.
+
+## 2. Threads
+
+| Thread | Started by | Runs | Must not |
+|--------|-----------|------|----------|
+| **Main / GL thread** | `OldTanks.Program.Main` | The OpenTK `GameWindow` loop (`OldTanks.Windows.MainWindow.OnUpdateFrame`, `OnRenderFrame`), every OpenGL call, ImGui, and the dispatcher queue | Block on work queued to itself |
+| **Physics thread** (`WorldHandler`, background) | `OldTanks.Windows.MainWindow.InitDefaultObjects` | Every ~5 ms: free-camera movement, mouse look, `OldTanks.Models.World.CollideObjects`, the picking-ray test | Call OpenGL |
+| **Thread pool** | Awaited I/O inside `OldTanks.Services.GameManager.Load*`, and `Task.Run` in `Font.CreateFont` | File reads, image decoding, font rasterising. The loads themselves are `async` methods started on the main thread, so OBJ parsing, pixel copying and every GL upload run there, interleaved with frames (§3) | Call OpenGL directly |
+| **Spawner thread** (`SpawnObjects`, background) | Startup continuation | A 10 000-cube stress test, disabled by an early `return` | — |
+
+The window is created with an OpenGL **4.6** forward-compatible **debug** context; `CoolEngine.Services.Extensions.LoggerExtensions.AddGLMessageHandling` routes GL debug messages to Serilog (errors and performance as `Error`, portability and undefined behaviour as `Warning`).
+
+## 3. Getting work onto the GL thread
+
+`CoolEngine.Services.Application` is created once in `Main`. Its constructor builds a `CoolEngine.Services.Threading.Dispatcher` bound to the main thread and installs a `DispatcherSynchronizationContext` there. `MainWindow.OnUpdateFrame` drains the queue every frame with `Dispatcher.HandleQueue`.
+
+| Mechanism | Used by | Effect |
+|-----------|---------|--------|
+| `await` inside an async method started on the main thread | Shader, texture and skybox loaders | The continuation after `await` (where `Shader.Create` / `Texture.CreateTexture2D` run) is posted to the dispatcher and runs on the main thread |
+| `CoolEngine.Services.UI.UIInvoke` (`Dispatcher.Invoke`) | `CoolEngine.GraphicalEngine.Core.Font.Font.CreateFont` inside `Task.Run` | Blocks the worker until the main thread has run the callback |
+| Lazy GL object creation inside `Render` | `ObjectRenderer<T>`, `CollisionRenderer`, `TextRenderer` | Objects can be registered from any thread; VAOs and buffers are created on first draw |
+
+**Rules that follow:** `Invoke` and `Post` called on the main thread run the callback inline; from another thread they queue it until the next update frame (`Invoke` then blocks until it has run). An exception thrown by a callback queued with `Post` is stored in its `DispatcherOperation` and never surfaced ([KI-011](KNOWN-ISSUES.md#ki-011-dispatcherpost-swallows-callback-exceptions)).
+
+## 4. Startup and the frame
+
+**Startup** (`OldTanks.Program.Main`): create the Serilog logger, then `Application`, load or create `%USERPROFILE%\OldTanksProject\AppSettings.json` ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes)), construct `MainWindow`, `Run()`.
+
+`MainWindow.OnLoad` turns on VSync, creates the `ImGuiController`, starts the five `GameManager` loads (shaders, fonts, textures, skyboxes, models) without waiting for any, and attaches a `Task.WhenAll(...).ContinueWith` that, on a thread-pool thread: registers the skybox shader with `ObjectRendererOld`, builds the default scene (`InitDefaultObjects`, which also starts the physics thread), hands `World.WorldObjects` to the renderers, and sets `m_readyToHandle`. Until then `OnRenderFrame` returns at once and `OnUpdateFrame` only drains the dispatcher (which is what lets the loads finish) and checks `Esc`, so the window stays empty while assets load. The continuation runs even if a load faulted ([KI-012](KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)).
+
+**Update frame:** drain the dispatcher; `Esc` closes; feed input to ImGui; refresh HUD text.
+
+**Render frame** (under `m_locker`): clear; skybox with depth test `LEQUAL`; the world through `ObjectRenderer<WorldObject>` or, in debug view, through `CollisionRenderer`; red primitives (normals if on, the picking ray); HUD text blocks; object names as 3D text; ImGui windows via `ControlHandler.HandleControls` (inside `EngineSettings.Current.GlobalLock`'s write lock); `ImGuiController.Render`; swap buffers.
+
+## 5. Process-wide state
+
+Everything below is a static or a singleton, so there is one window, one world and one UI tree per process, and a test would have to reset them.
+
+| Holder | What | Notes |
+|--------|------|-------|
+| `CoolEngine.Services.Application.Current` | Dispatcher and synchronization context | A second instance throws |
+| `CoolEngine.Services.EngineSettings.Current` | Projection matrices, window size, `CollisionIterations` (1-128, the game sets 5), `GlobalLock`, `PhysicsEnable` | Lazily created |
+| `CoolEngine.Services.GlobalCache<T>.Default` | Name-keyed registries for `Shader`, `Texture`, `Scene`, `FontInformation`, `CollisionData` | One per `T`; key rules in [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md#2-cache-keys) |
+| `OldTanks.UI.Services.ControlHandler.Current` | Every UI control and window | Must exist before any control is constructed; a second instance throws |
+| Static renderers | `ObjectRendererOld`, `CollisionRenderer`, `TextRenderer` | `CollisionRenderer.Shader` and `TextRenderer.Shader` are set in `MainWindow.OnShadersLoaded`; `ObjectRendererOld` gets the skybox shader through `RegisterScene` in the startup continuation |
+| `OldTanks.Services.EngineSettings` (game side) | `MaxDepthLength` 2000 (far plane), `MovementDirectionUnit` (+X) | Not the same class as the engine's `EngineSettings` |
+
+## 6. Synchronization
+
+| Lock | Taken by | Protects |
+|------|----------|----------|
+| `MainWindow.m_locker` | The render frame; the (disabled) spawner | Render against the spawner adding cubes |
+| `EngineSettings.Current.GlobalLock` (`ReaderWriterLockSlim`, only its write lock is used) | `OldTanks.Models.WorldObject.Move` around each position update; the render frame around ImGui handling | Position writes against UI edits |
+
+Nothing locks `World.WorldObjects` as a whole: the physics thread iterates it by index while ImGui's Spawn and Delete buttons change it on the main thread ([KI-003](KNOWN-ISSUES.md#ki-003-worldobjects-is-changed-across-threads-without-a-shared-lock)).
+
+## 7. Spaces and units
+
+- **Axes:** Y up, gravity along -Y (`CoolEngine.PhysicEngine.PhysicsConstants.GravityDirection`). The default camera sits at the origin looking along +X.
+- **Matrices:** OpenTK row-vector convention. A world object's transform is scale (`Size / 2`) × rotation X (`Yaw`) × rotation Y (`-Pitch`) × rotation Z (`Roll`) × translation; model-space meshes and collision shapes span -1..1.
+- **Projection:** perspective, FOV 45° (mouse wheel clamps it to 20-90°), near 0.1, far 2000; the screen projection is orthographic with the origin at the bottom-left, and `EngineSettings.GetWindowY` flips a top-left y.
+- **Rotation units are mixed:** see [KI-002](KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another).
