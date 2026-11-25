@@ -193,9 +193,6 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     private void AddDrawableToInstancedGroup(IDrawable drawable, DrawSceneInfo? drawSceneInfo,
         DrawSceneInfo? instancedDrawSceneInfo, Scene drawableScene)
     {
-        if (InstancedShader is null) 
-            return;
-        
         foreach (var texture in drawable.GetUniqueTexturesFromDrawable())
         {
             List<IDrawable>? instancedDrawables = null;
@@ -212,7 +209,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             {
                 instancedDrawables!.Add(drawable);
             }
-            else if (haveDrawables && !haveInstancedDrawables &&
+            else if (InstancedShader is not null && haveDrawables && !haveInstancedDrawables &&
                      uniqueDrawables!.Count > ObjectRendererConstants.MaxPerInstanceElements_)
             {
                 if (instancedDrawSceneInfo is null)

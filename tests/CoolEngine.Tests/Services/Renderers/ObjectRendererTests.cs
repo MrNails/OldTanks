@@ -136,6 +136,92 @@ public sealed class ObjectRendererTests
 
     #endregion
 
+    #region Filing without an instanced shader
+
+    [Test]
+    public void DrawableItems_WithoutInstancedShader_FilesDrawablesPerInstance()
+    {
+        var scene = CreateScene();
+        var drawables = CreateDrawables(scene, Texture.Empty, 3);
+        var renderer = new ObjectRenderer<FakeDrawable>();
+
+        renderer.DrawableItems = new ObservableCollection<FakeDrawable>(drawables);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.GetPerInstanceGroup(scene, Texture.Empty), Is.EquivalentTo(drawables));
+            Assert.That(renderer.GetInstancedGroup(scene, Texture.Empty), Is.Null);
+        });
+    }
+
+    [Test]
+    public void CollectionAdd_WithoutInstancedShader_FilesDrawablePerInstance()
+    {
+        var scene = CreateScene();
+        var drawable = CreateDrawable(scene, Texture.Empty);
+        var renderer = new ObjectRenderer<FakeDrawable>();
+        var items = new ObservableCollection<FakeDrawable>();
+        renderer.DrawableItems = items;
+
+        items.Add(drawable);
+
+        Assert.That(renderer.GetPerInstanceGroup(scene, Texture.Empty), Is.EquivalentTo(new[] { drawable }));
+    }
+
+    [Test]
+    public void CollectionAdd_SeventeenthWithoutInstancedShader_KeepsGroupPerInstance()
+    {
+        var scene = CreateScene();
+        var drawables = CreateDrawables(scene, Texture.Empty, 17);
+        var renderer = new ObjectRenderer<FakeDrawable>();
+        var items = new ObservableCollection<FakeDrawable>(drawables.Take(16));
+        renderer.DrawableItems = items;
+
+        items.Add(drawables[16]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.GetPerInstanceGroup(scene, Texture.Empty), Is.EquivalentTo(drawables));
+            Assert.That(renderer.GetInstancedGroup(scene, Texture.Empty), Is.Null);
+        });
+    }
+
+    [Test]
+    public void InstancedShader_SetAfterSixteenDrawables_MovesGroupToInstanced()
+    {
+        var scene = CreateScene();
+        var drawables = CreateDrawables(scene, Texture.Empty, 16);
+        var renderer = new ObjectRenderer<FakeDrawable>();
+        renderer.DrawableItems = new ObservableCollection<FakeDrawable>(drawables);
+
+        renderer.InstancedShader = CreateShaderWithoutGl();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.GetInstancedGroup(scene, Texture.Empty), Is.EquivalentTo(drawables));
+            Assert.That(renderer.GetPerInstanceGroup(scene, Texture.Empty), Is.Null);
+        });
+    }
+
+    [Test]
+    public void InstancedShader_SetAfterFifteenDrawables_KeepsGroupPerInstance()
+    {
+        var scene = CreateScene();
+        var drawables = CreateDrawables(scene, Texture.Empty, 15);
+        var renderer = new ObjectRenderer<FakeDrawable>();
+        renderer.DrawableItems = new ObservableCollection<FakeDrawable>(drawables);
+
+        renderer.InstancedShader = CreateShaderWithoutGl();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(renderer.GetPerInstanceGroup(scene, Texture.Empty), Is.EquivalentTo(drawables));
+            Assert.That(renderer.GetInstancedGroup(scene, Texture.Empty), Is.Null);
+        });
+    }
+
+    #endregion
+
     #region Filing with an instanced shader
 
     [Test]
