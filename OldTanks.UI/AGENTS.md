@@ -17,7 +17,7 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 | Property | Value |
 |----------|-------|
 | Namespace root | `OldTanks.UI` |
-| Target framework | `net7.0` |
+| Target framework | `net10.0`, `LangVersion latest` |
 | Layer | UI library over the engine; referenced by `OldTanks` |
 
 ## Key Types

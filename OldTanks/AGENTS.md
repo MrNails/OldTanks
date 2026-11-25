@@ -21,7 +21,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | Property | Value |
 |----------|-------|
 | Namespace root | `OldTanks` (the ImGui windows are `OldTanks.UI.ImGuiUI`, though they live in this project) |
-| Target framework | `net7.0`, `LangVersion 11`, `OutputType Exe` |
+| Target framework | `net10.0`, `LangVersion latest`, `OutputType Exe` |
 | Layer | Application; references `CoolEngine`, `OldTanks.UI` and the generator (`Common` comes through them) |
 
 ## Key Types

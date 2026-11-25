@@ -19,7 +19,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Property | Value |
 |----------|-------|
 | Namespace root | `CoolEngine` |
-| Target framework | `net7.0`, `LangVersion 11`, `AllowUnsafeBlocks` |
+| Target framework | `net10.0`, `LangVersion latest`, `AllowUnsafeBlocks` |
 | Layer | Engine; referenced by `OldTanks.UI` and `OldTanks` |
 
 ## Key Types

@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 using Common;
-using Common.Infrastructure.Delegates;
 using Common.Infrastructure.EventArgs;
 using ImGuiNET;
 using OldTanks.UI.Services;

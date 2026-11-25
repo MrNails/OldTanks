@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <!-- The documentation checks read the checkout's Markdown and project files; they reference no game project,
-         so they target the current LTS runtime independently of the game's target framework. -->
+    <!-- The documentation checks read the checkout's Markdown and project files; they reference no game project. -->
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>

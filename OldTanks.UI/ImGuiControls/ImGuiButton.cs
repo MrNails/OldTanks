@@ -1,5 +1,4 @@
 ﻿using Common;
-using Common.Infrastructure.Delegates;
 using ImGuiNET;
 using OldTanks.UI.Services;
 
