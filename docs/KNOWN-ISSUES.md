@@ -4,13 +4,13 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; KI-004, KI-008 and KI-020 to KI-022 observed in the running game on 2026-11-25, KI-012's new case and KI-023 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); KI-004, KI-008 and KI-020 to KI-022 observed in the running game on 2026-11-25, KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 and KI-008 and found KI-020 and KI-022; the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work). The remaining check of each entry says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 and KI-008 and found KI-020 and KI-022; the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review) and are numbered provisionally after KI-023: they shift at the rebase if other branches' entries reach `master` first. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`) and are closed stubs. The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -20,11 +20,11 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-002](#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another) | `WorldObject.Rotation` is read as radians in one place and degrees in another | Game, physics | Open |
 | [KI-003](#ki-003-worldobjects-is-changed-across-threads-without-a-shared-lock) | `WorldObjects` is changed across threads without a shared lock | Threads | Open |
 | [KI-004](#ki-004-loggerservice-ignores-the-log-file-name) | `LoggerService` ignores the log file name | Logging | Open |
-| [KI-005](#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space) | Untextured objects use a 0-255 color in a 0-1 color space | Rendering | Open |
+| [KI-005](#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space) | Untextured objects use a 0-255 color in a 0-1 color space | Rendering | Closed |
 | [KI-006](#ki-006-scenecenter-is-computed-from-a-wrong-maximum) | `Scene.Center` is computed from a wrong maximum | Engine | Open |
 | [KI-007](#ki-007-robot-cannot-be-constructed) | `Robot` cannot be constructed | Game, assets | Open |
 | [KI-008](#ki-008-unknown-shader-names-resolve-to-location-0) | Unknown shader names resolve to location 0 | Rendering | Open |
-| [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Open |
+| [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Closed |
 | [KI-010](#ki-010-control-names-are-not-checked-for-uniqueness) | Control names are not checked for uniqueness | UI | Open |
 | [KI-011](#ki-011-dispatcherpost-swallows-callback-exceptions) | `Dispatcher.Post` swallows callback exceptions | Threads | Open |
 | [KI-012](#ki-012-startup-continues-after-a-failed-asset-load) | Startup continues after a failed asset load | Startup | Open |
@@ -34,11 +34,13 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-016](#ki-016-polygon-tests-use-face-normals-only) | Polygon tests use face normals only | Physics | Open |
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
 | [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Open |
-| [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Open |
+| [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Closed |
 | [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Open |
 | [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Closed |
 | [KI-022](#ki-022-initcollision-prints-an-error-twice-at-startup) | InitCollision prints an error twice at startup | Physics | Open |
 | [KI-023](#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end) | PNG decoding cannot see a zlib stream's missing end | Assets | Open |
+| [KI-024](#ki-024-objectrenderert-drops-a-drawable-whose-texture-is-new-to-a-fully-instanced-scene) | `ObjectRenderer<T>` drops a drawable whose texture is new to a fully instanced scene | Rendering | Open |
+| [KI-025](#ki-025-objectrenderert-can-keep-one-scene-texture-on-both-paths) | `ObjectRenderer<T>` can keep one scene texture on both paths | Rendering | Open |
 
 ---
 
@@ -90,12 +92,8 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
+| **Status** | Closed: fixed in OT-7 (`bug/OT-7`, 2026-11-25). The untextured colour in `CoolEngine.Services.Renderers.ObjectRenderer<T>` is rose #AA556F in 0-1 channels (each byte divided by 255), on the per-instance and the instanced path (Denys chose "Rose #AA556F (Recommended)"). Confirmed in the running game: a spawned cube drew pure white before the fix and rose after it, on both paths ([BUILD §3](BUILD.md#3-run)); also asserted by `CoolEngine.Tests` |
 | **Scope** | `CoolEngine.Services.Renderers.ObjectRenderer<T>`, objects without a texture (every spawned cube) |
-| **Root cause** | The file-local constant `DefaultEmptyTextureColor_` is `(0xAA, 0x55, 0x6F, 1)`: 0-255 channel values where GL colors are 0-1. `DefaultShader` outputs `color` as is when `hasTexture` is false |
-| **Current state** | The channels saturate, so untextured objects should draw white rather than the intended rose |
-| **Remaining check** | Spawn an object and look at it; divide the channels by 255 |
-| **Evidence** | `ObjectRenderer.cs`, `Assets/Shaders/DefaultShader/DefaultShader.frag` |
 
 ## KI-006: `Scene.Center` is computed from a wrong maximum
 
@@ -134,12 +132,8 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
+| **Status** | Closed: fixed in OT-7 (`bug/OT-7`, 2026-11-25). `ObjectRenderer<T>.FillInstanceRecords` packs one record per visible drawable from index 0 and returns the count, which `RenderInstanced` uploads and draws; the same change makes `RenderInstanced` return its `ArrayPool` rental on every path, which before was skipped when all drawables were hidden and on every frame for an instanced group emptied by deletes (spawn 17 or more cubes, delete them all). Confirmed by `CoolEngine.Tests` only: no object can be hidden in the game, nothing sets `Visible = false` |
 | **Scope** | `ObjectRenderer<T>.RenderInstanced` |
-| **Root cause** | Per-instance data is written at the drawable's index in the group, skipping hidden ones and leaving gaps, but the upload and the draw use the first `count - hidden` records |
-| **Current state** | With any drawable hidden (`Visible = false`) in an instanced group, the last visible ones are not drawn and stale records fill the gaps. Nothing hides objects today |
-| **Remaining check** | Write records with a separate running index |
-| **Evidence** | `RenderInstanced` |
 
 ## KI-010: Control names are not checked for uniqueness
 
@@ -244,12 +238,8 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
+| **Status** | Closed: fixed in OT-7 (`bug/OT-7`, 2026-11-25). `ObjectRenderer<T>.AddDrawableToInstancedGroup` no longer returns while `InstancedShader` is null: drawables are always filed into the per-instance groups, and a group moves to the instanced set only once `InstancedShader` is set, before or after `DrawableItems` ([RENDERING §2](CoolEngine/Services/Renderers/RENDERING.md#2-objectrenderert-batching-and-instancing)). Confirmed by `CoolEngine.Tests` only: the game sets `InstancedShader` first, so a run could not show it |
 | **Scope** | `CoolEngine.Services.Renderers.ObjectRenderer<T>` |
-| **Root cause** | `AddDrawableToInstancedGroup`, the only method that files a drawable into a texture group for either path, returns at once while `InstancedShader` is null. Setting `InstancedShader` later re-sorts only drawables already filed, so the skipped ones stay out |
-| **Current state** | Latent: the game sets `InstancedShader` before `DrawableItems`. A renderer without an instanced shader, or one fed drawables first, draws nothing, not even through the per-instance path |
-| **Remaining check** | File drawables into the per-instance groups regardless of `InstancedShader`, and move them only when an instanced shader exists |
-| **Evidence** | `ObjectRenderer<T>.AddDrawable`, `AddDrawableToInstancedGroup`, `SortInstancedAndPerInstanceObjects`; found by the documentation review on 2026-11-24 |
 
 ## KI-020: Three shaders fail to compile and are used anyway
 
@@ -289,3 +279,25 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Current state** | Such files still decode, although the decoder is strict everywhere else. Denys's decision (2026-11-25): "Document, backlog it" (option turned down: an own inflater inside OT-3) |
 | **Remaining check** | An own deflate decoder with full stream-end and checksum checks ([BACKLOG](BACKLOG.md#own-libraries-and-engine-direction)); then add tests for the three cases |
 | **Evidence** | The decoder's class remarks; the OT-3 review |
+
+## KI-024: `ObjectRenderer<T>` drops a drawable whose texture is new to a fully instanced scene
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.Services.Renderers.ObjectRenderer<T>`: `AddDrawable`, `AddDrawableToInstancedGroup`, `SortInstancedAndPerInstanceObjects` |
+| **Root cause** | `AddDrawable` creates a scene's per-instance `DrawSceneInfo` only when the scene is in neither dictionary. Once every group of a scene has moved to the instanced set, the per-instance entry is gone (removed by the promotion in `AddDrawableToInstancedGroup` or by `SortInstancedAndPerInstanceObjects`), so a drawable whose texture has no group yet falls through every branch of `AddDrawableToInstancedGroup` and is filed nowhere |
+| **Current state** | Latent: not reachable from the game today (only untextured cubes can be spawned, and the Cube scene's wall and floor groups are never promoted); it would show once textured objects are spawned in numbers. Found while planning OT-7, by reading. Denys's decision: "Firstly run, then fix if reproduced" (option turned down: fix it in OT-7 without a run); the run could not reach it (reasoned from code) |
+| **Remaining check** | Create the per-instance `DrawSceneInfo` on demand in that branch. A unit test in `CoolEngine.Tests`: 17 drawables of one texture with an instanced shader set, then one of the same scene with a new texture, which must be in a group |
+| **Evidence** | OT-7 planning (reading), 2026-11-25 |
+
+## KI-025: `ObjectRenderer<T>` can keep one scene texture on both paths
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.Services.Renderers.ObjectRenderer<T>`: `DrawableTextureChanged`, `AddDrawableToInstancedGroup`, `SortInstancedAndPerInstanceObjects` |
+| **Root cause** | The per-instance and the instanced group sets of a scene can both hold a group for the same texture: a per-instance drawable retextured to a texture whose group is instanced (older than OT-7), and since OT-7 an instanced drawable retextured to a texture that has a per-instance group (`DrawableTextureChanged` keeps the drawable on the path it was on) |
+| **Current state** | Drawing stays correct, since each path draws its own group. But `AddDrawableToInstancedGroup` never promotes that texture's per-instance group again (the move needs no instanced group for the texture; the OT-7 reviewer's probe added 20 more drawables and the per-instance group reached 21, unpromoted), and setting `InstancedShader` a second time throws `ArgumentException` ("An item with the same key has already been added") in `SortInstancedAndPerInstanceObjects`. Reachable in the game (retexture a spawned instanced cube to the wall texture or FloorTile) but harmless today: nothing joins that group afterwards and the game sets `InstancedShader` once. Not fixed under Denys's rule "Firstly run, then fix if reproduced": it is not a visible failure in today's game (Claude's application of the rule) |
+| **Remaining check** | Choose the scene info by where the new texture's group already lives, for both directions, and make `SortInstancedAndPerInstanceObjects` merge into an existing instanced group |
+| **Evidence** | The OT-7 review (a scratch probe, not kept), 2026-11-25 |

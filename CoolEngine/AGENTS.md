@@ -13,7 +13,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-005, KI-006, KI-008, KI-009, KI-011, KI-016, KI-017, KI-019, KI-020 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-006, KI-008, KI-011, KI-016, KI-017, KI-020, KI-024, KI-025 |
 
 ## Project Details
 
@@ -21,7 +21,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 |----------|-------|
 | Namespace root | `CoolEngine` |
 | Target framework | `net10.0`, `LangVersion latest`, `AllowUnsafeBlocks` |
-| Layer | Engine; referenced by `OldTanks.UI` and `OldTanks` |
+| Layer | Engine; referenced by `OldTanks.UI` and `OldTanks`; tested by `tests/CoolEngine.Tests` (`InternalsVisibleTo`; headless, so no test may call OpenGL) |
 
 ## Key Types
 
@@ -57,5 +57,5 @@ Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.Fas
 - **No game knowledge:** nothing here may reference `OldTanks.*`.
 - **GL calls only on the GL thread.** New loaders keep GL work after an `await` started on the main thread or inside `UI.UIInvoke`; renderers create GL objects lazily in their draw methods (`ObjectRenderer<T>.Render`, `DrawSkyBox`, `DrawPrimitives`, `DrawText2D`/`DrawText3D`, `DrawElementsCollision`).
 - **Changing a uniform or attribute name** means changing the shader files in `OldTanks/Assets/Shaders/` in the same change; mismatches fail silently (KI-008).
-- **The static renderers get their shaders from the game:** `CollisionRenderer.Shader` and `TextRenderer.Shader` when shaders load, `ObjectRendererOld`'s skybox shader through `RegisterScene`; `ObjectRenderer<T>` needs `InstancedShader` set before drawables arrive (KI-019). A new renderer is documented in RENDERING.
+- **The static renderers get their shaders from the game:** `CollisionRenderer.Shader` and `TextRenderer.Shader` when shaders load, `ObjectRendererOld`'s skybox shader through `RegisterScene`; `ObjectRenderer<T>` works without `InstancedShader` (everything is then drawn one by one) and accepts it before or after the drawables (KI-019, closed in OT-7). A new renderer is documented in RENDERING.
 - **`EngineSettings.CollisionIterations`** must stay in 1-128 (the setter throws).
