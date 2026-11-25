@@ -323,7 +323,8 @@ public partial class MainWindow : GameWindow
             GL.Enable(EnableCap.CullFace);
 
             GL.DepthFunc(DepthFunction.Lequal);
-            ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
+            if (m_world.SkyBox.Texture != null)
+                ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
             GL.DepthFunc(DepthFunction.Less);
 
             var projection = EngineSettings.Current.Projection;
@@ -470,13 +471,13 @@ public partial class MainWindow : GameWindow
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
     }
 
-    private void FillObject(IDrawable drawable, Texture texture)
+    private void FillObject(IDrawable drawable, Texture? texture)
     {
         var textureObjectInfo = new TexturedObjectInfo(drawable);
         
         foreach (var mesh in drawable.Scene.Meshes)
         {
-            textureObjectInfo[mesh] = new TextureData { Texture = texture };
+            textureObjectInfo[mesh] = new TextureData { Texture = texture ?? Texture.Empty };
         }
         
         drawable.TexturedObjectInfos.Add(textureObjectInfo);
