@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; whole page against the code in `CoolEngine.Imaging` and the figures measured on the integrated tree |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted, and bug/OT-9 (the KI-012 sentence in §1, read from code); whole page against the code in `CoolEngine.Imaging` and the figures measured on the integrated tree |
 
 ---
 
@@ -30,7 +30,7 @@ Pixels come out as stored: gamma, `sRGB`, ICC profiles and EXIF orientation are 
 | PNG | Every colour type and bit depth of the specification, palettes, `tRNS` transparency, Adam7 interlacing; 16-bit samples rounded to 8 bits; the zlib stream through `System.IO.Compression.ZLibStream` | An unknown critical chunk; an image over `MaxPixelCount` |
 | JPEG | Baseline, extended sequential and progressive Huffman, 8-bit, 1 or 3 components; libjpeg's `islow` inverse DCT, fancy upsampling and YCbCr tables (an Adobe marker, then JFIF, then the component ids decide RGB or YCbCr) | Lossless, hierarchical, arithmetic-coded, 12-bit, CMYK/YCCK, a DNL-sized (height 0) frame, more than 100 scans, an image over `MaxPixelCount` |
 
-Not read at all: BMP, GIF, TGA, WebP (ImageSharp read them; a texture in one of these formats now throws from the loader, [KI-012](../KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)).
+Not read at all: BMP, GIF, TGA, WebP (ImageSharp read them; a texture in one of these formats now throws from the loader; since OT-9 `OldTanks.Services.GameManager` logs that and skips the file, [KI-012](../KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load), [ASSET-PIPELINE §3](../CoolEngine/Services/Loaders/ASSET-PIPELINE.md)).
 
 ## 3. The strict rules
 

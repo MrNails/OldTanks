@@ -108,8 +108,17 @@ public sealed class GameManager : ObservableObject
         
         foreach (var textureFile in Directory.GetFiles(texturesDirPath))
         {
-            await loader.LoadAsset(textureFile);
-            Textures.Add(Path.GetFileNameWithoutExtension(textureFile));
+            var name = Path.GetFileNameWithoutExtension(textureFile);
+
+            try
+            {
+                await loader.LoadAsset(textureFile);
+                Textures.Add(name);
+            }
+            catch (Exception e)
+            {
+                m_logger.Error(e, "Error loading texture {TextureName}.", name);
+            }
         }
         
         TexturesLoaded?.Invoke(this, EventArgs.Empty);
@@ -124,7 +133,14 @@ public sealed class GameManager : ObservableObject
         
         foreach (var skyboxDir in Directory.GetDirectories(skyBoxesDir))
         {
-            await loader.LoadAsset(skyboxDir);
+            try
+            {
+                await loader.LoadAsset(skyboxDir);
+            }
+            catch (Exception e)
+            {
+                m_logger.Error(e, "Error loading skybox {SkyBoxName}.", Path.GetFileName(skyboxDir));
+            }
         }
         
         SkyBoxesLoaded?.Invoke(this, EventArgs.Empty);

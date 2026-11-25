@@ -14,7 +14,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | What is in `Assets/` and how names map to caches | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | The debug window's generated bindings | [BINDING-GENERATOR](../docs/OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
 | Running, settings file, log file | [BUILD](../docs/BUILD.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-001 to KI-003, KI-007, KI-012 to KI-014, KI-022 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-001 to KI-003, KI-007, KI-022 |
 
 ## Project Details
 
@@ -32,7 +32,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | `Windows/` | `MainWindow` (the `GameWindow`; HUD fields in `ControlWindows/MainWindow.cs`; its `NativeWindowSettings` use `ClientSize`) |
 | `Models/` | `World`, `WorldObject`, `Cube`, `Sphere`, `Robot` |
 | `Services/` | `GameManager` (asset loading), `LoggerService`, `EngineSettings` (game side), `Constants`, `Misc/TransformableAction` |
-| `UI/ImGuiUI/` | `MainWindow` (debug window, `[BindableClass]`), `TextureWindow`; their controls in `ControlsInitialization/` |
+| `UI/ImGuiUI/` | `MainWindow` (debug window, `[BindableClass]`), `TextureWindow`; their controls in `ControlsInitialization/`; `StartupErrorWindow` (the "Startup failed" window, one file: too small for the two-partial-file window pattern) |
 | `DataModels/`, `Infrastructure/`, `Helpers/` | `Settings`, `CollisionConstants`, `UIVectorHelper` |
 | `Assets/` | `Shaders/`, `Textures/` (+ `SkyBoxes/`), `Models/Default/`, `Fonts/` |
 

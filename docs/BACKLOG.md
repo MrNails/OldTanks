@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living - open work, unwired features, debt |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7; the new render-exception item against the code, bug/OT-6 for the shader items, the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (the warning count and the ImGui.NET item), bug/OT-7 (the new render-exception item against the code) and bug/OT-6 for the shader items; the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -28,8 +28,9 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 - ~~**Upgrade SixLabors.ImageSharp 3.1.3.**~~ Done in OT-3 by removing it from the engine: `CoolEngine.Imaging` ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md)); ImageSharp 4.1.4 remains in the test project only.
 - ~~**Remove unused packages:**~~ MIConvexHull and `Serilog.Sinks.FastConsole` removed in OT-3.
 - **A Six Labors community key for the test project.** `tests/CoolEngine.Imaging.Tests` references ImageSharp 4.1.4, which needs a license key at build time: Debug builds warn, Release builds of the solution fail until a `sixlabors.lic` file or the `SixLaborsLicenseKey` property supplies one ([BUILD §2](BUILD.md#2-build)).
-- **Clear the warning baseline** (135 compiler warnings on a full build since OT-11, mostly nullable, [BUILD §2](BUILD.md#2-build)), or at least stop adding to it.
+- **Clear the warning baseline** (130 compiler warnings on a full build on `bug/OT-9`, 135 on `master` since OT-11, mostly nullable, [BUILD §2](BUILD.md#2-build)), or at least stop adding to it.
 - ~~**Move the generator to `IIncrementalGenerator`.**~~ Done in OT-3 ([BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md)); its review finding, [KI-021](KNOWN-ISSUES.md#ki-021-generated-binding-code-calls-equals-before-its-null-check), was fixed on `bug/OT-11`.
+- **Keep ImGui.NET inside `OldTanks.UI`.** `OldTanks.Windows.MainWindow` calls ImGui.NET directly (`ImGui.GetIO()`, for `WantCaptureMouse` and `WantCaptureKeyboard`, OT-9); pass-through properties on `OldTanks.UI.Services.ImGUI.ImGuiController` would let the game project drop `using ImGuiNET`.
 - **Stop tracking `OldTanks.slnx.DotSettings.user`.** It is a per-user Rider file.
 - ~~**Docs check.**~~ Done in OT-1: `tests/OldTanks.Docs.Tests` ([DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)).
 - **Add code tests and CI.** In the engine only `ObjectRenderer<T>` (OT-7) and the dispatcher (OT-8) are tested (`tests/CoolEngine.Tests`, 2026-11-25); no game code is tested and there is no workflow. The first useful tests are pure logic: `Collision` tests, `RigidBody.OnTick`, the OBJ loader on the repository's models, `SettingsService`, and a snapshot of the binding generator's output (KI-021 showed only as compiler warnings). A CI workflow would run `dotnet build` and `dotnet test` on pull requests.

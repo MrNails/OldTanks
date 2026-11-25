@@ -2,6 +2,7 @@
 using CoolEngine.Services;
 using OldTanks.Services;
 using OldTanks.UI.Controls;
+using OldTanks.UI.ImGuiControls;
 using OpenTK.Mathematics;
 
 namespace OldTanks.Windows;
@@ -16,7 +17,9 @@ public partial class MainWindow
     private TextBlock m_tbRotation;
     private TextBlock m_tbHaveCollision;
     private TextBlock m_tbCurrentSpeed;
-    
+
+    private ImGuiWindow? m_startupErrorWindow;
+
     private void InitControls()
     {
         var font = new Font("Arial", 16, GlobalCache<FontInformation>.Default.GetItemOrDefault("Arial"));
@@ -143,5 +146,18 @@ public partial class MainWindow
         m_controls.Add(m_tbRotation);
         m_controls.Add(m_tbHaveCollision);
         m_controls.Add(m_tbCurrentSpeed);
+    }
+
+    // GL thread only.
+    private void ShowStartupError(string message)
+    {
+        m_imGuiMainWindow.IsVisible = false;
+
+        m_startupErrorWindow = new UI.ImGuiUI.StartupErrorWindow("StartupErrorWindow", message, () => ClientSize.X)
+        {
+            Title = "Startup failed"
+        };
+
+        m_startupErrorWindow.Show();
     }
 }

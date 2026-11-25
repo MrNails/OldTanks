@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted, and bug/OT-9 (the `ImGuiTextBlock` row, read from code); §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
 
 ---
 
@@ -41,7 +41,7 @@ Each wraps one ImGui widget, keeps its state between frames and raises events wi
 | `ImGuiTreeNode` | `Children`, `IsExpanded` |
 | `ImGuiButton` | `Click` |
 | `ImGuiCheckBox` | `IsChecked`, `Checked` |
-| `ImGuiTextBlock` | `Text` |
+| `ImGuiTextBlock` | `Text`, drawn verbatim with `ImGui.TextUnformatted` (since OT-9: `ImGui.Text` read its string as a printf format, so a `%` garbled it, `%n` ended the process and text over 3 KB was cut); a null `Text` draws an empty line |
 | `ImGuiTextBox` | `Text`, `MaxLength`, password, read-only and input flags |
 | `ImGuiFloatDragTextBox`, `ImGuiFloat2DragTextBox`, `ImGuiFloat3DragTextBox`, `ImGuiFloat4DragTextBox` | `Value` (`float`, `Vector2`, `Vector3`, `Vector4`), `DragDelta`, `ValueChanged`, raised for user drags and for changes set from code |
 | `ImGuiListBox<T>` | `Items` (an `ObservableCollection<T>`, followed live), `BindingFunction` (item → label, `ToString` by default), `SelectedItem`, `SelectedIndex`, `SelectionChanged`, `ClearSelection`; label buffers come from the `ArrayPool<string>` passed to the constructor |

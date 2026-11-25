@@ -14,6 +14,7 @@ using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Misc;
 using CoolEngine.Services.Renderers;
+using ImGuiNET;
 using OldTanks.DataModels;
 using OldTanks.Infrastructure;
 using OldTanks.UI.Controls;
@@ -33,6 +34,9 @@ namespace OldTanks.Windows;
 
 public partial class MainWindow : GameWindow
 {
+    private const int DefaultClientWidth = 800;
+    private const int DefaultClientHeight = 600;
+
     private readonly List<Control> m_controls;
     private readonly SettingsService m_settingsService;
     private readonly ControlHandler m_controlHandler;
@@ -49,7 +53,11 @@ public partial class MainWindow : GameWindow
     private Shader? m_primitivesShader;
 
     private bool m_exit;
-    private bool m_readyToHandle;
+    private volatile bool m_readyToHandle;
+
+    private volatile bool m_imGuiWantsMouse;
+    private volatile bool m_imGuiWantsKeyboard;
+    private volatile string? m_startupError;
 
     private ImGuiController m_imGuiController;
 
@@ -69,8 +77,11 @@ public partial class MainWindow : GameWindow
     private bool m_debugView;
     private bool m_drawNormals;
     private bool m_drawFaceNumber;
-    private bool m_mouseDown;
+    private volatile bool m_mouseDown;
     private bool m_freeCamMode;
+
+    // GL thread only: true for a key whose press the game took (scene ready, ImGui not wanting the keyboard).
+    private readonly bool[] m_gameOwnedKeys = new bool[(int)Keys.LastKey + 1];
 
     private IMovable m_currentObject;
 
@@ -80,21 +91,16 @@ public partial class MainWindow : GameWindow
     private Vector3 m_rotation;
 
     public MainWindow(string caption, SettingsService settingsService, LoggerService logger)
-        : this(800, 600, caption, settingsService, logger)
+        : this(GameWindowSettings.Default,
+            CreateNativeWindowSettings(GetClientSize(settingsService), caption),
+            settingsService, logger)
     {
     }
 
-    public MainWindow(int height, int width, string caption,
+    public MainWindow(int width, int height, string caption,
         SettingsService settingsService, LoggerService logger)
         : this(GameWindowSettings.Default,
-            new NativeWindowSettings
-            {
-                ClientSize = new Vector2i(height, width),
-                Title = caption,
-                APIVersion = new Version(4, 6),
-                Flags = ContextFlags.ForwardCompatible
-                        | ContextFlags.Debug
-            },
+            CreateNativeWindowSettings(new Vector2i(width, height), caption),
             settingsService, logger)
     {
     }
@@ -123,7 +129,7 @@ public partial class MainWindow : GameWindow
 
         m_freeCamMode = true;
         m_engineSettings = new Services.EngineSettings();
-        m_settingsService.SetRuntimeSettings(nameof(Services.EngineSettings), m_settingsService);
+        m_settingsService.SetRuntimeSettings(nameof(Services.EngineSettings), m_engineSettings);
 
         EngineSettings.Current.CollisionIterations = 5;
 
@@ -135,6 +141,34 @@ public partial class MainWindow : GameWindow
         m_controlHandler = new ControlHandler();
         m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager)
             { Title = "Debug window", IsVisible = true };
+    }
+
+    private static Vector2i GetClientSize(SettingsService settingsService)
+    {
+        var settings = settingsService.GetDefaultSettings<Settings>();
+
+        if (settings.Width < 1 || settings.Height < 1)
+        {
+            Log.Logger.Warning(
+                "Window size {Width}x{Height} in the settings is not valid; using {DefaultWidth}x{DefaultHeight}.",
+                settings.Width, settings.Height, DefaultClientWidth, DefaultClientHeight);
+
+            return new Vector2i(DefaultClientWidth, DefaultClientHeight);
+        }
+
+        return new Vector2i(settings.Width, settings.Height);
+    }
+
+    private static NativeWindowSettings CreateNativeWindowSettings(Vector2i clientSize, string caption)
+    {
+        return new NativeWindowSettings
+        {
+            ClientSize = clientSize,
+            Title = caption,
+            APIVersion = new Version(4, 6),
+            Flags = ContextFlags.ForwardCompatible
+                    | ContextFlags.Debug
+        };
     }
 
     #region Overloads
@@ -165,23 +199,36 @@ public partial class MainWindow : GameWindow
                 m_gameManager.ShadersLoaded -= OnShadersLoaded;
                 m_gameManager.SkyBoxesLoaded -= OnSkyBoxesLoaded;
 
-                ObjectRendererOld.RegisterScene(typeof(SkyBox),
-                    GlobalCache<Shader>.Default.GetItemOrDefault("SkyBoxShader")!);
+                if (!r.IsCompletedSuccessfully)
+                {
+                    FailStartup(r.Exception?.Flatten().InnerExceptions ?? []);
+                    return;
+                }
 
-                m_currentObject = m_world.CurrentCamera;
+                try
+                {
+                    ObjectRendererOld.RegisterScene(typeof(SkyBox),
+                        GlobalCache<Shader>.Default.GetItemOrDefault("SkyBoxShader")!);
 
-                InitDefaultObjects();
+                    m_currentObject = m_world.CurrentCamera;
 
-                m_objectRenderer.Shader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader")!;
-                m_objectRenderer.InstancedShader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader2")!;
-                m_objectRenderer.DrawableItems = m_world.WorldObjects;
+                    InitDefaultObjects();
 
-                ObjectRendererOld.AddDrawables(m_world.WorldObjects, m_objectRenderer.Shader);
-                CollisionRenderer.AddCollisions(m_world.WorldObjects);
+                    m_objectRenderer.Shader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader")!;
+                    m_objectRenderer.InstancedShader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader2")!;
+                    m_objectRenderer.DrawableItems = m_world.WorldObjects;
 
-                m_readyToHandle = true;
-                
-                m_testThread.Start();
+                    ObjectRendererOld.AddDrawables(m_world.WorldObjects, m_objectRenderer.Shader);
+                    CollisionRenderer.AddCollisions(m_world.WorldObjects);
+
+                    m_readyToHandle = true;
+
+                    m_testThread.Start();
+                }
+                catch (Exception e)
+                {
+                    FailStartup([e]);
+                }
             });
 
         EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
@@ -193,7 +240,9 @@ public partial class MainWindow : GameWindow
 
     protected override void OnMouseDown(MouseButtonEventArgs e)
     {
-        m_mouseDown = true;
+        if (!m_imGuiWantsMouse)
+            m_mouseDown = true;
+
         base.OnMouseDown(e);
     }
 
@@ -208,12 +257,15 @@ public partial class MainWindow : GameWindow
         if (Size.X == 0 || Size.Y == 0)
             return;
 
-        var aspect = (float)Size.X / Size.Y;
-        m_world.CurrentCamera.FOV += -e.OffsetY;
+        if (!m_imGuiWantsMouse)
+        {
+            var aspect = (float)Size.X / Size.Y;
+            m_world.CurrentCamera.FOV += -e.OffsetY;
 
-        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
-            aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
+            EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
+                MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
+                aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
+        }
 
         m_imGuiController.MouseScroll(e.Offset);
     }
@@ -226,7 +278,15 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyDown(KeyboardKeyEventArgs e)
     {
-        if (e.Key == Keys.LeftControl && m_currentObject is IPhysicObject physObj)
+        var keyIndex = (int)e.Key;
+
+        // Ownership is taken from the initial press only; repeats never change the entry; OnKeyUp clears it.
+        if (!e.IsRepeat && keyIndex >= 0 && keyIndex < m_gameOwnedKeys.Length && m_readyToHandle &&
+            !m_imGuiWantsKeyboard)
+            m_gameOwnedKeys[keyIndex] = true;
+
+        if (e.Key == Keys.LeftControl && m_readyToHandle && !m_imGuiWantsKeyboard &&
+            m_currentObject is IPhysicObject physObj)
             physObj.RigidBody.MaxSpeedMultiplier = 3;
 
         base.OnKeyDown(e);
@@ -234,6 +294,22 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyUp(KeyboardKeyEventArgs e)
     {
+        var keyIndex = (int)e.Key;
+        var gameOwned = false;
+
+        if (keyIndex >= 0 && keyIndex < m_gameOwnedKeys.Length)
+        {
+            gameOwned = m_gameOwnedKeys[keyIndex];
+            m_gameOwnedKeys[keyIndex] = false;
+        }
+
+        // Releasing Left Ctrl always resets the multiplier; every other game key acts only if the game took its press.
+        if (e.Key != Keys.LeftControl && !gameOwned)
+        {
+            base.OnKeyUp(e);
+            return;
+        }
+
         switch (e.Key)
         {
             case Keys.I:
@@ -283,6 +359,25 @@ public partial class MainWindow : GameWindow
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
+        if (m_startupError != null && m_startupErrorWindow != null)
+        {
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit |
+                     ClearBufferMask.StencilBufferBit);
+
+            EngineSettings.Current.GlobalLock.EnterWriteLock();
+
+            m_controlHandler.HandleControls();
+
+            EngineSettings.Current.GlobalLock.ExitWriteLock();
+
+            m_imGuiController.Render();
+
+            Context.SwapBuffers();
+
+            base.OnRenderFrame(args);
+            return;
+        }
+
         if (!m_readyToHandle)
             return;
 
@@ -297,7 +392,8 @@ public partial class MainWindow : GameWindow
             GL.Enable(EnableCap.CullFace);
 
             GL.DepthFunc(DepthFunction.Lequal);
-            ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
+            if (m_world.SkyBox.Texture != null)
+                ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
             GL.DepthFunc(DepthFunction.Less);
 
             var projection = EngineSettings.Current.Projection;
@@ -348,8 +444,22 @@ public partial class MainWindow : GameWindow
     {
         Application.Current.Dispatcher.HandleQueue();
 
-        if (KeyboardState.IsKeyDown(Keys.Escape))
+        if (KeyboardState.IsKeyPressed(Keys.Escape) && !m_imGuiWantsKeyboard)
             Close();
+
+        var startupError = m_startupError;
+
+        if (startupError != null)
+        {
+            if (m_startupErrorWindow == null)
+                ShowStartupError(startupError);
+            else if (!m_startupErrorWindow.IsVisible)
+                m_startupErrorWindow.Show();
+
+            m_imGuiController.Update(this, (float)args.Time);
+            UpdateImGuiInputClaims();
+            return;
+        }
 
         if (!m_readyToHandle)
             return;
@@ -357,6 +467,7 @@ public partial class MainWindow : GameWindow
         var cam = m_world.CurrentCamera;
         
         m_imGuiController.Update(this, (float)args.Time);
+        UpdateImGuiInputClaims();
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
@@ -444,13 +555,39 @@ public partial class MainWindow : GameWindow
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
     }
 
-    private void FillObject(IDrawable drawable, Texture texture)
+    // Runs on the startup continuation's thread: it only logs and publishes the text; the GL thread shows it.
+    private void FailStartup(IReadOnlyList<Exception> exceptions)
+    {
+        var lines = new List<string>(exceptions.Count + 2) { "Loading the game's assets failed:" };
+
+        foreach (var exception in exceptions)
+        {
+            Log.Logger.Error(exception, "Startup failed.");
+
+            lines.Add(exception.GetType().Name + ": " + exception.Message);
+        }
+
+        lines.Add("Details are in the console and log.txt. Press Esc to quit.");
+
+        m_startupError = string.Join('\n', lines);
+    }
+
+    // GL thread only: ImGui computed these in NewFrame, inside ImGuiController.Update.
+    private void UpdateImGuiInputClaims()
+    {
+        var io = ImGui.GetIO();
+
+        m_imGuiWantsMouse = io.WantCaptureMouse;
+        m_imGuiWantsKeyboard = io.WantCaptureKeyboard;
+    }
+
+    private void FillObject(IDrawable drawable, Texture? texture)
     {
         var textureObjectInfo = new TexturedObjectInfo(drawable);
         
         foreach (var mesh in drawable.Scene.Meshes)
         {
-            textureObjectInfo[mesh] = new TextureData { Texture = texture };
+            textureObjectInfo[mesh] = new TextureData { Texture = texture ?? Texture.Empty };
         }
         
         drawable.TexturedObjectInfos.Add(textureObjectInfo);
@@ -621,7 +758,10 @@ public partial class MainWindow : GameWindow
                     //var elapsedTime2 = (float)0.001;
                     stopWatch.Restart();
 
-                    HandleKeyboardInputs(elapsedTime);
+                    var imGuiWantsKeyboard = m_imGuiWantsKeyboard;
+
+                    if (!imGuiWantsKeyboard)
+                        HandleKeyboardInputs(elapsedTime);
 
                     //Collisions per second
                     var cps = Math.Round(1 / elapsedTime, MidpointRounding.ToEven);
@@ -638,11 +778,14 @@ public partial class MainWindow : GameWindow
                     if (m_freeCamMode)
                     {
                         var cam = m_world.CurrentCamera;
-                        cam.Move(elapsedTime, KeyboardState);
+                        if (!imGuiWantsKeyboard)
+                            cam.Move(elapsedTime, KeyboardState);
+
                         m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + cam.Rotation * 100);
                     }
 
-                    HandleObjectMove(elapsedTime2);
+                    if (!imGuiWantsKeyboard)
+                        HandleObjectMove(elapsedTime2);
 
                     HandleMouseMove();
 
