@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OldTanks.Docs.Tests", "test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoolEngine.Imaging", "CoolEngine.Imaging\CoolEngine.Imaging.csproj", "{6FBA7158-FB39-4EFA-8BE1-2E0CE112D754}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CoolEngine.Imaging.Tests", "tests\CoolEngine.Imaging.Tests\CoolEngine.Imaging.Tests.csproj", "{37F564F3-7E23-412C-A059-8DEF9AC4A07C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -53,12 +55,17 @@ Global
 		{6FBA7158-FB39-4EFA-8BE1-2E0CE112D754}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6FBA7158-FB39-4EFA-8BE1-2E0CE112D754}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6FBA7158-FB39-4EFA-8BE1-2E0CE112D754}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37F564F3-7E23-412C-A059-8DEF9AC4A07C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37F564F3-7E23-412C-A059-8DEF9AC4A07C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37F564F3-7E23-412C-A059-8DEF9AC4A07C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37F564F3-7E23-412C-A059-8DEF9AC4A07C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{08838F5E-DD3B-4793-BACF-5CB5C9B8FF00} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{37F564F3-7E23-412C-A059-8DEF9AC4A07C} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {27902F3C-9C4A-4686-AB28-B12D9B9EA896}
