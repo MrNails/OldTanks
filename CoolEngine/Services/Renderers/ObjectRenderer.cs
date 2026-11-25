@@ -114,6 +114,24 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             RenderInternal(m_instancedSceneBuffers, InstancedShader, camera, ref projection, true);
     }
 
+    /// <summary>For tests: the per-instance group of <paramref name="scene"/> for <paramref name="texture"/>, or null when there is none.</summary>
+    internal IReadOnlyList<IDrawable>? GetPerInstanceGroup(Scene scene, Texture texture)
+    {
+        return m_sceneBuffers.TryGetValue(scene, out var drawSceneInfo) &&
+               drawSceneInfo.Drawables.TryGetValue(texture, out var group)
+            ? group
+            : null;
+    }
+
+    /// <summary>For tests: the instanced group of <paramref name="scene"/> for <paramref name="texture"/>, or null when there is none.</summary>
+    internal IReadOnlyList<IDrawable>? GetInstancedGroup(Scene scene, Texture texture)
+    {
+        return m_instancedSceneBuffers.TryGetValue(scene, out var drawSceneInfo) &&
+               drawSceneInfo.Drawables.TryGetValue(texture, out var group)
+            ? group
+            : null;
+    }
+
     private void SortInstancedAndPerInstanceObjects()
     {
         //Traverse via scene buffers for finding drawables list drawables count per texture > MaxPerInstanceElements_
