@@ -53,10 +53,11 @@ public partial class MainWindow : GameWindow
     private Shader? m_primitivesShader;
 
     private bool m_exit;
-    private bool m_readyToHandle;
+    private volatile bool m_readyToHandle;
 
     private volatile bool m_imGuiWantsMouse;
     private volatile bool m_imGuiWantsKeyboard;
+    private volatile string? m_startupError;
 
     private ImGuiController m_imGuiController;
 
@@ -198,23 +199,36 @@ public partial class MainWindow : GameWindow
                 m_gameManager.ShadersLoaded -= OnShadersLoaded;
                 m_gameManager.SkyBoxesLoaded -= OnSkyBoxesLoaded;
 
-                ObjectRendererOld.RegisterScene(typeof(SkyBox),
-                    GlobalCache<Shader>.Default.GetItemOrDefault("SkyBoxShader")!);
+                if (!r.IsCompletedSuccessfully)
+                {
+                    FailStartup(r.Exception?.Flatten().InnerExceptions ?? []);
+                    return;
+                }
 
-                m_currentObject = m_world.CurrentCamera;
+                try
+                {
+                    ObjectRendererOld.RegisterScene(typeof(SkyBox),
+                        GlobalCache<Shader>.Default.GetItemOrDefault("SkyBoxShader")!);
 
-                InitDefaultObjects();
+                    m_currentObject = m_world.CurrentCamera;
 
-                m_objectRenderer.Shader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader")!;
-                m_objectRenderer.InstancedShader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader2")!;
-                m_objectRenderer.DrawableItems = m_world.WorldObjects;
+                    InitDefaultObjects();
 
-                ObjectRendererOld.AddDrawables(m_world.WorldObjects, m_objectRenderer.Shader);
-                CollisionRenderer.AddCollisions(m_world.WorldObjects);
+                    m_objectRenderer.Shader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader")!;
+                    m_objectRenderer.InstancedShader = GlobalCache<Shader>.Default.GetItemOrDefault("DefaultShader2")!;
+                    m_objectRenderer.DrawableItems = m_world.WorldObjects;
 
-                m_readyToHandle = true;
-                
-                m_testThread.Start();
+                    ObjectRendererOld.AddDrawables(m_world.WorldObjects, m_objectRenderer.Shader);
+                    CollisionRenderer.AddCollisions(m_world.WorldObjects);
+
+                    m_readyToHandle = true;
+
+                    m_testThread.Start();
+                }
+                catch (Exception e)
+                {
+                    FailStartup([e]);
+                }
             });
 
         EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
@@ -345,6 +359,25 @@ public partial class MainWindow : GameWindow
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
+        if (m_startupError != null && m_startupErrorWindow != null)
+        {
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit |
+                     ClearBufferMask.StencilBufferBit);
+
+            EngineSettings.Current.GlobalLock.EnterWriteLock();
+
+            m_controlHandler.HandleControls();
+
+            EngineSettings.Current.GlobalLock.ExitWriteLock();
+
+            m_imGuiController.Render();
+
+            Context.SwapBuffers();
+
+            base.OnRenderFrame(args);
+            return;
+        }
+
         if (!m_readyToHandle)
             return;
 
@@ -413,6 +446,20 @@ public partial class MainWindow : GameWindow
 
         if (KeyboardState.IsKeyPressed(Keys.Escape) && !m_imGuiWantsKeyboard)
             Close();
+
+        var startupError = m_startupError;
+
+        if (startupError != null)
+        {
+            if (m_startupErrorWindow == null)
+                ShowStartupError(startupError);
+            else if (!m_startupErrorWindow.IsVisible)
+                m_startupErrorWindow.Show();
+
+            m_imGuiController.Update(this, (float)args.Time);
+            UpdateImGuiInputClaims();
+            return;
+        }
 
         if (!m_readyToHandle)
             return;
@@ -506,6 +553,23 @@ public partial class MainWindow : GameWindow
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+    }
+
+    // Runs on the startup continuation's thread: it only logs and publishes the text; the GL thread shows it.
+    private void FailStartup(IReadOnlyList<Exception> exceptions)
+    {
+        var lines = new List<string>(exceptions.Count + 2) { "Loading the game's assets failed:" };
+
+        foreach (var exception in exceptions)
+        {
+            Log.Logger.Error(exception, "Startup failed.");
+
+            lines.Add(exception.GetType().Name + ": " + exception.Message);
+        }
+
+        lines.Add("Details are in the console and log.txt. Press Esc to quit.");
+
+        m_startupError = string.Join('\n', lines);
     }
 
     // GL thread only: ImGui computed these in NewFrame, inside ImGuiController.Update.
