@@ -156,7 +156,7 @@ namespace {classDeclaration.NameSpace}
 {IntendLevel_}private void __{obj.Substring(obj.LastIndexOf('.') + 1)}GeneratedBindingMethodToObject(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
 {IntendLevel_}{{
 {MethodBodyIntendLevel_}var tmpObject = sender as {attrValues["castObjectAs"]};
-{MethodBodyIntendLevel_}if (!tmpObject.Equals({AsNullableSafeObject(obj)}) || tmpObject is null) return;
+{MethodBodyIntendLevel_}if (tmpObject is null || !tmpObject.Equals({AsNullableSafeObject(obj)})) return;
 {MethodBodyIntendLevel_}switch(e.PropertyName)
 {MethodBodyIntendLevel_}{{
 ");

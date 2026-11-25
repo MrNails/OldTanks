@@ -14,7 +14,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | What is in `Assets/` and how names map to caches | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | The debug window's generated bindings | [BINDING-GENERATOR](../docs/OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
 | Running, settings file, log file | [BUILD](../docs/BUILD.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-001 to KI-004, KI-007, KI-012 to KI-015, KI-020 to KI-022 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-001 to KI-004, KI-007, KI-012 to KI-015, KI-020, KI-022 |
 
 ## Project Details
 

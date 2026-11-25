@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; §1-§2 built and tested on Windows 11 with .NET SDK 10.0.401, §3 run on 2026-11-25 (the smoke run and Denys's own run), §4 as of 2026-11-24 except the settings file |
+| Verified against | 2026-11-25; bug/OT-11 from master at 6cea333 (§2's warning baseline and tests), feature/OT-3 uncommitted (the rest); §1-§2 built and tested on Windows 11 with .NET SDK 10.0.401, §3 run on 2026-11-25 (the smoke run and Denys's own run), §4 as of 2026-11-24 except the settings file |
 
 ---
 
@@ -25,19 +25,19 @@ The solution file is `OldTanks.slnx` (the XML solution format; converted from `O
 dotnet build OldTanks.slnx
 ```
 
-**Baseline (2026-11-25, `--no-incremental`, on the integrated OT-3 tree):** 0 errors, 139 warnings (`master` had 165):
+**Baseline (2026-11-25, `--no-incremental`, `bug/OT-11`):** 0 errors, 136 warnings (139 after OT-3; `master` before OT-3 had 165):
 
 | Warnings | Count | Meaning |
 |----------|-------|---------|
-| `CS86xx`, `CS8767` | most of the 138 compiler warnings | The nullable set, mostly `CS8618` (non-nullable field not set in the constructor); `CS8767` is `OldTanks.Models.WorldObject.Collision` against `CoolEngine.Services.Interfaces.ICollisionable.Collision`, and 3 × `CS8602` are in the generated binding file ([KI-021](KNOWN-ISSUES.md#ki-021-generated-binding-code-calls-equals-before-its-null-check)) |
-| `CS0162`, `CS0219` | the rest of the 138 | Unreachable code (the disabled stress spawner) and an unused variable |
+| `CS86xx`, `CS8714`, `CS8767` | most of the 135 compiler warnings | The nullable set, mostly `CS8618` (non-nullable field not set in the constructor); `CS8714` is one in `Common/Extensions/DictionaryExtensions.cs`; `CS8767` is `OldTanks.Models.WorldObject.Collision` against `CoolEngine.Services.Interfaces.ICollisionable.Collision`. The generated binding file has none since OT-11 ([KI-021](KNOWN-ISSUES.md#ki-021-generated-binding-code-calls-equals-before-its-null-check)) |
+| `CS0162`, `CS0219` | the rest of the 135 | Unreachable code (the disabled stress spawner) and an unused variable |
 | Six Labors license notice | 1 | From `tests/CoolEngine.Imaging.Tests`, which references ImageSharp 4.1.4 (see the Release note below) |
 
-Gone since `master`: `NU1902`, `NU1903` (ImageSharp 3.1.3 advisories), `NETSDK1138` (`net7.0` out of support), `CS0618`, `CA2024`, `CS8669`, `RS1035`, `RS1042`. `dotnet list package --vulnerable --include-transitive` reports no vulnerable package (2026-11-25). `CoolEngine.Imaging` and its tests add no compiler warnings.
+Gone in OT-3: `NU1902`, `NU1903` (ImageSharp 3.1.3 advisories), `NETSDK1138` (`net7.0` out of support), `CS0618`, `CA2024`, `CS8669`, `RS1035`, `RS1042`. Gone in OT-11: the generated binding file's 3 × `CS8602`. `dotnet list package --vulnerable --include-transitive` reports no vulnerable package (2026-11-25). `CoolEngine.Imaging` and its tests add no compiler warnings.
 
 An incremental build that compiles nothing shows only the restore and SDK warnings. New code should not add to the baseline.
 
-**Output:** `OldTanks/bin/Debug/net10.0/`, with `Assets/` copied next to `OldTanks.exe` on every build. The source generator runs inside this build; to read its output add `-p:EmitCompilerGeneratedFiles=true` ([BINDING-GENERATOR §1](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md#1-how-it-is-wired)).
+**Output:** `OldTanks/bin/Debug/net10.0/`, with `Assets/` copied next to `OldTanks.exe` on every build. The source generator runs inside this build; to read its output add `--no-incremental -p:EmitCompilerGeneratedFiles=true` (a build with nothing to compile writes no file, [BINDING-GENERATOR §5](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md#5-changing-the-generator)).
 
 **Release builds of the solution need a Six Labors license key.** `tests/CoolEngine.Imaging.Tests` references SixLabors.ImageSharp 4.1.4, whose unaffected versions need a key at build time: a Debug build warns, a Release build fails until a `sixlabors.lic` file or the `SixLaborsLicenseKey` property supplies one (the Debug build's warning says "Release builds require a valid license" and names `SixLaborsLicenseKey`, `SixLaborsLicenseFile` and `sixlabors.lic`; a Release build was not tried). Building only the runtime projects is not affected. A community key is a [BACKLOG](BACKLOG.md#platform-and-build) item.
 

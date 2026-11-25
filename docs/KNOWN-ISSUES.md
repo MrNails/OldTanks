@@ -36,7 +36,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Open |
 | [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Open |
 | [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Open |
-| [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Open |
+| [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Closed |
 | [KI-022](#ki-022-initcollision-prints-an-error-twice-at-startup) | InitCollision prints an error twice at startup | Physics | Open |
 | [KI-023](#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end) | PNG decoding cannot see a zlib stream's missing end | Assets | Open |
 
@@ -266,12 +266,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.UI.SourceGenerators.Generators.BindingGenerator` and the `__<name>GeneratedBindingMethodToObject` methods it emits for `OldTanks.UI.ImGuiUI.MainWindow` |
-| **Root cause** | The generated object-to-control method calls `tmpObject.Equals(...)` on the converted sender before checking that conversion for null. Found by the OT-3 review (finding 7) |
-| **Current state** | Visible as 3 × CS8602 in the build since OT-3, because the generated file is now `#nullable enable`. A `NullReferenceException` would follow if a sender of another type raised `PropertyChanged` into the handler; no code does today (reasoned from code) |
-| **Remaining check** | Move the null check first in the generator's text, rebuild, and compare the generated file; fixing changes the generated output, which OT-3 kept byte-identical apart from `#nullable enable` |
-| **Evidence** | The three CS8602 warnings in the build; the generated file under `OldTanks/obj/` ([BINDING-GENERATOR §1](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md#1-how-it-is-wired)) |
+| **Status** | Closed on `bug/OT-11` (2026-11-25): `OldTanks.UI.SourceGenerators.Generators.BindingGenerator.CreateMembersBinding` now emits the `tmpObject is null` test before `tmpObject.Equals(...)`, so a sender of another type returns instead of throwing; the generated file changed in the three guard lines only and the 3 × CS8602 are gone (139 → 136 warnings, [BINDING-GENERATOR §3](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md#3-what-it-generates)) |
 
 ## KI-022: InitCollision prints an error twice at startup
 
