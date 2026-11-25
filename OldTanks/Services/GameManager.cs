@@ -35,17 +35,17 @@ public sealed class GameManager : ObservableObject
 
     public GameManager(LoggerService loggerService, SettingsService settingsService, World world)
     {
-        m_logger = loggerService.CreateLogger();
+        m_logger = loggerService.CreateLogger(nameof(GameManager));
         m_settingsService = settingsService;
 
         Textures = new ObservableCollection<string>();
-        
+
         m_assetLoaders = new Dictionary<string, IAssetLoader>
         {
-            { nameof(ShaderLoader), new ShaderLoader(loggerService.CreateLogger("ShaderLog.txt")) },
-            { nameof(TextureLoader), new TextureLoader(loggerService.CreateLogger("TextureLog.txt")) },
-            { nameof(WaveFrontLoader), new WaveFrontLoader(loggerService.CreateLogger("WaveFontLog.txt")) },
-            { nameof(SkyBoxTextureLoader), new SkyBoxTextureLoader(loggerService.CreateLogger("TextureLog.txt")) },
+            { nameof(ShaderLoader), new ShaderLoader(loggerService.CreateLogger(nameof(ShaderLoader))) },
+            { nameof(TextureLoader), new TextureLoader(loggerService.CreateLogger(nameof(TextureLoader))) },
+            { nameof(WaveFrontLoader), new WaveFrontLoader(loggerService.CreateLogger(nameof(WaveFrontLoader))) },
+            { nameof(SkyBoxTextureLoader), new SkyBoxTextureLoader(loggerService.CreateLogger(nameof(SkyBoxTextureLoader))) },
         };
 
         World = world;
