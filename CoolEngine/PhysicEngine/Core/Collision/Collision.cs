@@ -11,6 +11,12 @@ public class Collision
     // Below this squared length of the cross product of two unit directions, the two are taken as parallel.
     private const float ParallelEpsilon = 1e-6f;
 
+    // Below this squared length a sphere axis is skipped: the centre is on the polygon, which then overlaps anyway.
+    private const float ZeroAxisEpsilon = 1e-12f;
+
+    // Tolerance of the cuboid detection's comparisons of normals and coordinates.
+    private const float CuboidTolerance = 1e-6f;
+
     private readonly CollisionData m_originalCollision;
     private readonly CollisionData m_currentCollision;
 
@@ -19,6 +25,10 @@ public class Collision
 
     // Indices into m_edges, one edge per class of parallel edges; set once in the constructor, never changed.
     private readonly int[] m_edgeDirections;
+
+    // The faces whose model-space normals are +X, +Y and +Z, in that order, or null when the shape is not a cuboid;
+    // set once in the constructor, never changed.
+    private readonly int[]? m_cuboidAxisFaces;
 
     public Collision(IPhysicObject physicObject, CollisionData originalCollision)
     {
@@ -36,6 +46,7 @@ public class Collision
 
         m_edges = FindEdges(originalCollision);
         m_edgeDirections = FindEdgeDirections(originalCollision, m_edges);
+        m_cuboidAxisFaces = FindCuboidAxisFaces(originalCollision);
 
         IsActive = true;
         IsDrawing = true;
@@ -91,10 +102,10 @@ public class Collision
          {
              CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Polygon => 
                  OBBCollisionCheck(this, polygon2, out normal, out depth),
-             CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Sphere => 
-                 SphereOBBCollisionCheck(CollisionData, p2CollData, out normal, out depth),
-             CollisionType.Sphere when p2CollData.CollisionType == CollisionType.Polygon => 
-                 SphereOBBCollisionCheck(p2CollData, CollisionData, out normal, out depth),
+             CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Sphere =>
+                 SpherePolygonCollisionCheck(this, p2CollData, out normal, out depth),
+             CollisionType.Sphere when p2CollData.CollisionType == CollisionType.Polygon =>
+                 SpherePolygonCollisionCheck(polygon2, CollisionData, out normal, out depth),
              CollisionType.Sphere when p2CollData.CollisionType == CollisionType.Sphere => 
                  SphereXSphereCollision(CollisionData, p2CollData, out normal, out depth),
              _ => throw new InvalidOperationException(
@@ -196,6 +207,82 @@ public class Collision
         }
 
         return kept.ToArray();
+    }
+
+    // A cuboid in model space: 8 corners of an axis-aligned box and its 6 faces, one per signed axis. The transform
+    // scales before it rotates (no shear), so the transformed shape is still a cuboid and the closest-point test
+    // is exact for it; any other shape takes the separating-axis fallback.
+    private static int[]? FindCuboidAxisFaces(CollisionData shape)
+    {
+        if (shape.CollisionType != CollisionType.Polygon || shape.Vertices.Length != 8 || shape.Faces.Count != 6)
+            return null;
+
+        // The face for each signed axis, in the order +X, -X, +Y, -Y, +Z, -Z.
+        var signedAxisFaces = new[] { -1, -1, -1, -1, -1, -1 };
+
+        for (int i = 0; i < shape.Faces.Count; i++)
+        {
+            var faceNormal = shape.Faces[i].Normal;
+            var slot = -1;
+
+            for (int s = 0; s < signedAxisFaces.Length; s++)
+            {
+                var signedAxis = Vector3.Zero;
+                signedAxis[s / 2] = s % 2 == 0 ? 1 : -1;
+
+                if (Math.Abs(faceNormal.X - signedAxis.X) <= CuboidTolerance &&
+                    Math.Abs(faceNormal.Y - signedAxis.Y) <= CuboidTolerance &&
+                    Math.Abs(faceNormal.Z - signedAxis.Z) <= CuboidTolerance)
+                {
+                    slot = s;
+                    break;
+                }
+            }
+
+            if (slot < 0 || signedAxisFaces[slot] >= 0)
+                return null;
+
+            signedAxisFaces[slot] = i;
+        }
+
+        var vertices = shape.Vertices;
+        var min = vertices[0];
+        var max = vertices[0];
+
+        for (int i = 1; i < vertices.Length; i++)
+        {
+            min = Vector3.ComponentMin(min, vertices[i]);
+            max = Vector3.ComponentMax(max, vertices[i]);
+        }
+
+        for (int axis = 0; axis < 3; axis++)
+        {
+            if (max[axis] - min[axis] <= CuboidTolerance)
+                return null;
+        }
+
+        // Each vertex is coded by which coordinates sit at the maximum; 8 different codes are the 8 corners.
+        var foundCorners = 0;
+
+        foreach (var vertex in vertices)
+        {
+            var corner = 0;
+
+            for (int axis = 0; axis < 3; axis++)
+            {
+                if (Math.Abs(vertex[axis] - max[axis]) <= CuboidTolerance)
+                    corner |= 1 << axis;
+                else if (Math.Abs(vertex[axis] - min[axis]) > CuboidTolerance)
+                    return null;
+            }
+
+            if ((foundCorners & (1 << corner)) != 0)
+                return null;
+
+            foundCorners |= 1 << corner;
+        }
+
+        return new[] { signedAxisFaces[0], signedAxisFaces[2], signedAxisFaces[4] };
     }
 
     private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResultPoint)
@@ -378,7 +465,80 @@ public class Collision
         return true;
     }
     
-    private static bool SphereOBBCollisionCheck(CollisionData polygon, CollisionData sphere, out Vector3 normal, out float depth)
+    private static bool SpherePolygonCollisionCheck(Collision polygon, CollisionData sphere, out Vector3 normal,
+        out float depth)
+    {
+        return polygon.m_cuboidAxisFaces is not null
+            ? SphereCuboidCollisionCheck(polygon.m_currentCollision, polygon.m_cuboidAxisFaces, sphere, out normal, out depth)
+            : SpherePolygonSatCollisionCheck(polygon.m_currentCollision, polygon.m_edges, sphere, out normal, out depth);
+    }
+
+    // Exact for a cuboid: clamp the sphere centre into the box along the box's three axes to get the closest point.
+    private static bool SphereCuboidCollisionCheck(CollisionData cuboid, int[] axisFaces, CollisionData sphere,
+        out Vector3 normal, out float depth)
+    {
+        normal = Vector3.Zero;
+        depth = float.MaxValue;
+
+        var center = sphere.PhysicObject.Position;
+        var radius = sphere.PhysicObject.Width / 2;
+
+        var isOutside = false;
+        var delta = Vector3.Zero;
+        // For a centre inside the box: the face it is least deep behind, + before - and k = 0..2 on a tie.
+        var smallestPenetration = float.MaxValue;
+        var smallestPenetrationNormal = Vector3.Zero;
+
+        for (int k = 0; k < axisFaces.Length; k++)
+        {
+            var axis = cuboid.Faces[axisFaces[k]].Normal;
+
+            ProjectionMinMaxVertices(axis, cuboid.Vertices, out var min, out var max);
+
+            var halfExtent = (max - min) / 2;
+            var offset = Vector3.Dot(center, axis) - (min + max) / 2;
+            var clamped = Math.Clamp(offset, -halfExtent, halfExtent);
+
+            if (Math.Abs(offset) > halfExtent)
+                isOutside = true;
+
+            delta += (offset - clamped) * axis;
+
+            var positivePenetration = halfExtent - offset;
+            if (positivePenetration < smallestPenetration)
+            {
+                smallestPenetration = positivePenetration;
+                smallestPenetrationNormal = axis;
+            }
+
+            var negativePenetration = halfExtent + offset;
+            if (negativePenetration < smallestPenetration)
+            {
+                smallestPenetration = negativePenetration;
+                smallestPenetrationNormal = -axis;
+            }
+        }
+
+        if (isOutside)
+        {
+            var distance = delta.Length;
+            if (distance >= radius)
+                return false;
+
+            normal = delta / distance;
+            depth = radius - distance;
+            return true;
+        }
+
+        normal = smallestPenetrationNormal;
+        depth = radius + smallestPenetration;
+        return true;
+    }
+
+    // Separating axes for a sphere and any convex polygon: the face normals, then the axes from every vertex and
+    // from the closest point of every edge to the sphere centre, which catch a sphere off a corner or an edge.
+    private static bool SpherePolygonSatCollisionCheck(CollisionData polygon, (uint A, uint B)[] edges,
+        CollisionData sphere, out Vector3 normal, out float depth)
     {
         normal = Vector3.Zero;
         depth = float.MaxValue;
@@ -417,7 +577,60 @@ public class Collision
                 normal = face.Normal;
             }
         }
-        
+
+        var center = sphere.PhysicObject.Position;
+        var radius = sphere.PhysicObject.Width / 2;
+        var vertices = polygon.Vertices;
+
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            var axis = center - vertices[i];
+            // The centre is on the vertex: the shapes overlap anyway, and the axis has no direction.
+            if (axis.LengthSquared < ZeroAxisEpsilon)
+                continue;
+
+            axis = Vector3.Normalize(axis);
+
+            ProjectionMinMaxVertices(axis, vertices, out polygonProjMin, out polygonProjMax);
+            SphereProjectionMinMaxVertices(axis, center, radius, out sphereProjMin, out sphereProjMax);
+
+            if (polygonProjMin >= sphereProjMax || sphereProjMin >= polygonProjMax)
+                return false;
+
+            intersectionDepth = Math.Min(sphereProjMax - polygonProjMin, polygonProjMax - sphereProjMin);
+            if (intersectionDepth < depth)
+            {
+                normal = axis;
+                depth = intersectionDepth;
+            }
+        }
+
+        for (int i = 0; i < edges.Length; i++)
+        {
+            var start = vertices[edges[i].A];
+            var edge = vertices[edges[i].B] - start;
+            var t = Math.Clamp(Vector3.Dot(center - start, edge) / Vector3.Dot(edge, edge), 0, 1);
+            var axis = center - (start + t * edge);
+            // The centre is on the edge: the shapes overlap anyway, and the axis has no direction.
+            if (axis.LengthSquared < ZeroAxisEpsilon)
+                continue;
+
+            axis = Vector3.Normalize(axis);
+
+            ProjectionMinMaxVertices(axis, vertices, out polygonProjMin, out polygonProjMax);
+            SphereProjectionMinMaxVertices(axis, center, radius, out sphereProjMin, out sphereProjMax);
+
+            if (polygonProjMin >= sphereProjMax || sphereProjMin >= polygonProjMax)
+                return false;
+
+            intersectionDepth = Math.Min(sphereProjMax - polygonProjMin, polygonProjMax - sphereProjMin);
+            if (intersectionDepth < depth)
+            {
+                normal = axis;
+                depth = intersectionDepth;
+            }
+        }
+
         return true;
     }
 

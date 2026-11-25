@@ -367,6 +367,78 @@ public sealed class CollisionTests
         Assert.That(collides, Is.False);
     }
 
+    [Test]
+    public void CheckCollision_SphereOffCubeCornerWithGap_ReturnsFalse()
+    {
+        var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(1.404145f, 1.404145f, 1.404145f));
+
+        var collides = cube.Collision!.CheckCollision(sphere.Collision!, out _, out _);
+
+        Assert.That(collides, Is.False);
+    }
+
+    [Test]
+    public void CheckCollision_SphereOffCubeEdgeWithGap_ReturnsFalse()
+    {
+        var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(1.424264f, 1.424264f, 0));
+
+        var collides = cube.Collision!.CheckCollision(sphere.Collision!, out _, out _);
+
+        Assert.That(collides, Is.False);
+    }
+
+    [Test]
+    public void CheckCollision_SphereOnCubeCorner_ReturnsDiagonalNormalAndDepth()
+    {
+        var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(1.230940f, 1.230940f, 1.230940f));
+
+        var collides = cube.Collision!.CheckCollision(sphere.Collision!, out var normal, out var depth);
+
+        AssertContact(collides, normal, depth, new Vector3(0.577350f, 0.577350f, 0.577350f), 0.1f);
+    }
+
+    [Test]
+    public void CheckCollision_SphereFirstOnCubeCorner_MatchesCubeFirst()
+    {
+        var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(1.230940f, 1.230940f, 1.230940f));
+        var cubeFirst = cube.Collision!.CheckCollision(sphere.Collision!, out var cubeFirstNormal, out var cubeFirstDepth);
+
+        var sphereFirst = sphere.Collision!.CheckCollision(cube.Collision!, out var normal, out var depth);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(sphereFirst, Is.EqualTo(cubeFirst), "collides");
+            AssertVector(normal, cubeFirstNormal, NormalTolerance, "normal");
+            Assert.That(depth, Is.EqualTo(cubeFirstDepth).Within(DepthTolerance), "depth");
+        });
+    }
+
+    [Test]
+    public void CheckCollision_SphereOffTetrahedronVertexWithGap_ReturnsFalse()
+    {
+        var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(1.462622f, 1.231311f, 1.115655f));
+
+        var collides = tetrahedron.Collision!.CheckCollision(sphere.Collision!, out _, out _);
+
+        Assert.That(collides, Is.False);
+    }
+
+    [Test]
+    public void CheckCollision_SphereOffTetrahedronEdgeWithGap_ReturnsFalse()
+    {
+        var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(-0.158293f, 1.474880f, 0.158293f));
+
+        var collides = tetrahedron.Collision!.CheckCollision(sphere.Collision!, out _, out _);
+
+        Assert.That(collides, Is.False);
+    }
+
     private static CollisionTestPhysicObject CreatePolygon(CollisionData shape, Matrix4 transformation, Vector3 position) =>
         CollisionTestPhysicObject.Create(shape, transformation, position, s_polygonSize);
 
