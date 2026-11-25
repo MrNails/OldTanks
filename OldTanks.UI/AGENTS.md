@@ -10,7 +10,7 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 |-------|------|
 | Control handler, controls, events, the ImGui renderer, adding a window | [UI-CONTROLS](../docs/OldTanks.UI/UI-CONTROLS.md) |
 | Generated bindings over these controls | [BINDING-GENERATOR](../docs/OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-026 to KI-029 open (provisional numbers); KI-010 and KI-018 closed |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-026 to KI-029 open; KI-010 and KI-018 closed |
 | Tests of this project | `tests/OldTanks.UI.Tests` ([BUILD §2](../docs/BUILD.md#2-build)) |
 
 ## Project Details

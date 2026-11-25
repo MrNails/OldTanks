@@ -10,7 +10,7 @@ Entry point for agents: [../AGENTS.md](../AGENTS.md) (Claude Code loads it throu
 | Drawing: renderers, batching and instancing, shaders, textures, the camera | [RENDERING](CoolEngine/Services/Renderers/RENDERING.md) | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) for shader files |
 | Loading shaders, textures, skyboxes, models and fonts; cache names | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) | [features §6](OldTanks/FEATURES-OVERVIEW.md#6-adding-a-world-object-type) for a new object type |
 | Decoding PNG and JPEG: the API, the strict rules, limits, tests | [IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md) | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) for the loaders |
-| Gravity, movement, collision tests and resolution, rays, step mode | [PHYSICS-AND-COLLISIONS](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) | [KI-002](KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another), [KI-016](KNOWN-ISSUES.md#ki-016-polygon-tests-use-face-normals-only) |
+| Gravity, movement, collision tests and resolution, rays, step mode | [PHYSICS-AND-COLLISIONS](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) | [KI-002](KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another), [KI-031](KNOWN-ISSUES.md#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does) |
 | HUD text, ImGui controls, adding a debug window | [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md) | [BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
 | Generated bindings in the debug window | [BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) | — |
 | The game: controls, default scene, debug windows, new object types | [FEATURES-OVERVIEW](OldTanks/FEATURES-OVERVIEW.md) | — |
@@ -19,7 +19,7 @@ Entry point for agents: [../AGENTS.md](../AGENTS.md) (Claude Code loads it throu
 Records that cut across areas:
 
 - [PROJECT-KNOWLEDGE](PROJECT-KNOWLEDGE.md): mission, current state, conventions, rules of thumb; read first, about 10 KiB.
-- [KNOWN-ISSUES](KNOWN-ISSUES.md): the defect register, `KI-001` to `KI-030`; stable numbers that code and pages cite.
+- [KNOWN-ISSUES](KNOWN-ISSUES.md): the defect register, `KI-001` to `KI-031`; stable numbers that code and pages cite.
 - [BACKLOG](BACKLOG.md): open work, unwired features, debt.
 - [CODE-STYLE](CODE-STYLE.md) and [DOCUMENTATION-GUIDE](DOCUMENTATION-GUIDE.md): how code, commits and docs are written.
 - [knowledge/GLOSSARY](knowledge/GLOSSARY.md): terms, and the type names that clash.

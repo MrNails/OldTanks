@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (§1's test projects against the project files); bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
+| Verified against | 2026-11-25; bug/OT-13 rebased on master at 8ded8f4 (§2 collision thread notes, reasoned from code); bug/OT-12 rebased on master at 734d8f6 (§1's test projects against the project files); bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
@@ -41,9 +41,11 @@ How the six projects fit together, which thread does what, and the process-wide 
 | Thread | Started by | Runs | Must not |
 |--------|-----------|------|----------|
 | **Main / GL thread** | `OldTanks.Program.Main` | The OpenTK `GameWindow` loop (`OldTanks.Windows.MainWindow.OnUpdateFrame`, `OnRenderFrame`), every OpenGL call, ImGui, and the dispatcher queue | Block on work queued to itself |
-| **Physics thread** (`WorldHandler`, background) | `OldTanks.Windows.MainWindow.InitDefaultObjects` | Every ~5 ms: free-camera movement (skipped while ImGui wants the keyboard: it reads `m_imGuiWantsKeyboard` once per step), mouse look, `OldTanks.Models.World.CollideObjects`, the picking-ray test | Call OpenGL |
-| **Thread pool** | Awaited I/O inside `OldTanks.Services.GameManager.Load*`, and `Task.Run` in `Font.CreateFont` | File reads, image decoding, font rasterising. The loads themselves are `async` methods started on the main thread, so OBJ parsing, pixel copying and every GL upload run there, interleaved with frames (§3) | Call OpenGL directly |
+| **Physics thread** (`WorldHandler`, background) | `OldTanks.Windows.MainWindow.InitDefaultObjects` | Every ~5 ms: free-camera movement (skipped while ImGui wants the keyboard: it reads `m_imGuiWantsKeyboard` once per step), mouse look, `OldTanks.Models.World.CollideObjects` (including `Collision.CheckCollision` and `Collision.UpdateCollision`), the picking-ray test | Call OpenGL |
+| **Thread pool** | Awaited I/O inside `OldTanks.Services.GameManager.Load*`, and `Task.Run` in `Font.CreateFont` | File reads, image decoding, font rasterising; the startup continuation (`MainWindow.InitDefaultObjects`), which constructs the default objects' `Collision`s. The loads themselves are `async` methods started on the main thread, so OBJ parsing, pixel copying and every GL upload run there, interleaved with frames (§3) | Call OpenGL directly |
 | **Spawner thread** (`SpawnObjects`, background) | Startup continuation | A 10 000-cube stress test, disabled by an early `return` | — |
+
+With the collision debug view (key `0`) on, the GL thread also calls `OldTanks.Models.WorldObject.ApplyTransformation` (and so `Collision.UpdateCollision`) through `CoolEngine.Services.Misc.CollisionRenderGroup.UpdateCollisionablesData`, while the physics thread does the same ([KI-031](KNOWN-ISSUES.md#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does)). Details: [PHYSICS §5](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md#5-shapes).
 
 The window is created with an OpenGL **4.6** forward-compatible **debug** context; `CoolEngine.Services.Extensions.LoggerExtensions.AddGLMessageHandling` routes GL debug messages to Serilog (errors and performance as `Error`, portability and undefined behaviour as `Warning`).
 

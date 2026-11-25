@@ -18,14 +18,18 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Asset** | A file under `OldTanks/Assets/` loaded at startup: shader, texture, skybox, model, font | [ASSET-PIPELINE](../CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | **Cache key** | The name an asset is stored and fetched under | `CoolEngine.Services.GlobalCache<T>` |
 | **Central package management** | Every NuGet version set once in `Directory.Packages.props` (`ManagePackageVersionsCentrally`); project files list packages without a `Version` | [ARCHITECTURE §1](../ARCHITECTURE.md#1-solution-layout) |
+| **Closest point (sphere × box)** | The point of a box nearest the sphere centre, found by clamping the centre into the box along its axes; the exact sphere × cuboid test | `Collision.SphereCuboidCollisionCheck` |
 | **Collision** | One object's live collision shape and its tests | `CoolEngine.PhysicEngine.Core.Collision.Collision` |
 | **Collision data** | A shape: polygon (vertices and faces) or sphere | `CoolEngine.PhysicEngine.Core.Collision.CollisionData` |
+| **Cuboid** | A box whose edges meet at right angles: the cube, or any scaled and rotated cube. Detected from the model-space shape once | `Collision.FindCuboidAxisFaces` |
 | **Debug view** | Key `0`: collision wireframes instead of textured objects | `CoolEngine.Services.Renderers.CollisionRenderer` |
 | **Dispatcher** | The queue that runs work on the GL thread | `CoolEngine.Services.Threading.Dispatcher` |
 | **Drawable** | Anything the object renderer can draw: a scene, textures, a transform | `CoolEngine.Services.Interfaces.IDrawable` |
+| **Edge × edge axis** | A separating axis perpendicular to one edge of each of two polygons (their cross product); needed besides the face normals to separate boxes that meet edge to edge | `Collision.EdgeAxesCollisionCheckLoop` |
 | **Free camera** | The fly-through camera driven by `WASD`, `Space`, `Shift` | `CoolEngine.GraphicalEngine.Core.Camera.Move` |
 | **GL thread** | The main thread, which owns the OpenGL context | [ARCHITECTURE §2](../ARCHITECTURE.md#2-threads) |
 | **Instanced rendering** | Drawing many copies of a mesh in one call with per-copy data in a buffer; used from the 17th copy with one texture | `ObjectRenderer<T>` |
+| **Inverse-transpose** | The matrix that moves a normal so that it stays perpendicular to its face under uneven scale; the engine uses the cofactor matrix of the linear part (inverse-transpose times determinant) | `Collision.UpdateCollision` |
 | **MCU** | Minimum coded unit: the group of 8×8 blocks (all components) that a JPEG scan codes together; sets the restart-interval step | `CoolEngine.Imaging.Jpeg.JpegDecoder` |
 | **Mesh** | Vertices, texture coordinates, normals and faces of one part of a model | `CoolEngine.GraphicalEngine.Core.Mesh` |
 | **OBB** | Oriented bounding box; the code's name for the polygon tests | `Collision.OBBCollisionCheck` |
@@ -37,7 +41,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Restart interval** | A JPEG's `DRI` setting: after every n MCUs the bit stream resets and an `RSTm` marker follows | `CoolEngine.Imaging.Jpeg.JpegDecoder` |
 | **Reversed Z** | Depth mapped so that the near plane is 1 and the far plane 0, for better float precision; decided for the own math (OT-5) | [plan D7](../plans/ENGINES-AND-TANK-GAME.md#5-open-decisions) |
 | **Rigid body** | Velocity, forces, limits and flags of a physical object | `CoolEngine.PhysicEngine.Core.RigidBody` |
-| **SAT** | Separating-axis test: two convex shapes miss if their projections on some axis do not overlap | `Collision` |
+| **SAT / separating axis** | Separating-axis test: two convex shapes miss if their projections on some axis do not overlap | `Collision` |
 | **Scene** | All meshes of one loaded model | `CoolEngine.GraphicalEngine.Core.Scene` |
 | **Skybox** | A cube-map texture drawn behind everything | `CoolEngine.GraphicalEngine.Core.SkyBox` |
 | **Strict decoding** | A decoder that throws `InvalidDataException` on any nonconforming or damaged data instead of concealing it | [IMAGE-DECODERS §3](../CoolEngine.Imaging/IMAGE-DECODERS.md#3-the-strict-rules) |

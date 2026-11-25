@@ -13,7 +13,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-016, KI-017, KI-024, KI-025, KI-030 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-017, KI-024, KI-025, KI-030, KI-031 |
 
 ## Project Details
 
