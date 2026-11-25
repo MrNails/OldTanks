@@ -20,14 +20,14 @@ Set-Location OldTanks\bin\Debug\net10.0
 .\OldTanks.exe
 ```
 
-Start the game from a folder that contains `Assets/` (the build output does); otherwise the window stays empty. Settings are kept in `%USERPROFILE%\OldTanksProject\AppSettings.json` and the log in `log.txt` next to where the game was started. More in [docs/BUILD.md](docs/BUILD.md).
+Start the game from a folder that contains `Assets/` (the build output does); otherwise the window shows a "Startup failed" message listing what could not be loaded. Settings are kept in `%USERPROFILE%\OldTanksProject\AppSettings.json` and the log in `log.txt` next to where the game was started. More in [docs/BUILD.md](docs/BUILD.md).
 
 ## Controls
 
 | Input | Effect |
 |-------|--------|
-| Mouse button held + move | Look around |
-| Mouse wheel | Zoom |
+| Mouse button held + move | Look around (a press on a debug window does not count) |
+| Mouse wheel | Zoom (scrolls a debug list instead when the cursor is over it) |
 | `W` `A` `S` `D`, `Space`, `Left Shift` | Fly: forward, left, back, right, up, down |
 | `Left Ctrl` (hold) | Fly faster |
 | `0` | Collision debug view |
@@ -35,9 +35,9 @@ Start the game from a folder that contains `Assets/` (the build output does); ot
 | `U` / `I` | Pause physics / advance one step |
 | `R` | Camera back to the origin |
 | `Alt` + `Enter` | Full screen |
-| `Esc` | Quit |
+| `Esc` | Quit (when the key goes down; not while typing in a debug field) |
 
-The **Debug window** spawns, deletes and edits objects; its **Show texture window** button opens the texture picker. Full list: [docs/OldTanks/FEATURES-OVERVIEW.md](docs/OldTanks/FEATURES-OVERVIEW.md).
+The game ignores keys while a debug window is being typed in, dragged or otherwise held. The **Debug window** spawns, deletes and edits objects; its **Show texture window** button opens the texture picker. Full list: [docs/OldTanks/FEATURES-OVERVIEW.md](docs/OldTanks/FEATURES-OVERVIEW.md).
 
 ## Projects
 

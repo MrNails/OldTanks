@@ -53,7 +53,7 @@ Exhaustive for the repository root.
 
 ## Build and run
 
-`dotnet build OldTanks.slnx` (0 errors, 136 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks, the `CoolEngine` tests and the decoder tests (no tests of the game project yet). Details: [docs/BUILD.md](docs/BUILD.md).
+`dotnet build OldTanks.slnx` (0 errors, 131 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks, the `CoolEngine` tests and the decoder tests (no tests of the game project yet). Details: [docs/BUILD.md](docs/BUILD.md).
 
 ## Constraints
 

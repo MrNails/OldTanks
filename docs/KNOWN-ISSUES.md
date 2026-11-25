@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed, read from code); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
@@ -27,9 +27,9 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Closed |
 | [KI-010](#ki-010-control-names-are-not-checked-for-uniqueness) | Control names are not checked for uniqueness | UI | Open |
 | [KI-011](#ki-011-dispatcherpost-swallows-callback-exceptions) | `Dispatcher.Post` swallows callback exceptions | Threads | Closed |
-| [KI-012](#ki-012-startup-continues-after-a-failed-asset-load) | Startup continues after a failed asset load | Startup | Open |
-| [KI-013](#ki-013-window-size-settings-are-ignored) | Window size settings are ignored | Settings | Open |
-| [KI-014](#ki-014-mouse-look-ignores-imgui-focus) | Mouse look ignores ImGui focus | Input | Open |
+| [KI-012](#ki-012-startup-continues-after-a-failed-asset-load) | Startup continues after a failed asset load | Startup | Closed |
+| [KI-013](#ki-013-window-size-settings-are-ignored) | Window size settings are ignored | Settings | Closed |
+| [KI-014](#ki-014-mouse-look-ignores-imgui-focus) | Mouse look ignores ImGui focus | Input | Closed |
 | [KI-015](#ki-015-unhandled-exceptions-are-never-logged) | Unhandled exceptions are never logged | Logging | Closed |
 | [KI-016](#ki-016-polygon-tests-use-face-normals-only) | Polygon tests use face normals only | Physics | Open |
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
@@ -146,34 +146,19 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.Windows.MainWindow.OnLoad` |
-| **Root cause** | The startup work is attached with `Task.WhenAll(...).ContinueWith(...)` without checking the antecedent, so it runs even when a load faulted (for example `DirectoryNotFoundException` when the working directory has no `Assets/`). It then fetches missing cache entries, throws on a thread-pool thread, and nobody observes the exception |
-| **Current state** | Started from the wrong folder, the window stays empty with no error shown ([BUILD §3](BUILD.md#3-run)). Since OT-3 a texture file that is not PNG or JPEG also faults: `CoolEngine.Imaging.ImageDecoder` throws `NotSupportedException` (ImageSharp read BMP, GIF, TGA and WebP too) from `TextureLoader` or `SkyBoxTextureLoader`, and `OldTanks.Services.GameManager.LoadTextures` has no try/catch around it (reasoned from code) |
-| **Remaining check** | Start the game from the repository root and confirm; then check the antecedent and log or show the failure |
-| **Evidence** | `MainWindow.OnLoad`, `GameManager.Load*` |
+| **Status** | Closed on `bug/OT-9` (2026-11-25): a failed asset load now shows a "Startup failed" window and is logged ([BUILD §3](BUILD.md#3-run), [ARCHITECTURE §4](ARCHITECTURE.md#4-startup-and-the-frame)); a texture or skybox file that fails to decode is logged and skipped ([ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md)). |
 
 ## KI-013: Window size settings are ignored
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.Windows.MainWindow` constructors, `OldTanks.DataModels.Settings` |
-| **Root cause** | `Program` uses the `(caption, settings, logger)` constructor, which always passes 800 × 600; `Settings.Width` and `Height` are saved but never read. The next constructor names its parameters `(height, width)` but uses them as (x, y). The `(GameWindowSettings, NativeWindowSettings, …)` constructor also registers the `SettingsService` itself, not the engine settings, under the name `EngineSettings` |
-| **Current state** | The window always opens at 800 × 600 (`FullScreen` is honoured) |
-| **Remaining check** | Build the window size from `Settings`, fix the parameter names, register `m_engineSettings` |
-| **Evidence** | The three `MainWindow` constructors |
+| **Status** | Closed on `bug/OT-9` (2026-11-25): `Settings.Width` and `Height` size the window, a value below 1 falls back to 800 × 600 with a warning, the constructor parameters are width-first and `EngineSettings` is registered ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes)). |
 
 ## KI-014: Mouse look ignores ImGui focus
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `MainWindow.OnMouseDown`, `HandleMouseMove` |
-| **Root cause** | Any mouse button sets the look flag, without asking ImGui whether it wants the mouse (`WantCaptureMouse`) |
-| **Current state** | Dragging a slider or a window in the debug UI also turns the camera |
-| **Remaining check** | Skip mouse look while ImGui captures the mouse |
-| **Evidence** | `OnMouseDown`, `HandleMouseMove` |
+| **Status** | Closed on `bug/OT-9` (2026-11-25): mouse look, wheel zoom and game keys (including the physics thread's camera movement) are skipped while ImGui wants the input ([FEATURES-OVERVIEW §3](OldTanks/FEATURES-OVERVIEW.md#3-controls)). |
 
 ## KI-015: Unhandled exceptions are never logged
 
