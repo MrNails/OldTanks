@@ -32,7 +32,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | `Windows/` | `MainWindow` (the `GameWindow`; HUD fields in `ControlWindows/MainWindow.cs`; its `NativeWindowSettings` use `ClientSize`) |
 | `Models/` | `World`, `WorldObject`, `Cube`, `Sphere`, `Robot` |
 | `Services/` | `GameManager` (asset loading), `LoggerService`, `EngineSettings` (game side), `Constants`, `Misc/TransformableAction` |
-| `UI/ImGuiUI/` | `MainWindow` (debug window, `[BindableClass]`), `TextureWindow`; their controls in `ControlsInitialization/` |
+| `UI/ImGuiUI/` | `MainWindow` (debug window, `[BindableClass]`), `TextureWindow`; their controls in `ControlsInitialization/`; `StartupErrorWindow` (the "Startup failed" window, one file: too small for the two-partial-file window pattern) |
 | `DataModels/`, `Infrastructure/`, `Helpers/` | `Settings`, `CollisionConstants`, `UIVectorHelper` |
 | `Assets/` | `Shaders/`, `Textures/` (+ `SkyBoxes/`), `Models/Default/`, `Fonts/` |
 

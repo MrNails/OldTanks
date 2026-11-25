@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-9; §3 and §5 (input rules, error window) against the code; the rest 2026-11-24, develop at d32cbbf (read from code, not played) |
+| Verified against | 2026-11-25; bug/OT-9; §3 (mouse, wheel and keyboard rules) and §5 (Startup failed window) run in the game on 2026-11-25 ([BUILD §3](../BUILD.md#3-run)); the rest 2026-11-24, develop at d32cbbf (read from code, not played) |
 
 ---
 
@@ -21,6 +21,7 @@ What the game application (`OldTanks/`) does today: the window, the default scen
 | `OldTanks.Models.WorldObject` | `OldTanks/Models/WorldObject.cs` | Base of every object: `IDrawable`, `IPhysicObject`, `IWatchable` |
 | `Cube`, `Sphere`, `Robot` | `OldTanks/Models/` | Concrete objects; `Robot` cannot be built ([KI-007](../KNOWN-ISSUES.md#ki-007-robot-cannot-be-constructed)) |
 | `OldTanks.UI.ImGuiUI.MainWindow`, `TextureWindow` | `OldTanks/UI/ImGuiUI/` | The two ImGui debug windows |
+| `OldTanks.UI.ImGuiUI.StartupErrorWindow` | `OldTanks/UI/ImGuiUI/StartupErrorWindow.cs` | The "Startup failed" window ([§5](#5-debug-windows)) |
 | `OldTanks.DataModels.Settings` | `OldTanks/DataModels/Settings.cs` | The user settings file's model ([BUILD §4](../BUILD.md#4-files-the-game-reads-and-writes)) |
 
 ## 2. The default scene
@@ -42,8 +43,8 @@ Dynamic bodies get max speed 2, back speed 2, multiplier 1, jump force -250; res
 
 | Input | Effect |
 |-------|--------|
-| Hold any mouse button and move | Look around (sensitivity from settings); with a button held, a cursor near the window edge keeps turning the view. Only a press that ImGui does not claim starts it, so pressing on a debug window or dragging a value never turns the camera; once started, it continues over the debug windows |
-| Mouse wheel | Zoom (FOV 20-90°); skipped while ImGui wants the mouse, where the wheel scrolls the ImGui widget instead |
+| Hold any mouse button and move | Look around (sensitivity from settings); with a button held, a cursor near the window edge keeps turning the view. Only a press that ImGui does not claim starts it, so pressing on a debug window or dragging a value never turns the camera; once started, it continues over the debug windows (checked in the game on 2026-11-25: dragging a debug window's title bar, a value or the texture window did not turn the camera, a drag in the 3D view did) |
+| Mouse wheel | Zoom (FOV 20-90°); skipped while ImGui wants the mouse, where the wheel scrolls the ImGui widget instead (checked in the game on 2026-11-25: over the World objects list it scrolled the list, over the 3D view it zoomed) |
 | `W` `A` `S` `D` | Free camera: forward, left, back, right |
 | `Space`, `Left Shift` | Free camera: up, down |
 | `Left Ctrl` (hold) | Free camera 3× speed |
@@ -53,11 +54,11 @@ Dynamic bodies get max speed 2, back speed 2, multiplier 1, jump force -250; res
 | `I` | In step mode, advance one physics step |
 | `R` | Move the camera back to the origin |
 | `Alt` + `Enter` | Toggle full screen |
-| `Esc` | Quit, on the key's press (not while held), and not while ImGui wants the keyboard |
+| `Esc` | Quit, on the key's press (not while held), and not while ImGui wants the keyboard (checked in the game on 2026-11-25: with the Asset path box active it ended the edit and did not quit) |
 | `1` | Switch between free camera and player camera; does nothing while no player is set ([KI-001](../KNOWN-ISSUES.md#ki-001-the-player-is-never-assigned)) |
 | `F`, `O` | Toggle flags nothing reads ([BACKLOG](../BACKLOG.md#unwired-features)) |
 
-**Keyboard rules (since OT-9, `bug/OT-9`, read from code, not played):**
+**Keyboard rules (since OT-9, `bug/OT-9`; the mouse, wheel and keyboard rules were checked in the game on 2026-11-25, [BUILD §3](../BUILD.md#3-run)):**
 
 | Rule | Detail |
 |------|--------|
@@ -92,7 +93,7 @@ Top-left screen text (`OldTanks.UI.Controls.TextBlock`, Arial 16): FPS; collisio
 
 **Texture window** (`OldTanks.UI.ImGuiUI.TextureWindow`): pick one of the object's textured-object infos and one of its meshes, see the current texture, and pick another from the loaded list to retexture that mesh (`TexturedObjectInfo.ChangeTexture`). **Add texture** loads an image from any file path into the cache and the list. The window takes the object selected when it is first opened; later selections reach it through a generated binding.
 
-**Startup failed window** (`OldTanks.Windows.MainWindow.ShowStartupError`, controls `StartupErrorWindow` and `StartupErrorText`): when a startup load or the scene build throws, the game logs each exception as `Error` (console and `log.txt`) and shows this ImGui window on an otherwise empty screen; the debug window is hidden. The text is "Loading the game's assets failed:", one `<ExceptionType>: <Message>` line per exception, then "Details are in the console and log.txt. Press Esc to quit." The window has no working close button (it reappears next frame), `Esc` quits, and no other key does anything. A missing `Assets/` folder gives `DirectoryNotFoundException` lines. ImGui's default font covers Latin-1 only, so other characters show as `?` (the log has the full text). A single texture or skybox file that fails to decode does not show this window: it is logged (`Error loading texture {TextureName}.` or `Error loading skybox {SkyBoxName}.`) and skipped, an object whose texture is missing draws untextured (`Texture.Empty`, like a spawned cube) and a skybox without a texture is not drawn ([ASSET-PIPELINE](../CoolEngine/Services/Loaders/ASSET-PIPELINE.md)).
+**Startup failed window** (`OldTanks.UI.ImGuiUI.StartupErrorWindow`, built by `OldTanks.Windows.MainWindow.ShowStartupError`; its text control is named `StartupErrorWindowText`): when a startup load or the scene build throws, the game logs each exception as `Error` (console and `log.txt`) and shows this ImGui window on an otherwise empty screen; the debug window is hidden. The text is "Loading the game's assets failed:", one `<ExceptionType>: <Message>` line per exception, then "Details are in the console and log.txt. Press Esc to quit." Each frame the window is placed 10 px from the top-left of the client area, its width is the game window's client width (`ClientSize.X`) minus 20 px, its height fits the text, and the text wraps at the window edge, so no line or the close button is cut off (an 800 px client area gave 780 px; before the fix the window sized itself to its longest line, 810 px). It cannot be collapsed. The close button does not work (the window reappears next frame), `Esc` quits, and no other key does anything. The width is not ImGui's `DisplaySize`: `OldTanks.Windows.MainWindow` gives `ImGuiController` the outer window size (`NativeWindow.Size`, 816 px for an 800 px client area), which includes the borders. Checked in the game on 2026-11-25 ([BUILD §3](../BUILD.md#3-run)). A missing `Assets/` folder gives `DirectoryNotFoundException` lines. ImGui's default font covers Latin-1 only, so other characters show as `?` (the log has the full text). A single texture or skybox file that fails to decode does not show this window: it is logged (`Error loading texture {TextureName}.` or `Error loading skybox {SkyBoxName}.`) and skipped, an object whose texture is missing draws untextured (`Texture.Empty`, like a spawned cube) and a skybox without a texture is not drawn ([ASSET-PIPELINE](../CoolEngine/Services/Loaders/ASSET-PIPELINE.md)).
 
 ## 6. Adding a world object type
 

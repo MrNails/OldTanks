@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed, read from code); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
@@ -146,19 +146,19 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Closed on `bug/OT-9` (2026-11-25): a failed asset load now shows a "Startup failed" window and is logged ([BUILD §3](BUILD.md#3-run), [ARCHITECTURE §4](ARCHITECTURE.md#4-startup-and-the-frame)); a texture or skybox file that fails to decode is logged and skipped ([ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md)). |
+| **Status** | Closed on `bug/OT-9` (2026-11-25): a failed asset load now shows a "Startup failed" window and is logged ([BUILD §3](BUILD.md#3-run), [ARCHITECTURE §4](ARCHITECTURE.md#4-startup-and-the-frame)); a texture or skybox file that fails to decode is logged and skipped ([ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md)); confirmed in the running game on 2026-11-25 ([BUILD §3](BUILD.md#3-run)). |
 
 ## KI-013: Window size settings are ignored
 
 | Field | Value |
 |---|---|
-| **Status** | Closed on `bug/OT-9` (2026-11-25): `Settings.Width` and `Height` size the window, a value below 1 falls back to 800 × 600 with a warning, the constructor parameters are width-first and `EngineSettings` is registered ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes)). |
+| **Status** | Closed on `bug/OT-9` (2026-11-25): `Settings.Width` and `Height` size the window, a value below 1 falls back to 800 × 600 with a warning, the constructor parameters are width-first and `EngineSettings` is registered ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes)); confirmed in the running game on 2026-11-25. |
 
 ## KI-014: Mouse look ignores ImGui focus
 
 | Field | Value |
 |---|---|
-| **Status** | Closed on `bug/OT-9` (2026-11-25): mouse look, wheel zoom and game keys (including the physics thread's camera movement) are skipped while ImGui wants the input ([FEATURES-OVERVIEW §3](OldTanks/FEATURES-OVERVIEW.md#3-controls)). |
+| **Status** | Closed on `bug/OT-9` (2026-11-25): mouse look, wheel zoom and game keys (including the physics thread's camera movement) are skipped while ImGui wants the input ([FEATURES-OVERVIEW §3](OldTanks/FEATURES-OVERVIEW.md#3-controls)); confirmed in the running game on 2026-11-25. |
 
 ## KI-015: Unhandled exceptions are never logged
 
