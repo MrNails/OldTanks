@@ -439,6 +439,59 @@ public sealed class CollisionTests
         Assert.That(collides, Is.False);
     }
 
+    [Test]
+    public void CheckCollision_SpheresAroundShearedBox_CuboidAndTriangulatedShapesAgree()
+    {
+        // Rotating before an uneven scale shears the box: its current axes are no longer perpendicular.
+        var shear = Matrix4.CreateRotationZ(0.5f) * Matrix4.CreateScale(2, 0.5f, 1) * Matrix4.CreateRotationX(0.7f) *
+                    Matrix4.CreateTranslation(1, 2, 3);
+        var cuboid = CreatePolygon(CollisionTestShapes.Cube(), shear, s_positionOfM);
+        var triangulated = CreatePolygon(CollisionTestShapes.TriangulatedCube(), shear, s_positionOfM);
+        var random = new Random(1);
+        var mismatches = new List<string>();
+
+        for (var i = 0; i < 2000; i++)
+        {
+            var u = (float)(random.NextDouble() * 6 - 3);
+            var v = (float)(random.NextDouble() * 6 - 3);
+            var w = (float)(random.NextDouble() * 6 - 3);
+            var sphere = CreateSphere(s_positionOfM + new Vector3(u, v, w));
+
+            var cuboidCollides = cuboid.Collision!.CheckCollision(sphere.Collision!, out _, out var cuboidDepth);
+            var triangulatedCollides =
+                triangulated.Collision!.CheckCollision(sphere.Collision!, out _, out var triangulatedDepth);
+
+            if (cuboidCollides != triangulatedCollides)
+                mismatches.Add($"centre {i} ({u}, {v}, {w}): cuboid {cuboidCollides}, triangulated {triangulatedCollides}");
+            else if (cuboidCollides && MathF.Abs(cuboidDepth - triangulatedDepth) > DepthTolerance)
+                mismatches.Add($"centre {i} ({u}, {v}, {w}): depth cuboid {cuboidDepth}, triangulated {triangulatedDepth}");
+        }
+
+        Assert.That(mismatches, Is.Empty);
+    }
+
+    [Test]
+    public void CheckCollision_SphereNearCubeOfZeroWidth_ReturnsEdgeContactWithoutThrowing()
+    {
+        var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.CreateScale(0, 1, 1), Vector3.Zero);
+        var sphere = CreateSphere(new Vector3(0, 1.4f, 0));
+
+        var collides = cube.Collision!.CheckCollision(sphere.Collision!, out var normal, out var depth);
+
+        AssertContact(collides, normal, depth, new Vector3(0, 1, 0), 0.1f);
+    }
+
+    [Test]
+    public void CheckCollision_SphereAtCubeCentre_ReturnsPlusXFaceNormal()
+    {
+        var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
+        var sphere = CreateSphere(Vector3.Zero);
+
+        var collides = cube.Collision!.CheckCollision(sphere.Collision!, out var normal, out var depth);
+
+        AssertContact(collides, normal, depth, new Vector3(1, 0, 0), 1.5f);
+    }
+
     private static CollisionTestPhysicObject CreatePolygon(CollisionData shape, Matrix4 transformation, Vector3 position) =>
         CollisionTestPhysicObject.Create(shape, transformation, position, s_polygonSize);
 

@@ -17,6 +17,9 @@ public class Collision
     // Tolerance of the cuboid detection's comparisons of normals and coordinates.
     private const float CuboidTolerance = 1e-6f;
 
+    // Largest |dot| of two of a cuboid's current axes for the closest-point test; beyond it the box is sheared.
+    private const float CuboidOrthogonalityTolerance = 1e-4f;
+
     private readonly CollisionData m_originalCollision;
     private readonly CollisionData m_currentCollision;
 
@@ -209,9 +212,10 @@ public class Collision
         return kept.ToArray();
     }
 
-    // A cuboid in model space: 8 corners of an axis-aligned box and its 6 faces, one per signed axis. The transform
-    // scales before it rotates (no shear), so the transformed shape is still a cuboid and the closest-point test
-    // is exact for it; any other shape takes the separating-axis fallback.
+    // A cuboid in model space: 8 corners of an axis-aligned box and its 6 faces, one per signed axis. The game's
+    // transform scales before it rotates, which keeps a cuboid a cuboid, but IPhysicObject.Transformation forbids
+    // neither shear nor a zero size, so the current axes are checked on every sphere test (AreAxesPerpendicular):
+    // the closest-point test runs only while they are perpendicular, any other case takes the separating axes.
     private static int[]? FindCuboidAxisFaces(CollisionData shape)
     {
         if (shape.CollisionType != CollisionType.Polygon || shape.Vertices.Length != 8 || shape.Faces.Count != 6)
@@ -468,9 +472,23 @@ public class Collision
     private static bool SpherePolygonCollisionCheck(Collision polygon, CollisionData sphere, out Vector3 normal,
         out float depth)
     {
-        return polygon.m_cuboidAxisFaces is not null
+        return polygon.m_cuboidAxisFaces is not null &&
+               AreAxesPerpendicular(polygon.m_currentCollision, polygon.m_cuboidAxisFaces)
             ? SphereCuboidCollisionCheck(polygon.m_currentCollision, polygon.m_cuboidAxisFaces, sphere, out normal, out depth)
             : SpherePolygonSatCollisionCheck(polygon.m_currentCollision, polygon.m_edges, sphere, out normal, out depth);
+    }
+
+    // The closest-point test is exact only for a box whose current axes are perpendicular: a shear tilts them, and
+    // a zero size makes an axis NaN (every comparison with NaN is false, so NaN fails this check too).
+    private static bool AreAxesPerpendicular(CollisionData cuboid, int[] axisFaces)
+    {
+        var axis0 = cuboid.Faces[axisFaces[0]].Normal;
+        var axis1 = cuboid.Faces[axisFaces[1]].Normal;
+        var axis2 = cuboid.Faces[axisFaces[2]].Normal;
+
+        return MathF.Abs(Vector3.Dot(axis0, axis1)) <= CuboidOrthogonalityTolerance &&
+               MathF.Abs(Vector3.Dot(axis1, axis2)) <= CuboidOrthogonalityTolerance &&
+               MathF.Abs(Vector3.Dot(axis0, axis2)) <= CuboidOrthogonalityTolerance;
     }
 
     // Exact for a cuboid: clamp the sphere centre into the box along the box's three axes to get the closest point.
