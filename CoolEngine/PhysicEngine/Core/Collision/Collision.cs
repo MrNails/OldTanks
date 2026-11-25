@@ -270,7 +270,7 @@ public class Collision
                 depth = intersectionDepth;
             }
             else if (intersectionDepth.ApproximateEqual(depth) &&
-                     face.Indices.Contains((uint)closestFacePointsIndex))
+                     Array.IndexOf(face.Indices, (uint)closestFacePointsIndex) >= 0)
             {
                 normal = face.Normal;
             }
