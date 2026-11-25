@@ -333,6 +333,40 @@ public sealed class CollisionTests
         });
     }
 
+    [Test]
+    public void CheckCollision_CubesEdgeToEdgeWithGap_ReturnsFalse()
+    {
+        var (a, b) = CreateCubesEdgeToEdge(CollisionTestShapes.Cube(), 0.1f);
+
+        var collides = a.Collision!.CheckCollision(b.Collision!, out _, out _);
+
+        Assert.That(collides, Is.False);
+    }
+
+    [Test]
+    public void CheckCollision_CubesEdgeToEdgeOverlapping_ReturnsEdgeAxisAndDepth()
+    {
+        var (a, b) = CreateCubesEdgeToEdge(CollisionTestShapes.Cube(), -0.1f);
+
+        var collides = a.Collision!.CheckCollision(b.Collision!, out var normal, out var depth);
+
+        AssertContact(collides, normal, depth, new Vector3(0.25f, 0.866025f, 0.433013f), 0.1f);
+    }
+
+    [Test]
+    public void CheckCollision_TetrahedronAndCubeEdgeToEdgeWithGap_ReturnsFalse()
+    {
+        var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), s_q, Vector3.Zero);
+        var positionB = Vector3.TransformPosition(new Vector3(0, 1 + s_sqrt2 + 0.1f, 0), s_q);
+        var cube = CreatePolygon(CollisionTestShapes.Cube(),
+            Matrix4.CreateRotationX(MathHelper.PiOver4) * Matrix4.CreateRotationY(MathHelper.PiOver4) * s_q *
+            Matrix4.CreateTranslation(positionB), positionB);
+
+        var collides = tetrahedron.Collision!.CheckCollision(cube.Collision!, out _, out _);
+
+        Assert.That(collides, Is.False);
+    }
+
     private static CollisionTestPhysicObject CreatePolygon(CollisionData shape, Matrix4 transformation, Vector3 position) =>
         CollisionTestPhysicObject.Create(shape, transformation, position, s_polygonSize);
 

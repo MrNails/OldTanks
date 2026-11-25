@@ -8,9 +8,18 @@ namespace CoolEngine.PhysicEngine.Core.Collision;
 
 public class Collision
 {
+    // Below this squared length of the cross product of two unit directions, the two are taken as parallel.
+    private const float ParallelEpsilon = 1e-6f;
+
     private readonly CollisionData m_originalCollision;
     private readonly CollisionData m_currentCollision;
-    
+
+    // Every edge of the original shape as vertex index pairs, A < B; set once in the constructor, never changed.
+    private readonly (uint A, uint B)[] m_edges;
+
+    // Indices into m_edges, one edge per class of parallel edges; set once in the constructor, never changed.
+    private readonly int[] m_edgeDirections;
+
     public Collision(IPhysicObject physicObject, CollisionData originalCollision)
     {
         if (physicObject == null)
@@ -24,7 +33,10 @@ public class Collision
         m_originalCollision = originalCollision;
 
         InitCollision(originalCollision);
-        
+
+        m_edges = FindEdges(originalCollision);
+        m_edgeDirections = FindEdgeDirections(originalCollision, m_edges);
+
         IsActive = true;
         IsDrawing = true;
     }
@@ -78,7 +90,7 @@ public class Collision
          return CollisionData.CollisionType switch
          {
              CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Polygon => 
-                 OBBCollisionCheck(CollisionData, p2CollData, out normal, out depth),
+                 OBBCollisionCheck(this, polygon2, out normal, out depth),
              CollisionType.Polygon when p2CollData.CollisionType == CollisionType.Sphere => 
                  SphereOBBCollisionCheck(CollisionData, p2CollData, out normal, out depth),
              CollisionType.Sphere when p2CollData.CollisionType == CollisionType.Polygon => 
@@ -113,6 +125,77 @@ public class Collision
 
         foreach (var mesh in originalCollision.Faces)
             m_currentCollision.Faces.Add(new Face(mesh.Indices) { Normal = mesh.Normal });
+    }
+
+    // An edge is where two faces meet: they share exactly two vertices and are not coplanar (two triangles of one
+    // split quad share their diagonal, which is not an edge of the shape).
+    private static (uint A, uint B)[] FindEdges(CollisionData shape)
+    {
+        var edges = new List<(uint A, uint B)>();
+        var faces = shape.Faces;
+
+        for (int i = 0; i < faces.Count; i++)
+        {
+            for (int j = i + 1; j < faces.Count; j++)
+            {
+                var sharedCount = 0;
+                uint first = 0;
+                uint second = 0;
+
+                foreach (var index in faces[i].Indices)
+                {
+                    if (Array.IndexOf(faces[j].Indices, index) < 0)
+                        continue;
+
+                    if (sharedCount == 0)
+                        first = index;
+                    else if (sharedCount == 1)
+                        second = index;
+
+                    sharedCount++;
+                }
+
+                if (sharedCount != 2 ||
+                    Vector3.Cross(faces[i].Normal, faces[j].Normal).LengthSquared < ParallelEpsilon)
+                    continue;
+
+                var edge = (Math.Min(first, second), Math.Max(first, second));
+                if (!edges.Contains(edge))
+                    edges.Add(edge);
+            }
+        }
+
+        return edges.ToArray();
+    }
+
+    // Parallel edges give the same edge x edge axes, so one edge per parallel class is enough. Parallelism survives
+    // any affine transform, so classes found in model space hold for the transformed shape.
+    private static int[] FindEdgeDirections(CollisionData shape, (uint A, uint B)[] edges)
+    {
+        var kept = new List<int>();
+
+        for (int k = 0; k < edges.Length; k++)
+        {
+            var direction = Vector3.Normalize(shape.Vertices[edges[k].B] - shape.Vertices[edges[k].A]);
+            var isParallelToKept = false;
+
+            foreach (var keptIndex in kept)
+            {
+                var keptEdge = edges[keptIndex];
+                var keptDirection = Vector3.Normalize(shape.Vertices[keptEdge.B] - shape.Vertices[keptEdge.A]);
+
+                if (Vector3.Cross(direction, keptDirection).LengthSquared < ParallelEpsilon)
+                {
+                    isParallelToKept = true;
+                    break;
+                }
+            }
+
+            if (!isParallelToKept)
+                kept.Add(k);
+        }
+
+        return kept.ToArray();
     }
 
     private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResultPoint)
@@ -202,20 +285,68 @@ public class Collision
         return distance <= radii;
     }
 
-    private static bool OBBCollisionCheck(CollisionData polygon1, CollisionData polygon2, out Vector3 normal, out float depth)
+    private static bool OBBCollisionCheck(Collision polygon1, Collision polygon2, out Vector3 normal, out float depth)
     {
         normal = Vector3.Zero;
         depth = float.MaxValue;
 
+        var polygon1Data = polygon1.CollisionData;
+        var polygon2Data = polygon2.CollisionData;
 
-        if (!OBBCollisionCheckLoop(polygon1, polygon2, ref normal, ref depth)) 
-            return false;
-        
-        if (!OBBCollisionCheckLoop(polygon2, polygon1, ref normal, ref depth)) 
+        if (!OBBCollisionCheckLoop(polygon1Data, polygon2Data, ref normal, ref depth))
             return false;
 
-        if (Vector3.Dot(polygon2.PhysicObject.Position - polygon1.PhysicObject.Position, normal) < 0)
+        if (!OBBCollisionCheckLoop(polygon2Data, polygon1Data, ref normal, ref depth))
+            return false;
+
+        // Face normals alone miss shapes whose edges pass each other skewed: they overlap on every face axis
+        // across a gap. The edge x edge axes close that hole; ties stay with the face axes found first.
+        if (!EdgeAxesCollisionCheckLoop(polygon1, polygon2, ref normal, ref depth))
+            return false;
+
+        if (Vector3.Dot(polygon2Data.PhysicObject.Position - polygon1Data.PhysicObject.Position, normal) < 0)
             normal = -normal;
+
+        return true;
+    }
+
+    private static bool EdgeAxesCollisionCheckLoop(Collision polygon1, Collision polygon2, ref Vector3 normal,
+        ref float depth)
+    {
+        var vertices1 = polygon1.m_currentCollision.Vertices;
+        var vertices2 = polygon2.m_currentCollision.Vertices;
+
+        foreach (var edgeIndex1 in polygon1.m_edgeDirections)
+        {
+            var edge1 = polygon1.m_edges[edgeIndex1];
+            var direction1 = Vector3.Normalize(vertices1[edge1.B] - vertices1[edge1.A]);
+
+            foreach (var edgeIndex2 in polygon2.m_edgeDirections)
+            {
+                var edge2 = polygon2.m_edges[edgeIndex2];
+                var direction2 = Vector3.Normalize(vertices2[edge2.B] - vertices2[edge2.A]);
+
+                var axis = Vector3.Cross(direction1, direction2);
+                // Parallel edges span no axis; their face axes were tested already.
+                if (axis.LengthSquared < ParallelEpsilon)
+                    continue;
+
+                axis = Vector3.Normalize(axis);
+
+                ProjectionMinMaxVertices(axis, vertices1, out var poly1Min, out var poly1Max);
+                ProjectionMinMaxVertices(axis, vertices2, out var poly2Min, out var poly2Max);
+
+                if (poly1Min >= poly2Max || poly2Min >= poly1Max)
+                    return false;
+
+                var overlap = Math.Min(poly2Max - poly1Min, poly1Max - poly2Min);
+                if (overlap < depth)
+                {
+                    normal = axis;
+                    depth = overlap;
+                }
+            }
+        }
 
         return true;
     }
