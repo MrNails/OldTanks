@@ -153,10 +153,9 @@ public partial class MainWindow
     {
         m_imGuiMainWindow.IsVisible = false;
 
-        m_startupErrorWindow = new ImGuiWindow("StartupErrorWindow")
+        m_startupErrorWindow = new UI.ImGuiUI.StartupErrorWindow("StartupErrorWindow", message, () => ClientSize.X)
         {
-            Title = "Startup failed",
-            Child = new ImGuiTextBlock("StartupErrorText") { Text = message }
+            Title = "Startup failed"
         };
 
         m_startupErrorWindow.Show();
