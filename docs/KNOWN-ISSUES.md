@@ -4,13 +4,13 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-13 rebased on master at 8ded8f4 (KI-016 and KI-022 closed there; KI-022's fix confirmed by a 12 s run of the game on 2026-11-25 with no `InitCollision error` line on the console or in `log.txt`, KI-016's by tests; KI-031 read from code); bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 (before its fix) observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review). KI-026 to KI-029 come from reading the UI controls for OT-10 (2026-11-25, reasoned from code, not observed), KI-030 from the OT-12 review (2026-11-25, reasoned from code, not observed); KI-030's number is provisional while parallel bug branches add KIs, and final numbers follow merge order. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`), KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`) and KI-010 and KI-018 in OT-10 (`bug/OT-10`); they are closed stubs. The remaining check of each entry says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, KI-022 on `bug/OT-13`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review). KI-026 to KI-029 come from reading the UI controls for OT-10 (2026-11-25, reasoned from code, not observed), KI-030 from the OT-12 review (2026-11-25, reasoned from code, not observed); KI-030's number is provisional while parallel bug branches add KIs, and final numbers follow merge order. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`), KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`) and KI-010 and KI-018 in OT-10 (`bug/OT-10`) and KI-016 and KI-022 in OT-13 (`bug/OT-13`); they are closed stubs. KI-031 comes from the OT-13 review (2026-11-25, reasoned from code, not observed). The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -31,13 +31,13 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-013](#ki-013-window-size-settings-are-ignored) | Window size settings are ignored | Settings | Closed |
 | [KI-014](#ki-014-mouse-look-ignores-imgui-focus) | Mouse look ignores ImGui focus | Input | Closed |
 | [KI-015](#ki-015-unhandled-exceptions-are-never-logged) | Unhandled exceptions are never logged | Logging | Closed |
-| [KI-016](#ki-016-polygon-tests-use-face-normals-only) | Polygon tests use face normals only | Physics | Open |
+| [KI-016](#ki-016-polygon-tests-use-face-normals-only) | Polygon tests use face normals only | Physics | Closed |
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
 | [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Closed |
 | [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Closed |
 | [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Closed |
 | [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Closed |
-| [KI-022](#ki-022-initcollision-prints-an-error-twice-at-startup) | InitCollision prints an error twice at startup | Physics | Open |
+| [KI-022](#ki-022-initcollision-prints-an-error-twice-at-startup) | InitCollision prints an error twice at startup | Physics | Closed |
 | [KI-023](#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end) | PNG decoding cannot see a zlib stream's missing end | Assets | Open |
 | [KI-024](#ki-024-objectrenderert-drops-a-drawable-whose-texture-is-new-to-a-fully-instanced-scene) | `ObjectRenderer<T>` drops a drawable whose texture is new to a fully instanced scene | Rendering | Open |
 | [KI-025](#ki-025-objectrenderert-can-keep-one-scene-texture-on-both-paths) | `ObjectRenderer<T>` can keep one scene texture on both paths | Rendering | Open |
@@ -46,6 +46,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-028](#ki-028-imguilistboxtselectedindex-accepts-itemscount) | `ImGuiListBox<T>.SelectedIndex` accepts `Items.Count` | UI | Open |
 | [KI-029](#ki-029-a-control-renamed-after-construction-bypasses-the-name-check) | A control renamed after construction bypasses the name check | UI | Open |
 | [KI-030](#ki-030-a-malformed-last-v-vt-or-vn-line-drops-the-last-mesh-of-an-obj-file) | A malformed last v, vt or vn line drops the last mesh of an OBJ file | Assets | Open |
+| [KI-031](#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does) | The collision debug view transforms objects on the GL thread while the physics thread does | Threads, physics | Open |
 
 ---
 
@@ -165,12 +166,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `CoolEngine.PhysicEngine.Core.Collision.Collision`: polygon × polygon and polygon × sphere |
-| **Root cause** | The separating-axis tests try only the shapes' face normals. Boxes also need the cross products of their edge directions, and a sphere near a box corner needs the corner-to-centre axis |
-| **Current state** | Rotated boxes meeting edge to edge, and spheres at box corners, can report contact where there is a gap |
-| **Remaining check** | Place two cubes rotated 45° about different axes edge to edge and watch the debug view; add the missing axes |
-| **Evidence** | `OBBCollisionCheckLoop`, `SphereOBBCollisionCheck` |
+| **Status** | Closed: fixed on `bug/OT-13` (2026-11-25): edge × edge axes for polygon × polygon, an exact closest-point test for cuboid × sphere and a vertex and edge axis fallback for other shapes ([PHYSICS-AND-COLLISIONS §4](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md#4-detection)) |
 
 ## KI-017: GL objects are deleted from finalizers
 
@@ -212,12 +208,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `CoolEngine.PhysicEngine.Core.Collision.Collision.InitCollision` |
-| **Root cause** | Not analysed. The message is `InitCollision error. Cannot copy mesh from original collision because there are no vertices.` |
-| **Current state** | Printed twice at startup with `Console.WriteLine` (not through Serilog), seen in the smoke run of 2026-11-25; the scene still builds. Whether it predates OT-3 is not established, though the physics code is unchanged from `master` |
-| **Remaining check** | Break on the message at startup, find which collisions have no vertices, and decide whether the message or the data is wrong |
-| **Evidence** | The console capture of 2026-11-25 |
+| **Status** | Closed: fixed on `bug/OT-13` (2026-11-25): a sphere copies nothing silently, a polygon without vertices throws `ArgumentException` from the `Collision` constructor ([PHYSICS-AND-COLLISIONS §5](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md#5-shapes)) |
 
 ## KI-023: PNG decoding cannot see a zlib stream's missing end
 
@@ -306,3 +297,14 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Current state** | When the last data line of the file is a `v`, `vt` or `vn` line whose number does not parse, the last mesh is dropped; a one-object file then caches a `Scene` with no meshes. Latent: the shipped assets parse. Reasoned from code, not observed. Whether to keep the mesh, drop the model or throw is Denys's decision |
 | **Remaining check** | Write an OBJ whose last line is a malformed `v` line, load it and look at the cached scene's meshes |
 | **Evidence** | `WaveFrontLoader.LoadAsset`; found by the OT-12 review on 2026-11-25 |
+
+## KI-031: The collision debug view transforms objects on the GL thread while the physics thread does
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.Services.Renderers.CollisionRenderer`, `CoolEngine.Services.Misc.CollisionRenderGroup.UpdateCollisionablesData`, `OldTanks.Models.WorldObject.ApplyTransformation`, `CoolEngine.PhysicEngine.Core.Collision.Collision.UpdateCollision` |
+| **Root cause** | While the collision debug view (key `0`) is on, `CollisionRenderGroup.UpdateCollisionablesData` calls `WorldObject.ApplyTransformation` on the GL thread. It rewrites `m_transform`, `m_haveTransformation` and the collision's current vertices and normals, which the physics thread (`World.CollideObjects`) reads and writes at the same time, without a lock. Pre-existing, not caused by OT-13; found by the OT-13 review |
+| **Current state** | Reasoned from code, not observed. The physics thread can read a half-updated transform or collision (for example new vertices with old normals) for one pair test, and both threads can write the same arrays |
+| **Remaining check** | Let only the physics thread apply transformations and have the renderer read a snapshot, or guard both with one lock; then watch the debug view with many moving objects |
+| **Evidence** | The call chain `CollisionRenderer` → `CollisionRenderGroup.UpdateCollisionablesData` → `WorldObject.ApplyTransformation` → `Collision.UpdateCollision`, against `World.CollideObjects` (OT-13 review, 2026-11-25) |

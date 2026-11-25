@@ -48,7 +48,7 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 - **OpenTK.Mathematics** (`Vector3`, `Matrix4`, `Quaternion`) everywhere in the engine and the game.
 - **System.Numerics** only in ImGui controls, because ImGui.NET takes those types.
 - **Convert at the boundary** with `CoolEngine.Services.Extensions.VectorExtensions` (`ToGLVector3`, `ToSystemVector3`, and the `Vector2` pair), and with `OldTanks.Helpers.UIVectorHelper` where the UI shows degrees and the object stores radians.
-- **Float comparison:** `Common.Extensions.PrimitiveExtensions.ApproximateEqual` **with an explicit epsilon**. Its default, `float.Epsilon` (about 1.4e-45), makes it an exact comparison, and the existing callers (`Sphere`, `Collision.SphereOBBCollisionCheck`) rely on that default.
+- **Float comparison:** `Common.Extensions.PrimitiveExtensions.ApproximateEqual` **with an explicit epsilon**. Its default, `float.Epsilon` (about 1.4e-45), makes it an exact comparison, and the existing callers (`Sphere`, `Collision.SpherePolygonSatCollisionCheck`) rely on that default.
 
 ## Logging
 
