@@ -54,10 +54,8 @@ public sealed class WaveFrontLoader : IAssetLoader
         
         using (var reader = new StreamReader(path, Encoding.UTF8))
         {
-            for (int currLine = 1; !reader.EndOfStream; currLine++)
+            for (int currLine = 1; await reader.ReadLineAsync() is { } line; currLine++)
             {
-                var line = await reader.ReadLineAsync();
-
                 if (line.StartsWith('#'))
                     continue;
                 if (HandleHeader(line, s_splitSeparator, out var handledData, out var dataType))
