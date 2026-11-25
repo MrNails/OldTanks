@@ -33,6 +33,9 @@ namespace OldTanks.Windows;
 
 public partial class MainWindow : GameWindow
 {
+    private const int DefaultClientWidth = 800;
+    private const int DefaultClientHeight = 600;
+
     private readonly List<Control> m_controls;
     private readonly SettingsService m_settingsService;
     private readonly ControlHandler m_controlHandler;
@@ -80,21 +83,16 @@ public partial class MainWindow : GameWindow
     private Vector3 m_rotation;
 
     public MainWindow(string caption, SettingsService settingsService, LoggerService logger)
-        : this(800, 600, caption, settingsService, logger)
+        : this(GameWindowSettings.Default,
+            CreateNativeWindowSettings(GetClientSize(settingsService), caption),
+            settingsService, logger)
     {
     }
 
-    public MainWindow(int height, int width, string caption,
+    public MainWindow(int width, int height, string caption,
         SettingsService settingsService, LoggerService logger)
         : this(GameWindowSettings.Default,
-            new NativeWindowSettings
-            {
-                ClientSize = new Vector2i(height, width),
-                Title = caption,
-                APIVersion = new Version(4, 6),
-                Flags = ContextFlags.ForwardCompatible
-                        | ContextFlags.Debug
-            },
+            CreateNativeWindowSettings(new Vector2i(width, height), caption),
             settingsService, logger)
     {
     }
@@ -123,7 +121,7 @@ public partial class MainWindow : GameWindow
 
         m_freeCamMode = true;
         m_engineSettings = new Services.EngineSettings();
-        m_settingsService.SetRuntimeSettings(nameof(Services.EngineSettings), m_settingsService);
+        m_settingsService.SetRuntimeSettings(nameof(Services.EngineSettings), m_engineSettings);
 
         EngineSettings.Current.CollisionIterations = 5;
 
@@ -135,6 +133,34 @@ public partial class MainWindow : GameWindow
         m_controlHandler = new ControlHandler();
         m_imGuiMainWindow = new UI.ImGuiUI.MainWindow("DebugWindow", m_gameManager)
             { Title = "Debug window", IsVisible = true };
+    }
+
+    private static Vector2i GetClientSize(SettingsService settingsService)
+    {
+        var settings = settingsService.GetDefaultSettings<Settings>();
+
+        if (settings.Width < 1 || settings.Height < 1)
+        {
+            Log.Logger.Warning(
+                "Window size {Width}x{Height} in the settings is not valid; using {DefaultWidth}x{DefaultHeight}.",
+                settings.Width, settings.Height, DefaultClientWidth, DefaultClientHeight);
+
+            return new Vector2i(DefaultClientWidth, DefaultClientHeight);
+        }
+
+        return new Vector2i(settings.Width, settings.Height);
+    }
+
+    private static NativeWindowSettings CreateNativeWindowSettings(Vector2i clientSize, string caption)
+    {
+        return new NativeWindowSettings
+        {
+            ClientSize = clientSize,
+            Title = caption,
+            APIVersion = new Version(4, 6),
+            Flags = ContextFlags.ForwardCompatible
+                    | ContextFlags.Debug
+        };
     }
 
     #region Overloads
