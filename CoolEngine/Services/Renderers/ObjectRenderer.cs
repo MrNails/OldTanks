@@ -22,7 +22,7 @@ file static class ObjectRendererConstants
     public const int DefaultMaxInstancedElements_ = 32;
     public const int MaxPerInstanceElements_ = 15;
     
-    public static readonly Vector4 DefaultEmptyTextureColor_ = new Vector4(0xAA, 0x55, 0x6F, 1);
+    public static readonly Vector4 DefaultEmptyTextureColor_ = new Vector4(0xAA / 255f, 0x55 / 255f, 0x6F / 255f, 1f);
 }
 
 //TODO: Add TextureChanged event to drawable and subscribe on it for texture changing

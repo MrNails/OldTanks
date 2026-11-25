@@ -15,6 +15,8 @@ public sealed class ObjectRendererTests
 {
     private const float Tolerance = 1e-6f;
 
+    private static readonly Vector4 s_emptyTextureColor = new Vector4(0xAA / 255f, 0x55 / 255f, 0x6F / 255f, 1f);
+
     #region FillInstanceRecords
 
     [Test]
@@ -87,6 +89,32 @@ public sealed class ObjectRendererTests
             CreateTextureDatas(scene, drawables), false, records);
 
         Assert.That(count, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void FillInstanceRecords_UntexturedDrawable_UsesEmptyTextureColorInZeroToOneRange()
+    {
+        var scene = CreateScene();
+        var drawables = new List<FakeDrawable> { CreateDrawable(scene, Texture.Empty) };
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[1];
+
+        ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), true, records);
+
+        AssertEmptyTextureRecord(records[0]);
+    }
+
+    [Test]
+    public void FillInstanceRecords_TexturedDrawableOnMeshWithoutTextureCoords_UsesEmptyTextureColor()
+    {
+        var scene = CreateScene();
+        var drawables = new List<FakeDrawable> { CreateDrawable(scene, CreateTexture(7)) };
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[1];
+
+        ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), false, records);
+
+        AssertEmptyTextureRecord(records[0]);
     }
 
     [Test]
@@ -172,6 +200,18 @@ public sealed class ObjectRendererTests
     #endregion
 
     #region Helpers
+
+    private static void AssertEmptyTextureRecord(ObjectRenderer<FakeDrawable>.ModelData record)
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(record.Color.X, Is.EqualTo(s_emptyTextureColor.X).Within(Tolerance));
+            Assert.That(record.Color.Y, Is.EqualTo(s_emptyTextureColor.Y).Within(Tolerance));
+            Assert.That(record.Color.Z, Is.EqualTo(s_emptyTextureColor.Z).Within(Tolerance));
+            Assert.That(record.Color.W, Is.EqualTo(s_emptyTextureColor.W).Within(Tolerance));
+            Assert.That(record.HaveTexture, Is.EqualTo(0f).Within(Tolerance));
+        });
+    }
 
     private static Scene CreateScene()
     {
