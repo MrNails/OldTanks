@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living - open work, unwired features, debt |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (the warning count and the ImGui.NET item), bug/OT-7 (the new render-exception item against the code) and bug/OT-6 for the shader items; the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (the code-tests item); bug/OT-9 on master at d749ec8 (the warning count and the ImGui.NET item), bug/OT-7 (the new render-exception item against the code) and bug/OT-6 for the shader items; the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -33,7 +33,7 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 - **Keep ImGui.NET inside `OldTanks.UI`.** `OldTanks.Windows.MainWindow` calls ImGui.NET directly (`ImGui.GetIO()`, for `WantCaptureMouse` and `WantCaptureKeyboard`, OT-9); pass-through properties on `OldTanks.UI.Services.ImGUI.ImGuiController` would let the game project drop `using ImGuiNET`.
 - **Stop tracking `OldTanks.slnx.DotSettings.user`.** It is a per-user Rider file.
 - ~~**Docs check.**~~ Done in OT-1: `tests/OldTanks.Docs.Tests` ([DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)).
-- **Add code tests and CI.** In the engine only `ObjectRenderer<T>` (OT-7) and the dispatcher (OT-8) are tested (`tests/CoolEngine.Tests`, 2026-11-25); no game code is tested and there is no workflow. The first useful tests are pure logic: `Collision` tests, `RigidBody.OnTick`, the OBJ loader on the repository's models, `SettingsService`, and a snapshot of the binding generator's output (KI-021 showed only as compiler warnings). A CI workflow would run `dotnet build` and `dotnet test` on pull requests.
+- **Add code tests and CI.** In the engine only `ObjectRenderer<T>` (OT-7), the dispatcher (OT-8) and `Scene` (OT-12) are tested (`tests/CoolEngine.Tests`, 2026-11-25); no game code is tested and there is no workflow. The first useful tests are pure logic: `Collision` tests, `RigidBody.OnTick`, the OBJ loader on the repository's models, `SettingsService`, and a snapshot of the binding generator's output (KI-021 showed only as compiler warnings). A CI workflow would run `dotnet build` and `dotnet test` on pull requests.
 
 ## Unwired features
 
