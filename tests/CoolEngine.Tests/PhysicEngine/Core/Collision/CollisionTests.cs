@@ -234,16 +234,20 @@ public sealed class CollisionTests
         var (cubeA, cubeB) = CreateCubesEdgeToEdge(CollisionTestShapes.Cube(), -0.1f);
         var cube = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
         var cubeSphere = CreateSphereOffVertex(new Vector3(1, 1, 1), 0.4f);
+        // Not a cuboid: takes the separating axes, whose face loop ties at a corner and reaches the tie-break.
+        var triangulatedCube = CreatePolygon(CollisionTestShapes.TriangulatedCube(), Matrix4.Identity, Vector3.Zero);
         var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), Matrix4.Identity, Vector3.Zero);
         var tetrahedronSphere = CreateSphere(new Vector3(-0.564273f, -0.564273f, -0.564273f));
         var cubeACollision = cubeA.Collision!;
         var cubeBCollision = cubeB.Collision!;
         var cubeCollision = cube.Collision!;
         var cubeSphereCollision = cubeSphere.Collision!;
+        var triangulatedCubeCollision = triangulatedCube.Collision!;
         var tetrahedronCollision = tetrahedron.Collision!;
         var tetrahedronSphereCollision = tetrahedronSphere.Collision!;
         cubeACollision.CheckCollision(cubeBCollision, out _, out _);
         cubeCollision.CheckCollision(cubeSphereCollision, out _, out _);
+        triangulatedCubeCollision.CheckCollision(cubeSphereCollision, out _, out _);
         tetrahedronCollision.CheckCollision(tetrahedronSphereCollision, out _, out _);
         cubeACollision.UpdateCollision();
 
@@ -252,6 +256,7 @@ public sealed class CollisionTests
         {
             cubeACollision.CheckCollision(cubeBCollision, out _, out _);
             cubeCollision.CheckCollision(cubeSphereCollision, out _, out _);
+            triangulatedCubeCollision.CheckCollision(cubeSphereCollision, out _, out _);
             tetrahedronCollision.CheckCollision(tetrahedronSphereCollision, out _, out _);
             cubeACollision.UpdateCollision();
         }
@@ -432,7 +437,7 @@ public sealed class CollisionTests
     public void CheckCollision_SphereOffTetrahedronEdgeWithGap_ReturnsFalse()
     {
         var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), Matrix4.Identity, Vector3.Zero);
-        var sphere = CreateSphere(new Vector3(-0.158293f, 1.474880f, 0.158293f));
+        var sphere = CreateSphere(new Vector3(0.243214f, 1.470358f, 0.556786f));
 
         var collides = tetrahedron.Collision!.CheckCollision(sphere.Collision!, out _, out _);
 
