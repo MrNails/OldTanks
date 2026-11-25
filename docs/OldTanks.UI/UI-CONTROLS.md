@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; whole page |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
 
 ---
 
@@ -31,7 +31,7 @@ These are not drawn by the handler: the owner keeps them in a list and calls `Dr
 
 ## 3. ImGui controls (`OldTanks.UI.ImGuiControls`)
 
-Each wraps one ImGui widget, keeps its state between frames and raises events with a typed sender (`Common.Infrastructure.Delegates.EventHandler<TSender, TArg>`). Vector values use `System.Numerics` types; convert to OpenTK at the boundary ([CODE-STYLE](../CODE-STYLE.md#math-types)).
+Each wraps one ImGui widget, keeps its state between frames and raises events with a typed sender (`System.EventHandler<TSender, TEventArgs>`, .NET 10's; `Common`'s own delegate of that shape was deleted in OT-3). Vector values use `System.Numerics` types; convert to OpenTK at the boundary ([CODE-STYLE](../CODE-STYLE.md#math-types)).
 
 | Control | State and events |
 |---------|------------------|
@@ -63,9 +63,9 @@ Setting `Width` pushes an ImGui item width that is never popped ([KI-018](../KNO
 
 | Call | When the game makes it |
 |------|------------------------|
-| `Update(window, dt)` | Every update frame: ends the previous ImGui frame, feeds mouse, keyboard and typed characters, starts a new frame |
+| `Update(window, dt)` | Every update frame: ends the previous ImGui frame, feeds mouse, keyboard and typed characters, starts a new frame. Since OT-3 input goes through ImGui's event API: `AddMousePosEvent`, `AddMouseButtonEvent` (left, right, middle), `AddKeyEvent` for every OpenTK key with an `ImGuiKey` counterpart (`TranslateKey`) plus the `ModCtrl`, `ModShift`, `ModAlt` and `ModSuper` keys, and `AddInputCharacter` for typed text (ImGui.NET 1.91 removed `KeyMap` and `KeysDown`) |
 | `Render()` | Last in every render frame |
-| `PressChar`, `MouseScroll` | From the window's text-input and mouse-wheel events |
+| `PressChar`, `MouseScroll` | From the window's text-input and mouse-wheel events (`MouseScroll` calls `AddMouseWheelEvent`) |
 | `WindowResized` | On resize |
 
 The game never disposes the controller.

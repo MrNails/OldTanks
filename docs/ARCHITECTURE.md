@@ -3,36 +3,38 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; whole page |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; §1 against the project files and Directory.Packages.props, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
-How the five projects fit together, which thread does what, and the process-wide state everything leans on. Feature detail lives on the feature pages linked from each section.
+How the six projects fit together, which thread does what, and the process-wide state everything leans on. Feature detail lives on the feature pages linked from each section.
 
 ## 1. Solution layout
 
-`OldTanks.sln`, five SDK-style projects, all `net7.0` except the generator, plus the test project `tests/OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)).
+`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus two test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
 
 | Project | Type | Target | Role |
 |---------|------|--------|------|
-| `Common` | Library | `net7.0` | Dependency-free helpers: `Common.Models.ObservableObject`, `Common.Services.SettingsService` (JSON settings), typed-sender `Common.Infrastructure.Delegates.EventHandler<TSender, TArg>`, `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`, math and collection extensions |
-| `CoolEngine` | Library | `net7.0`, unsafe allowed, C# 11 | The engine: OpenGL rendering, asset loaders, physics and collision detection, the dispatcher, global caches |
-| `OldTanks.UI` | Library | `net7.0` | UI layer over the engine: the `ControlHandler`, screen-text controls, ImGui control wrappers, the ImGui renderer |
+| `Common` | Library | `net10.0` | Dependency-free helpers: `Common.Models.ObservableObject`, `Common.Services.SettingsService` (JSON settings), `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`, math and collection extensions. Its own typed-sender `EventHandler<TSender, TArg>` was deleted in OT-3 in favour of .NET 10's `System.EventHandler<TSender, TEventArgs>` |
+| `CoolEngine.Imaging` | Library | `net10.0` | Strict PNG and JPEG decoders into RGBA8; no dependencies ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md)) |
+| `CoolEngine` | Library | `net10.0`, unsafe allowed, C# latest | The engine: OpenGL rendering, asset loaders, physics and collision detection, the dispatcher, global caches |
+| `OldTanks.UI` | Library | `net10.0` | UI layer over the engine: the `ControlHandler`, screen-text controls, ImGui control wrappers, the ImGui renderer |
 | `OldTanks.UI.SourceGenerators` | Roslyn source generator | `netstandard2.0` | Generates two-way bindings for the ImGui debug window from attributes ([BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md)) |
-| `OldTanks` | Console exe | `net7.0`, C# 11 | The game: `Program`, the OpenTK window, the world and its objects, the ImGui debug windows, the `Assets/` folder |
+| `OldTanks` | Console exe | `net10.0`, C# latest | The game: `Program`, the OpenTK window, the world and its objects, the ImGui debug windows, the `Assets/` folder |
 
 **References** (exactly as in the `.csproj` files):
 
 | Project | References |
 |---------|-----------|
 | `Common` | none |
-| `CoolEngine` | `Common` |
+| `CoolEngine.Imaging` | none (no packages either) |
+| `CoolEngine` | `Common`, `CoolEngine.Imaging` |
 | `OldTanks.UI` | `Common`, `CoolEngine` |
 | `OldTanks.UI.SourceGenerators` | none (Roslyn packages only) |
 | `OldTanks` | `CoolEngine`, `OldTanks.UI`, and `OldTanks.UI.SourceGenerators` with `OutputItemType="Analyzer"` (it runs as a generator and its attribute types are also referenced) |
 
-**Packages:** `CoolEngine` has OpenTK 4.8.1, FreeTypeSharp 1.1.3, SixLabors.ImageSharp 3.1.3, Serilog 3.0.1 (+ `Sinks.File` 5.0.0, `Sinks.FastConsole` 2.4.0) and MIConvexHull 1.1.19.1019 (referenced, not used by any code). `OldTanks.UI` has ImGui.NET 1.89.9.3 and OpenTK 4.8.1. `OldTanks` adds `Serilog.Sinks.Console` 4.1.0. The generator uses `Microsoft.CodeAnalysis.CSharp` 4.7.0. Versions sit on each `<PackageReference>`; there is no central package management.
+**Packages** (versions as of 2026-11-25): `CoolEngine` has OpenTK 4.9.4, FreeTypeSharp 3.1.0, Serilog 4.4.0 and `Serilog.Sinks.File` 7.0.0. `OldTanks.UI` has ImGui.NET 1.91.6.1 and OpenTK 4.9.4. `OldTanks` adds `Serilog.Sinks.Console` 6.1.1. The generator uses `Microsoft.CodeAnalysis.CSharp` and `Microsoft.CodeAnalysis.Analyzers` 5.9.0, held at the Roslyn of SDK 10.0.401 (a generator built against a newer one does not load, CS9057). The test projects use Microsoft.NET.Test.Sdk 18.12.0, NUnit 5.0.0, NUnit.Analyzers 4.15.0 and NUnit3TestAdapter 6.3.1; the imaging tests also SixLabors.ImageSharp 4.1.4 and System.Drawing.Common 11.0.0 (reference decoders, never referenced by a runtime project). **Central package management:** every version is set once in `Directory.Packages.props` at the repository root; project files list `<PackageReference>` without a `Version`. MIConvexHull, `Serilog.Sinks.FastConsole` and SixLabors.ImageSharp (in the engine) were removed in OT-3.
 
 ## 2. Threads
 

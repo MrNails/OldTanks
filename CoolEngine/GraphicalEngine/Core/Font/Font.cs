@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using CoolEngine.Services;
 using FreeTypeSharp;
-using FreeTypeSharp.Native;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using Serilog;
@@ -70,7 +69,7 @@ public class Font
 
             var loadedData = await Task.Run(() =>
             {
-                var newFaceResp = FT.FT_New_Face(lib.Native, path, 0, out facePtr);
+                var newFaceResp = NewFace(lib, path, out facePtr);
 
                 if (newFaceResp != FT_Error.FT_Err_Ok)
                 {
@@ -79,14 +78,14 @@ public class Font
                     return (null, null);
                 }
 
-                var face = new FreeTypeFaceFacade(lib, facePtr);
+                var face = CreateFaceFacade(lib, facePtr);
 
-                var pixelSizeResp = FT.FT_Set_Pixel_Sizes(facePtr, 0, (uint)pixelHeight);
+                var pixelSizeResp = SetPixelHeight(facePtr, (uint)pixelHeight);
 
                 if (pixelSizeResp != FT_Error.FT_Err_Ok)
                 {
                     logger.Warning("Error setting pixel size. {Error} ({ErrorCode:X})", 
-                        newFaceResp, (int)newFaceResp);
+                        pixelSizeResp, (int)pixelSizeResp);
                     return (null, null);
                 }
 
@@ -121,13 +120,48 @@ public class Font
         {
             if (facePtr != IntPtr.Zero)
             {
-                FT.FT_Done_Face(facePtr);
+                DoneFace(facePtr);
                 lib.Dispose();
             }
         }
 
         return null;
     }
+
+    // FreeTypeSharp 3 exposes the native API with pointer types. The handles stay IntPtr in the async code above,
+    // which cannot hold a pointer across an await, and become pointers only inside these helpers.
+    // The path goes in the ANSI code page because FreeType opens it with fopen.
+    private static unsafe FT_Error NewFace(FreeTypeLibrary lib, string path, out IntPtr facePtr)
+    {
+        var pathPtr = Marshal.StringToHGlobalAnsi(path);
+
+        try
+        {
+            FT_FaceRec_* face;
+            var error = FT.FT_New_Face(lib.Native, (byte*)pathPtr, IntPtr.Zero, &face);
+            facePtr = (IntPtr)face;
+
+            return error;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(pathPtr);
+        }
+    }
+
+    private static unsafe FreeTypeFaceFacade CreateFaceFacade(FreeTypeLibrary lib, IntPtr facePtr) =>
+        new(lib, (FT_FaceRec_*)facePtr);
+
+    private static unsafe FT_Error SetPixelHeight(IntPtr facePtr, uint pixelHeight) =>
+        FT.FT_Set_Pixel_Sizes((FT_FaceRec_*)facePtr, 0, pixelHeight);
+
+    private static unsafe FT_Error LoadRenderedChar(IntPtr facePtr, uint charCode) =>
+        FT.FT_Load_Char((FT_FaceRec_*)facePtr, charCode, FT_LOAD.FT_LOAD_RENDER);
+
+    private static unsafe void DoneFace(IntPtr facePtr) => FT.FT_Done_Face((FT_FaceRec_*)facePtr);
+
+    private static unsafe IntPtr GlyphBuffer(FreeTypeFaceFacade face) => (IntPtr)face.GlyphBitmap.buffer;
+
     private static (FontLoadData[], Dictionary<char, CharacterInfo>) CreateFontDatas(IntPtr facePtr, FreeTypeFaceFacade face, 
         int pixelHeight, ILogger logger, out int maxHeight)
     {
@@ -148,7 +182,7 @@ public class Font
         {
             for (uint i = charRange.Key; i <= charRange.Value; i++)
             {
-                var loadCharResult = FT.FT_Load_Char(facePtr, i, FT.FT_LOAD_RENDER);
+                var loadCharResult = LoadRenderedChar(facePtr, i);
                 if (loadCharResult != FT_Error.FT_Err_Ok)
                 {
                     logger.Warning("Error loading character {Character} with error {Error} ({ErrorCode:X})", 
@@ -160,7 +194,7 @@ public class Font
 
                 if (i != ' ')
                 {
-                    var data = new FontLoadData(face.GlyphBitmap.buffer, (int)face.GlyphBitmap.width,
+                    var data = new FontLoadData(GlyphBuffer(face), (int)face.GlyphBitmap.width,
                         (int)face.GlyphBitmap.rows);
                     fontLoadDatas[idx] = data;
                     idx++;

@@ -89,7 +89,7 @@ public partial class MainWindow : GameWindow
         : this(GameWindowSettings.Default,
             new NativeWindowSettings
             {
-                Size = new Vector2i(height, width),
+                ClientSize = new Vector2i(height, width),
                 Title = caption,
                 APIVersion = new Version(4, 6),
                 Flags = ContextFlags.ForwardCompatible

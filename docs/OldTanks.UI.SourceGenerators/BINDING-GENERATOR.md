@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; whole page |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; §1, §3's null check and §4's first row against the generator code; the rest as of 2026-11-24 (develop at d32cbbf); the generated file was compared with the pre-migration output during OT-3 |
 
 ---
 
@@ -12,9 +12,9 @@
 
 ## 1. How it is wired
 
-- **Project:** `netstandard2.0`, `LangVersion latest`, `Microsoft.CodeAnalysis.CSharp` 4.7.0. `OldTanks.csproj` references it with `OutputItemType="Analyzer"`; the attribute types in `OldTanks.UI.SourceGenerators.Attributes` come from the same assembly.
-- **Generator:** `OldTanks.UI.SourceGenerators.Generators.BindingGenerator`, a v1 `ISourceGenerator` with a syntax receiver, `BindableClassesSyntaxReceiver`. An `IIncrementalGenerator` version is sketched in a comment at the end of the file.
-- **Output:** one file, `<namespace>.MainWindow.g.cs`, with a `partial` part of the class. To read it, build with `EmitCompilerGeneratedFiles` set to `true` (it lands under `obj/`), or open the analyzer node in the IDE.
+- **Project:** `netstandard2.0`, `LangVersion latest`, `Microsoft.CodeAnalysis.CSharp` 5.9.0 (held at the compiler of SDK 10.0.401; a newer package does not load, CS9057). `OldTanks.csproj` references it with `OutputItemType="Analyzer"`; the attribute types in `OldTanks.UI.SourceGenerators.Attributes` come from the same assembly.
+- **Generator:** `OldTanks.UI.SourceGenerators.Generators.BindingGenerator`, an `IIncrementalGenerator` since OT-3 (Denys: "Migrate to incremental"; the v1 `ISourceGenerator` is an error under Roslyn 5.9's analyzers, RS1035 and RS1042, and suppressing the two rules was turned down). A syntax provider selects the class declarations named `MainWindow` that carry `[BindableClass]`; each is turned into a `OldTanks.UI.SourceGenerators.Generators.Dto.BindableClassModel` (namespace, class name and the two `FieldAttributeParams` arrays, held in `EquatableArray<T>`; no syntax nodes or symbols), and the last matching class in syntax order is the one augmented. `BindableClassesSyntaxReceiver` is gone. Because the model compares by value, an edit that does not change it does not regenerate the file.
+- **Output:** one file, `<namespace>.MainWindow.g.cs`, with a `partial` part of the class. The file starts with `#nullable enable` (OT-3; it fixes CS8669) and is otherwise byte-identical to the pre-migration output. To read it, build with `EmitCompilerGeneratedFiles` set to `true` (it lands under `obj/`), or open the analyzer node in the IDE.
 
 ## 2. Attributes
 
@@ -39,13 +39,13 @@ All arguments are strings that the generator pastes into C# **as written**: they
 
 **You subscribe the object side yourself.** The generator cannot know when the object behind `toObject` changes, so the class adds each `...GeneratedBindingMethodToObject` to the objects' `PropertyChanged`. `OldTanks.UI.ImGuiUI.MainWindow` does it in its constructor (current camera, every world object, every rigid body) and in `WorldObjectsCollectionChanged` for objects added or removed later. The `TriggerUpdateOn` on the world-objects list box is what refreshes the panel when the selection changes.
 
-**Null safety:** a `toObject` with more than one `.` is emitted with `?.` between its parts for the null checks, so a deep path such as `m_worldObjectsListBox.SelectedItem.RigidBody` is safe while nothing is selected.
+**Null safety:** a `toObject` with more than one `.` is emitted with `?.` between its parts for the null checks, so a deep path such as `m_worldObjectsListBox.SelectedItem.RigidBody` is safe while nothing is selected. The object-to-control method still calls `tmpObject.Equals(...)` before its own null check ([KI-021](../KNOWN-ISSUES.md#ki-021-generated-binding-code-calls-equals-before-its-null-check); visible as 3 × CS8602 now that the file is nullable-enabled).
 
 ## 4. Limits
 
 | Limit | Consequence |
 |-------|-------------|
-| The receiver only looks at classes **named `MainWindow`** that carry `[BindableClass]`, and keeps one | No other window can use generated bindings; `OldTanks.UI.ImGuiUI.TextureWindow` is wired by hand |
+| The syntax provider only selects classes **named `MainWindow`** that carry `[BindableClass]`, and the generator augments one (the last in syntax order) | No other window can use generated bindings; `OldTanks.UI.ImGuiUI.TextureWindow` is wired by hand |
 | Attributes are read from the syntax of the `[BindableClass]` part only | Attributed fields declared in another partial part are ignored |
 | Arguments are read as text: a positional string literal as its value, a named argument as its whole source text (split at `:`), anything else as an empty string | **String arguments must be positional** (a named one keeps its quotes and breaks the generated code). **`bindingWay` must be named** (`bindingWay: BindingWay.OneWayToSource`); passed positionally it reads as empty and silently falls back to `TwoWay`. A string literal containing `:` is misread as a named argument |
 | A field's control → object method is emitted once per attribute, each time covering all of the field's attributes | Two `TwoWay` or `OneWayToSource` bindings on one field generate duplicate members and fail to compile |
@@ -55,5 +55,7 @@ All arguments are strings that the generator pastes into C# **as written**: they
 ## 5. Changing the generator
 
 - Rebuild the solution after a change; an IDE may keep the old generator loaded until it restarts.
+- Keep syntax nodes and symbols out of `BindableClassModel`; it must stay value-equatable for the incremental cache.
+- Compare the generated file with the previous one before and after (build with `-p:EmitCompilerGeneratedFiles=true`); OT-3 kept it identical apart from the first line.
 - After a rebuild, inspect the generated file (§1) before running the game.
-- Keep the attribute constructor parameter **names** stable: the receiver maps positional arguments to the widest constructor's parameter names (`GetBiggestCtorParams`), and the generator reads them by those names (`toObject`, `sourceTrigger`, ...).
+- Keep the attribute constructor parameter **names** stable: the model builder maps positional arguments to the widest constructor's parameter names (`GetBiggestCtorParams`), and the generator reads them by those names (`toObject`, `sourceTrigger`, ...).

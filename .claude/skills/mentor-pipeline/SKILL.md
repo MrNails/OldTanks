@@ -41,6 +41,7 @@ Pick the tier by the riskiest file the plan touches, not by how good the plan is
 | **Mechanical** | No behaviour change: a rename, moving a type between projects unchanged (the "beside, then replace" migration, plan D4), a field carried through, test scaffolding from a named list | `sonnet`, effort `low` | `opus`, effort `high` |
 
 - **`max` review for spec values and step math.** When the change implements or alters a mechanic's number or formula from Denys's specs, or the physics step's integration and contact math, the reviewer runs at effort `max`. A wrong value there contradicts the spec silently.
+- **`max` review for the math library (Denys, 2026-11-24).** Every change to `CoolEngine.Mathematics`, and every port of code onto it, is reviewed at effort `max` by an `opus` or `fable` reviewer: "such changes should be reviewed by agent with appropriate max effort and model (opus or fable)". Its conventions are fixed: column vectors, column-major storage, clip depth [0, 1], reversed Z, `float` and `double` types.
 - **Escalation:** mechanical → standard → high → you re-plan or ask Denys. An implementer that STOPs on a plan mismatch is a plan problem, not a tier problem: fix the plan and continue at the same tier.
 - **Moving the defaults:** a tier that needed escalation in 3 of its last 10 calibration rows gets the next tier up as its default. `haiku` comes in for mechanical work only after 8 of the last 10 mechanical rows passed their first review with no blocker or major finding. Change the table when that happens and record it in the session log.
 - **Effort is set on every dispatch** from this table. The Agent tool takes `effort` only when a skill or CLAUDE.md asks for a level; this table is that request.
@@ -49,17 +50,17 @@ Pick the tier by the riskiest file the plan touches, not by how good the plan is
 ## Phase 0 — Bootstrap and baseline (you)
 
 1. **Read** what the root `AGENTS.md` "Session bootstrap" lists: `docs/PROJECT-KNOWLEDGE.md`, the newest `docs/sessions/SESSION-LOG.md` entry, the owning page from `docs/README.md`, the area's `KNOWN-ISSUES` entries, `docs/CODE-STYLE.md`, and for engine or game work `docs/plans/ENGINES-AND-TANK-GAME.md`. Memory (`MEMORY.md`). The last rows of calibration.md.
-2. **Navigation tools.** Check whether Gortex covers this checkout (the session-start note says so). On 2026-11-24 it does not, so you and every agent use the built-in Read, Grep and Glob, and check callers by hand. Once Denys tracks the repository, follow the global CLAUDE.md: `explore`, `change(operation:"impact")` before an edit, `change(operation:"detect")` after. Write whichever applies into the briefs.
+2. **Navigation tools.** Check whether Gortex covers this checkout (the session-start note says so). On 2026-11-24 and 2026-11-25 it does not (on 2026-11-25 the Gortex server itself was unreachable), so you and every agent use the built-in Read, Grep and Glob, and check callers by hand. Once Denys tracks the repository, follow the global CLAUDE.md: `explore`, `change(operation:"impact")` before an edit, `change(operation:"detect")` after. Write whichever applies into the briefs.
 3. **The checkout is shared.** Visual Studio and other sessions write into it. Check `git status --short`; delete untracked `~RF<hex>.TMP` leftovers as the global CLAUDE.md says, and name them. Never switch branches, stash or reset without asking.
 4. **Branch:** `feature/OT-<n>` for new work, improvements and docs, `bug/OT-<n>` for a fix, from `master` (Denys, 2026-11-24; `develop` is no longer used). Propose `<n>` as the highest `OT-<n>` in `git log --all` plus one and confirm it with Denys at the go (step 1.7). If the checkout is on another task's branch or on `master` with uncommitted work, ask before creating or switching.
 5. **Baseline**, before any dispatch. Keep the three result lines for the briefs:
    ```
-   dotnet build OldTanks.sln --no-incremental
-   dotnet test OldTanks.sln
+   dotnet build OldTanks.slnx --no-incremental
+   dotnet test OldTanks.slnx
    ```
-   On 2026-11-24 they read `165 Warning(s)`, `0 Error(s)` and `Passed!  - Failed: 0, Passed: 31, Skipped: 0, Total: 31`. `--no-incremental` is what makes the compiler warnings count; an incremental build hides them. A red baseline is reported and dealt with before dispatch, never blamed on the implementer later.
-6. **Packages:** diff every `.csproj` against `HEAD`, staged and unstaged, and list every changed `PackageReference` version (there is no central package management here; versions sit on each reference). If the work needs a package or a version change, ask Denys; agents never add or bump one.
-7. **Can the game run?** On 2026-11-24 the projects target `net7.0` and this PC has no .NET 7 runtime, so nothing can be checked in the running game. Until the retarget lands, every plan that changes visible behaviour names an app check for Denys instead.
+   After OT-3 (2026-11-25) they read `139 Warning(s)` (138 compiler warnings plus the Six Labors license notice from `CoolEngine.Imaging.Tests`), `0 Error(s)`, and two test lines: `OldTanks.Docs.Tests` 31 of 31 and `CoolEngine.Imaging.Tests` 247 of 247. `--no-incremental` is what makes the compiler warnings count; an incremental build hides them. A red baseline is reported and dealt with before dispatch, never blamed on the implementer later.
+6. **Packages:** every version lives in `Directory.Packages.props` (central package management since OT-3); diff it and every `.csproj` against `HEAD`, staged and unstaged, and list every added, removed or changed package. If the work needs a package or a version change, ask Denys; agents never add or bump one.
+7. **Can the game run?** Since OT-3 (2026-11-25), yes: `net10.0`, started as `OldTanks.exe` from `OldTanks\bin\Debug\net10.0` with that folder as the working directory. Starting it needs Denys's permission (it writes `%USERPROFILE%\OldTanksProject\AppSettings.json`). Capture its console (redirect standard output), because loader messages never reach `log.txt` (KI-004), and take a screenshot of its window; delete the `log.txt` it leaves in the build output, which grows fast while KI-020 is open. Every plan that changes visible behaviour still names an app check for Denys (keyboard and mouse in the ImGui windows).
 
 ## Phase 1 — Analysis and plan (you)
 

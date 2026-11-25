@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; whole page, against the code and OldTanks/Assets |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; §3's texture and font lines against the code and the 2026-11-25 smoke run (textures and the ImGui font showed; the HUD fonts could not be seen, KI-020); the rest as of 2026-11-24 (develop at d32cbbf, against the code and OldTanks/Assets) |
 
 ---
 
@@ -49,8 +49,8 @@ Textures and skyboxes share one cache, so a texture file and a skybox folder wit
 ## 3. Loader details
 
 - **OBJ (`WaveFrontLoader`):** reads `v`, `vt`, `vn` and `f`; ignores `mtllib`, `usemtl` and `s` (no materials). Faces must be triangles or quads; quads are split into two triangles. A `v` line that follows other data starts a new `Mesh`, so a multi-object file becomes one `Scene` with several meshes (`Robot.obj` has 155 `o` blocks). A face that is not a triangle or quad, or a face index that does not parse, stops the load and nothing is cached; a number that does not parse in a `v`, `vt` or `vn` line is logged and the load goes on.
-- **Textures:** decoded with SixLabors.ImageSharp as RGBA, flipped vertically for GL, uploaded as `Rgba` with mipmaps. Skybox faces are not flipped.
-- **Fonts:** FreeType rasterises each glyph at 32 px into one atlas texture; per-glyph size, bearing, advance and atlas offset go into `CharacterInfo`. The rasterising runs in `Task.Run`, and the atlas upload is marshalled to the GL thread with `UI.UIInvoke`. A `Font` is then a `FontInformation` plus a display size (the HUD uses 16).
+- **Textures:** decoded by `CoolEngine.Imaging.ImageDecoder.LoadAsync` ([IMAGE-DECODERS](../../../CoolEngine.Imaging/IMAGE-DECODERS.md)) as RGBA, flipped vertically for GL, uploaded as `Rgba` with mipmaps. Skybox faces go through the same decoder and are not flipped. **PNG and JPEG only, and strict:** a file in another format (BMP, GIF, TGA and WebP were read by ImageSharp) or a damaged one throws `NotSupportedException` or `InvalidDataException` from the loader, and `GameManager.LoadTextures` does not catch it ([KI-012](../../../KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)). The decode runs on the thread pool; the GL upload after the `await` runs on the main thread.
+- **Fonts:** FreeType (FreeTypeSharp 3, its pointer API behind small `unsafe` helpers in `Font`) rasterises each glyph at 32 px into one atlas texture; per-glyph size, bearing, advance and atlas offset go into `CharacterInfo`. The rasterising runs in `Task.Run`, and the atlas upload is marshalled to the GL thread with `UI.UIInvoke`. A `Font` is then a `FontInformation` plus a display size (the HUD uses 16). The FreeTypeSharp 3 port loaded without error on 2026-11-25, but its text could not be seen because the font shaders do not compile ([KI-020](../../../KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway)).
 - **GL thread:** shader and texture creation happen after an `await`, which resumes on the main thread through the dispatcher ([ARCHITECTURE §3](../../../ARCHITECTURE.md#3-getting-work-onto-the-gl-thread)). A new loader must keep its GL calls on that path.
 
 ## 4. Adding assets

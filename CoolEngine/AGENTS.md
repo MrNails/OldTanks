@@ -11,15 +11,16 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Threads, the dispatcher, singletons, frame order | [ARCHITECTURE](../docs/ARCHITECTURE.md) |
 | Renderers, batching and instancing, shader contract, GPU types | [RENDERING](../docs/CoolEngine/Services/Renderers/RENDERING.md) |
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
+| Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-005, KI-006, KI-008, KI-009, KI-011, KI-016, KI-017, KI-019 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-005, KI-006, KI-008, KI-009, KI-011, KI-016, KI-017, KI-019, KI-020 |
 
 ## Project Details
 
 | Property | Value |
 |----------|-------|
 | Namespace root | `CoolEngine` |
-| Target framework | `net7.0`, `LangVersion 11`, `AllowUnsafeBlocks` |
+| Target framework | `net10.0`, `LangVersion latest`, `AllowUnsafeBlocks` |
 | Layer | Engine; referenced by `OldTanks.UI` and `OldTanks` |
 
 ## Key Types
@@ -34,7 +35,7 @@ Representative, by folder.
 | `Models/` | `Ray`, `BoundingBox`, `Level` (unused) |
 | `Services/` | `Application`, `EngineSettings`, `GlobalCache<T>`, `UI` (`UIInvoke`), `Colors` |
 | `Services/Renderers/` | `ObjectRenderer<T>`, `ObjectRendererOld` (legacy: skybox, primitives), `CollisionRenderer`, `TextRenderer` |
-| `Services/Loaders/` | `WaveFrontLoader`, `ShaderLoader`, `TextureLoader`, `SkyBoxTextureLoader` |
+| `Services/Loaders/` | `WaveFrontLoader`, `ShaderLoader`, `TextureLoader`, `SkyBoxTextureLoader` (the last two decode through `CoolEngine.Imaging.ImageDecoder`) |
 | `Services/Threading/` | `Dispatcher`, `DispatcherOperation`, `DispatcherSynchronizationContext` |
 | `Services/Interfaces/` | `IDrawable`, `IPhysicObject`, `ITransformable`, `IMovable`, `ICollisionable`, `IWatchable`, `IRenderer<T>`, `IAssetLoader` |
 
@@ -43,12 +44,13 @@ Representative, by folder.
 | Dependency | Reason |
 |------------|--------|
 | `Common` (project) | `ObservableObject`, typed events, extensions |
-| OpenTK 4.8.1 | OpenGL bindings, math types, windowing types |
-| SixLabors.ImageSharp 3.1.3 | Texture and skybox decoding (has known vulnerabilities, see BACKLOG) |
-| FreeTypeSharp 1.1.3 | Font rasterising |
-| Serilog 3.0.1 | Logging and GL debug output (core API only) |
-| `Serilog.Sinks.File` 5.0.0, `Serilog.Sinks.FastConsole` 2.4.0 | Not used by this project's code: the game's `LoggerService` uses the file sink through this reference; FastConsole only in a commented-out line |
-| MIConvexHull 1.1.19.1019 | Referenced, not used |
+| `CoolEngine.Imaging` (project) | PNG and JPEG decoding for the texture and skybox loaders |
+| OpenTK 4.9.4 | OpenGL bindings, math types, windowing types |
+| FreeTypeSharp 3.1.0 | Font rasterising, through its pointer API (`Font` wraps it in small `unsafe` helpers) |
+| Serilog 4.4.0 | Logging and GL debug output (core API only) |
+| `Serilog.Sinks.File` 7.0.0 | Not used by this project's code: the game's `LoggerService` uses the file sink through this reference |
+
+Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.FastConsole` and SixLabors.ImageSharp were removed in OT-3.
 
 ## Constraints
 

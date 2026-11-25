@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using Common;
-using Common.Infrastructure.Delegates;
 using Common.Infrastructure.EventArgs;
 
 namespace OldTanks.UI.Services;

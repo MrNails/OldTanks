@@ -14,14 +14,14 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | What is in `Assets/` and how names map to caches | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | The debug window's generated bindings | [BINDING-GENERATOR](../docs/OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
 | Running, settings file, log file | [BUILD](../docs/BUILD.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-001 to KI-004, KI-007, KI-012 to KI-015 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-001 to KI-004, KI-007, KI-012 to KI-015, KI-020 to KI-022 |
 
 ## Project Details
 
 | Property | Value |
 |----------|-------|
 | Namespace root | `OldTanks` (the ImGui windows are `OldTanks.UI.ImGuiUI`, though they live in this project) |
-| Target framework | `net7.0`, `LangVersion 11`, `OutputType Exe` |
+| Target framework | `net10.0`, `LangVersion latest`, `OutputType Exe` |
 | Layer | Application; references `CoolEngine`, `OldTanks.UI` and the generator (`Common` comes through them) |
 
 ## Key Types
@@ -29,7 +29,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | Folder | Types |
 |--------|-------|
 | (root) | `Program` |
-| `Windows/` | `MainWindow` (the `GameWindow`; HUD fields in `ControlWindows/MainWindow.cs`) |
+| `Windows/` | `MainWindow` (the `GameWindow`; HUD fields in `ControlWindows/MainWindow.cs`; its `NativeWindowSettings` use `ClientSize`) |
 | `Models/` | `World`, `WorldObject`, `Cube`, `Sphere`, `Robot` |
 | `Services/` | `GameManager` (asset loading), `LoggerService`, `EngineSettings` (game side), `Constants`, `Misc/TransformableAction` |
 | `UI/ImGuiUI/` | `MainWindow` (debug window, `[BindableClass]`), `TextureWindow`; their controls in `ControlsInitialization/` |
@@ -42,7 +42,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 |------------|--------|
 | `CoolEngine`, `OldTanks.UI` (projects) | Engine and UI |
 | `OldTanks.UI.SourceGenerators` (project, `OutputItemType="Analyzer"`) | Generates `OldTanks.UI.ImGuiUI.MainWindow`'s bindings; also supplies the attribute types |
-| `Serilog.Sinks.Console` 4.1.0 | Console log |
+| `Serilog.Sinks.Console` 6.1.1 | Console log (version in `Directory.Packages.props`) |
 
 ## Constraints
 

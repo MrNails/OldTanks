@@ -1,5 +1,4 @@
-﻿using Common.Infrastructure.Delegates;
-using CoolEngine.Services.Interfaces;
+﻿using CoolEngine.Services.Interfaces;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 

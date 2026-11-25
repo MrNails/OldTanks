@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living - read first every session |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; whole page |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; §2 build, test and run lines against the 2026-11-25 build, test and smoke run; §3-§4 against the solution; §5-§6 as of 2026-11-24 |
 
 ---
 
@@ -18,13 +18,13 @@ The value of the code is in the engine pieces (instanced rendering, collision te
 
 - **Repository:** https://github.com/MrNails/OldTanks. 75 commits from 2022-03-22 to 2024-06-01, then idle until the documentation start on 2026-11-24.
 - **Branches:** `master` is the working branch (Denys, 2026-11-24): work branches from it as `feature/OT-<n>` or `bug/OT-<n>` and comes back by pull request ([CODE-STYLE](CODE-STYLE.md#git-rules)). OT-1 is in `master` through PR #8 (`55678e0`), on top of the earlier `develop` fixes (PR #5, spawned objects displaying; PR #7, on-ground detection). `develop` stopped at PR #7 and is no longer used.
-- **Works (read from code; not run on 2026-11-24):** the sandbox scene with gravity and collisions; free camera; textured, instanced rendering; skybox; HUD; debug view of collision shapes; picking ray; the ImGui debug and texture windows with two-way editing of position, rotation, size and most body properties; spawning, deleting and retexturing objects ([features](OldTanks/FEATURES-OVERVIEW.md)).
+- **Works (the game runs since OT-3; the smoke run of 2026-11-25 showed textured walls and floor and the ImGui debug window; the rest is read from code):** the sandbox scene with gravity and collisions; free camera; textured, instanced rendering; skybox; HUD; debug view of collision shapes; picking ray; the ImGui debug and texture windows with two-way editing of position, rotation, size and most body properties; spawning, deleting and retexturing objects ([features](OldTanks/FEATURES-OVERVIEW.md)). **Not working (2026-11-25):** no skybox and no HUD text, three shaders fail to compile ([KI-020](KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway)).
 - **Not built:** a player (`World.Player` is never set, [KI-001](KNOWN-ISSUES.md#ki-001-the-player-is-never-assigned)), tanks, game rules, levels, lighting, materials, sound, tests of the game code, CI. Several controls are wired to nothing ([BACKLOG](BACKLOG.md#unwired-features)).
-- **Build:** 0 errors and 165 warnings with SDK 10.0.401. It targets `net7.0`, which is out of support, and the PC had no .NET 7 runtime, so the game was not started ([BUILD](BUILD.md)).
-- **Documentation:** started on `feature/OT-1` (2026-11-24), checked by `tests/OldTanks.Docs.Tests` on every `dotnet test`; 19 known defects recorded as `KI-001` to `KI-019`, none yet confirmed in the running game.
+- **Build and tests (2026-11-25, `feature/OT-3`, 16 commits, not pushed, no pull request yet):** every project targets `net10.0` with `LangVersion latest`; 0 errors and 139 warnings (`master` had 165); 278 tests (31 documentation checks, 247 decoder tests); no vulnerable package; versions central in `Directory.Packages.props` ([BUILD](BUILD.md), [ARCHITECTURE §1](ARCHITECTURE.md#1-solution-layout)). ImageSharp is gone from the engine, replaced by `CoolEngine.Imaging` ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md)).
+- **Documentation:** checked by `tests/OldTanks.Docs.Tests` on every `dotnet test`; 23 known defects recorded as `KI-001` to `KI-023`; KI-004, KI-008, KI-020 and KI-022 observed in the running game on 2026-11-25, the rest reasoned from code.
 - **Goal (Denys, 2026-11-24):** separate, maximally optimized physics, render and UI engines and an online tank game on them; requirements and open decisions in [plans/ENGINES-AND-TANK-GAME](plans/ENGINES-AND-TANK-GAME.md). Anything unclear is asked, never improvised.
-- **Decided for it (Denys, 2026-11-24):** Denys writes the mechanics specs; dedicated authoritative server with headless physics; `net10.0` everywhere; new engines beside `CoolEngine`, which goes once unused.
-- **Next:** names and the remaining plan decisions (D5-D7); then retarget to `net10.0` and confirm the current game runs.
+- **Decided for it (Denys, 2026-11-24):** Denys writes the mechanics specs; dedicated authoritative server with headless physics; `net10.0` everywhere (done in OT-3); new engines beside `CoolEngine`, which goes once unused; own libraries for fonts, math, OpenGL bindings and the window, OpenGL 4.6 behind an API-neutral boundary, WebGPU only for a far-future browser client ([plan §6](plans/ENGINES-AND-TANK-GAME.md#6-decisions-of-ot-3-and-the-planned-tasks)).
+- **Next:** merge OT-3; a `bug/OT-<n>` task for the shaders (KI-020); **OT-4** own fonts (`CoolEngine.Fonts`), then **OT-5** own math (`CoolEngine.Mathematics`, `float` and `double`); names and determinism (D5, D6) still open.
 
 ## 3. Solution map
 
@@ -32,6 +32,7 @@ The value of the code is in the engine pieces (instanced rendering, collision te
 |---------|----------|-------|
 | `Common` | Observable base, settings service, typed events, small helpers | [AGENTS.md](../AGENTS.md#guide-map) |
 | `CoolEngine` | Rendering, asset loaders, physics, dispatcher, caches | [CoolEngine/AGENTS.md](../CoolEngine/AGENTS.md) |
+| `CoolEngine.Imaging` | Strict PNG and JPEG decoders, no dependencies | [CoolEngine.Imaging/AGENTS.md](../CoolEngine.Imaging/AGENTS.md) |
 | `OldTanks.UI` | Control handler, HUD text, ImGui wrappers and renderer | [OldTanks.UI/AGENTS.md](../OldTanks.UI/AGENTS.md) |
 | `OldTanks.UI.SourceGenerators` | Generates the debug window's bindings | [OldTanks.UI.SourceGenerators/AGENTS.md](../OldTanks.UI.SourceGenerators/AGENTS.md) |
 | `OldTanks` | The game window, world, objects, debug windows, assets | [OldTanks/AGENTS.md](../OldTanks/AGENTS.md) |
@@ -45,6 +46,7 @@ References, packages, threads and singletons: [ARCHITECTURE](ARCHITECTURE.md).
 | Threads, startup, the frame, locks | [ARCHITECTURE](ARCHITECTURE.md) |
 | Drawing, shaders, textures | [RENDERING](CoolEngine/Services/Renderers/RENDERING.md) |
 | Assets, cache names, loaders | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
+| Decoding PNG and JPEG | [IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Movement, gravity, collisions, rays | [PHYSICS-AND-COLLISIONS](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
 | HUD, ImGui controls, new debug windows | [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md) |
 | Attributed bindings in the debug window | [BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
@@ -74,5 +76,6 @@ References, packages, threads and singletons: [ARCHITECTURE](ARCHITECTURE.md).
 
 ## 7. Open questions
 
-- Which .NET to retarget to (`net10.0` matches the installed SDK)?
+- ~~Which .NET to retarget to?~~ Answered: `net10.0`, done in OT-3.
+- The OT-4 plan questions: colour fonts, variable-font axes, CFF hinting ([plan §6](plans/ENGINES-AND-TANK-GAME.md#6-decisions-of-ot-3-and-the-planned-tasks)).
 - Is the face-normal-only collision test a deliberate simplification ([KI-016](KNOWN-ISSUES.md#ki-016-polygon-tests-use-face-normals-only))?

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- PNG and JPEG decoding into RGBA8 for the engine's textures; no package dependencies.
+         It replaced SixLabors.ImageSharp in OT-3. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="CoolEngine.Imaging.Tests" />
+    </ItemGroup>
+
+</Project>

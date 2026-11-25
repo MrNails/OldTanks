@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <!-- The documentation checks read the checkout's Markdown and project files; they reference no game project,
-         so they target the current LTS runtime independently of the game's target framework. -->
+    <!-- The documentation checks read the checkout's Markdown and project files; they reference no game project. -->
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -11,13 +10,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
-        <PackageReference Include="NUnit" Version="5.0.0" />
-        <PackageReference Include="NUnit.Analyzers" Version="4.15.0">
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="NUnit" />
+        <PackageReference Include="NUnit.Analyzers">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+        <PackageReference Include="NUnit3TestAdapter" />
     </ItemGroup>
 
     <ItemGroup>

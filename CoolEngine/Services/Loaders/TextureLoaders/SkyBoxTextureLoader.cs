@@ -1,9 +1,8 @@
 ﻿using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Imaging;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
 using Serilog;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace CoolEngine.Services.Loaders.TextureLoaders;
 
@@ -31,16 +30,9 @@ public sealed class SkyBoxTextureLoader : IAssetLoader
         var pixelDto = new Texture.PixelDto(PixelInternalFormat.Rgba, PixelFormat.Rgba, PixelType.UnsignedByte);
         for (int p = 0; p < Parts.Length; p++)
         {
-            var img = await Image.LoadAsync<Rgba32>(Path.Combine(assetPath, Parts[p]));
-            var tmpPixels = new Rgba32[img.Width * img.Height];
+            var image = await ImageDecoder.LoadAsync(Path.Combine(assetPath, Parts[p]));
 
-            skyBoxPixels.Add((tmpPixels, img.Width, img.Height));
-            
-            for (int i = 0; i < img.Height; i++)
-            for (int j = 0; j < img.Width; j++)
-                tmpPixels[i * img.Width + j] = img[j, i];
-        
-            img.Dispose();
+            skyBoxPixels.Add((image.Pixels, image.Width, image.Height));
         }
 
         var tName = Path.GetFileNameWithoutExtension(assetPath);

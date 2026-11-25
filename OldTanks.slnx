@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/CoolEngine.Imaging.Tests/CoolEngine.Imaging.Tests.csproj" />
+    <Project Path="tests/OldTanks.Docs.Tests/OldTanks.Docs.Tests.csproj" />
+  </Folder>
+  <Project Path="Common/Common.csproj" />
+  <Project Path="CoolEngine.Imaging/CoolEngine.Imaging.csproj" />
+  <Project Path="CoolEngine/CoolEngine.csproj" />
+  <Project Path="OldTanks.UI.SourceGenerators/OldTanks.UI.SourceGenerators.csproj" />
+  <Project Path="OldTanks.UI/OldTanks.UI.csproj" />
+  <Project Path="OldTanks/OldTanks.csproj" />
+</Solution>

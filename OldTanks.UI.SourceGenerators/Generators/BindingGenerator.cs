@@ -4,51 +4,73 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using OldTanks.UI.SourceGenerators.Attributes;
 using OldTanks.UI.SourceGenerators.Generators.Dto;
+using OldTanks.UI.SourceGenerators.Generators.Extensions;
 
 namespace OldTanks.UI.SourceGenerators.Generators;
 
 [Generator]
-internal sealed class BindingGenerator : ISourceGenerator
+internal sealed class BindingGenerator : IIncrementalGenerator
 {
     private const string IntendLevel_ = "\t\t";
     private const string MethodBodyIntendLevel_ = "\t\t\t";
-    
-    public void Initialize(GeneratorInitializationContext context)
+
+    public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        context.RegisterForSyntaxNotifications(() => new BindableClassesSyntaxReceiver());
+        var bindableClasses = context.SyntaxProvider.CreateSyntaxProvider(
+            static (node, _) => IsBindableClass(node),
+            static (syntaxContext, _) => CreateModel((ClassDeclarationSyntax)syntaxContext.Node));
+
+        // As with the former syntax receiver, the last matching class in syntax order is the one augmented.
+        var classToAugment = bindableClasses
+            .Collect()
+            .Select(static (models, _) => models.IsDefaultOrEmpty ? null : models[models.Length - 1]);
+
+        context.RegisterSourceOutput(classToAugment, (spc, model) =>
+        {
+            if (model is not null)
+            {
+                Execute(spc, model);
+            }
+        });
     }
 
-    public void Execute(GeneratorExecutionContext context)
+    private static bool IsBindableClass(SyntaxNode syntaxNode)
     {
-        if (context.SyntaxReceiver is not BindableClassesSyntaxReceiver syntaxReceiver)
-        {
-            return;
-        }
+        return syntaxNode is ClassDeclarationSyntax cds
+               && cds.Identifier.ValueText == "MainWindow"
+               && cds.FindAttributeSyntax<BindableClassAttribute>(ElementFindType.AsChild) != null;
+    }
 
-        var classDeclaration = syntaxReceiver;
+    private static BindableClassModel CreateModel(ClassDeclarationSyntax cds)
+    {
+        return new BindableClassModel(
+            cds.GetFullNameSpace(),
+            cds.Identifier.ValueText,
+            new EquatableArray<FieldAttributeParams>(cds.GetAttributeParamsFromNode<BindableElementAttribute>()),
+            new EquatableArray<FieldAttributeParams>(cds.GetAttributeParamsFromNode<TriggerUpdateOnAttribute>()));
+    }
 
-        if (classDeclaration.ClassToAugment == null)
-        {
-            return;
-        }
-        
+    private void Execute(SourceProductionContext context, BindableClassModel classDeclaration)
+    {
         var generatedBindsIntializerBuilder = new StringBuilder();
         generatedBindsIntializerBuilder.AppendFormat("{0}partial void InitGeneratedData()\n{0}{{\n", IntendLevel_);
 
-        var bindableElementParams = classDeclaration.FieldAttributeParamsArray[nameof(BindableElementAttribute)];
-        
+        var bindableElementParams = classDeclaration.BindableElements.AsArray();
+
         var membersBindingString = CreateMembersBinding(bindableElementParams, generatedBindsIntializerBuilder);
-        var updateFromTriggerMethod = CreateUpdateFromTriggerMethod(classDeclaration.FieldAttributeParamsArray[nameof(TriggerUpdateOnAttribute)], 
+        var updateFromTriggerMethod = CreateUpdateFromTriggerMethod(classDeclaration.TriggerUpdateOn.AsArray(),
             bindableElementParams, generatedBindsIntializerBuilder);
-        
+
         generatedBindsIntializerBuilder.AppendFormat("{0}}}", IntendLevel_);
-        
-        context.AddSource($"{classDeclaration.NameSpace}.{classDeclaration.ClassToAugment.Identifier.ValueText}.g.cs", $@"
+
+        context.AddSource($"{classDeclaration.NameSpace}.{classDeclaration.ClassName}.g.cs", $@"#nullable enable
+
 namespace {classDeclaration.NameSpace} 
 {{
-    public partial class {classDeclaration.ClassToAugment.Identifier.Text}
+    public partial class {classDeclaration.ClassName}
     {{
 {generatedBindsIntializerBuilder}
 
@@ -254,15 +276,3 @@ namespace {classDeclaration.NameSpace}
         return bindingWay;
     }
 }
-
-//    public void Initialize(IncrementalGeneratorInitializationContext context)
-//    {
-//        var provider = context.SyntaxProvider.CreateSyntaxProvider(
-//            (sn, _) => sn is ClassDeclarationSyntax,
-//            (sn, _) => (ClassDeclarationSyntax)sn.Node)
-//            .Where(m => m is not null);
-
-//        var compilation = context.CompilationProvider.Combine(provider.Collect());
-//        context.RegisterSourceOutput(compilation,
-//            (spc, source) => Exectue(spc, source.Left, source.Right));
-//    }
