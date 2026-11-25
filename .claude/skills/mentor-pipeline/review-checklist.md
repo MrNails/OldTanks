@@ -57,7 +57,7 @@ You review one change against its plan. You are read-only; building, running the
 
 - Every uniform and attribute name the C# side sets exists in the shader files, which change in the same diff (KI-008).
 - GL objects are created and disposed on the GL thread; no handle is used after `Dispose`; state changed for a draw is restored where the next draw relies on it (`GLSettings` around ImGui).
-- Every mesh of a drawable has its `TextureData` before the drawable reaches `ObjectRenderer<T>`, and `InstancedShader` is set before drawables arrive (KI-019).
+- Every mesh of a drawable has its `TextureData` before the drawable reaches `ObjectRenderer<T>` (since OT-7 `InstancedShader` may be set before or after drawables arrive; without it everything is drawn per instance).
 
 ## 9. UI and the generator
 
