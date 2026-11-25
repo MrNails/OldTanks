@@ -20,6 +20,6 @@ public class ImGuiTextBlock : ImGuiControl
             return;
         
         base.Draw();
-        ImGui.Text(Text);
+        ImGui.TextUnformatted(Text);
     }
 }
