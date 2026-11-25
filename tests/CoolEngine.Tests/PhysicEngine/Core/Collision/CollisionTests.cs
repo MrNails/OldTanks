@@ -492,6 +492,21 @@ public sealed class CollisionTests
         AssertContact(collides, normal, depth, new Vector3(1, 0, 0), 1.5f);
     }
 
+    [Test]
+    public void CheckCollision_CubeWithCollapsedEdgeOverlappingCube_ReturnsTrue()
+    {
+        // Vertex 1 moved onto vertex 0 collapses the edge between them to a point, whose direction is NaN.
+        var collapsedShape = CollisionTestShapes.Cube();
+        collapsedShape.Vertices[1] = new Vector3(-1, 1, 1);
+        var a = CreatePolygon(collapsedShape, Matrix4.Identity, Vector3.Zero);
+        var positionB = new Vector3(0, 0.5f, 0);
+        var b = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.CreateTranslation(positionB), positionB);
+
+        var collides = a.Collision!.CheckCollision(b.Collision!, out _, out _);
+
+        Assert.That(collides, Is.True);
+    }
+
     private static CollisionTestPhysicObject CreatePolygon(CollisionData shape, Matrix4 transformation, Vector3 position) =>
         CollisionTestPhysicObject.Create(shape, transformation, position, s_polygonSize);
 

@@ -418,8 +418,9 @@ public class Collision
                 var direction2 = Vector3.Normalize(vertices2[edge2.B] - vertices2[edge2.A]);
 
                 var axis = Vector3.Cross(direction1, direction2);
-                // Parallel edges span no axis; their face axes were tested already.
-                if (axis.LengthSquared < ParallelEpsilon)
+                // Parallel edges span no axis; their face axes were tested already. Written as !(>=) so the NaN
+                // axis of an edge collapsed to a point is skipped too instead of always separating.
+                if (!(axis.LengthSquared >= ParallelEpsilon))
                     continue;
 
                 axis = Vector3.Normalize(axis);
