@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; §1 against the project files and Directory.Packages.props, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
+| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §1 against the project files and Directory.Packages.props, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
@@ -12,7 +12,7 @@ How the six projects fit together, which thread does what, and the process-wide 
 
 ## 1. Solution layout
 
-`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus two test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
+`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus three test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; OT-7) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
 
 | Project | Type | Target | Role |
 |---------|------|--------|------|

@@ -47,7 +47,8 @@ You review one change against its plan. You are read-only; building, running the
 
 ## 7. Performance
 
-- **Allocation-free hot paths:** per frame, per physics step and per draw, no LINQ, closures, boxing, `params` arrays, string formatting, iterator allocations or new collections. `ArrayPool` rentals are returned; `stackalloc` stays small.
+- **Allocation-free hot paths:** per frame, per physics step and per draw, no LINQ, closures, boxing, `params` arrays, string formatting, iterator allocations or new collections. `ArrayPool` rentals are returned on the normal paths; `stackalloc` stays small.
+- **No exception handling in the render loop (Denys, 2026-11-25):** reject any `try`/`catch`/`finally`, and any `using` block or declaration (it compiles to `try`/`finally`), in per-frame renderer code: a renderer's draw method and everything it calls each frame. Exceptions propagate to the high-level caller, which is meant to re-run the whole render pipeline (no such handler exists yet, so today a render-path exception ends the game; [BACKLOG](../../../docs/BACKLOG.md)); a torn frame, a UI freeze or a lost pooled buffer on an exception is accepted. Denys: "any renderer pipeline (in loop) should not use try..catch..finaly. Only hight-level methods with calls" ([CODE-STYLE](../../../docs/CODE-STYLE.md#patterns)).
 - **Data layout:** structs passed by `in` or `ref readonly` when large; arrays of structs or `Span<T>` over lists of classes in the inner loops; no virtual or interface dispatch per element where a concrete type is known.
 - **SIMD and math:** `System.Numerics` vector types where the plan asks; `MathF` for `float` math; no `double` round-trips in `float` loops.
 - **OpenGL:** state changes and buffer uploads batched; no per-object uniform upload where an instanced or uniform-buffer path exists; buffers resized geometrically, not per frame.
@@ -57,7 +58,7 @@ You review one change against its plan. You are read-only; building, running the
 
 - Every uniform and attribute name the C# side sets exists in the shader files, which change in the same diff (KI-008).
 - GL objects are created and disposed on the GL thread; no handle is used after `Dispose`; state changed for a draw is restored where the next draw relies on it (`GLSettings` around ImGui).
-- Every mesh of a drawable has its `TextureData` before the drawable reaches `ObjectRenderer<T>`, and `InstancedShader` is set before drawables arrive (KI-019).
+- Every mesh of a drawable has its `TextureData` before the drawable reaches `ObjectRenderer<T>` (since OT-7 `InstancedShader` may be set before or after drawables arrive; without it everything is drawn per instance).
 
 ## 9. UI and the generator
 
@@ -125,5 +126,5 @@ Checked, nothing found
 - <section numbers>
 ```
 
-- **Severity:** **blocker** (an improvised or copied mechanic, a GL call off the GL thread, a data race on world state, a crossed engine boundary, a weakened test), **major** (wrong behaviour in a realistic case, an allocation or a regression on a hot path), **minor** (wrong in an edge case, or a style rule broken), **nit**.
+- **Severity:** **blocker** (an improvised or copied mechanic, a GL call off the GL thread, a data race on world state, a crossed engine boundary, a weakened test, exception handling in per-frame renderer code), **major** (wrong behaviour in a realistic case, an allocation or a regression on a hot path), **minor** (wrong in an edge case, or a style rule broken), **nit**.
 - **CONFIRMED** means you traced it in the code or reproduced it. **PLAUSIBLE** means you couldn't, and says what would settle it.

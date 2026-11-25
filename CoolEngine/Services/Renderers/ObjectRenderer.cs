@@ -22,7 +22,7 @@ file static class ObjectRendererConstants
     public const int DefaultMaxInstancedElements_ = 32;
     public const int MaxPerInstanceElements_ = 15;
     
-    public static readonly Vector4 DefaultEmptyTextureColor_ = new Vector4(0xAA, 0x55, 0x6F, 1);
+    public static readonly Vector4 DefaultEmptyTextureColor_ = new Vector4(0xAA / 255f, 0x55 / 255f, 0x6F / 255f, 1f);
 }
 
 //TODO: Add TextureChanged event to drawable and subscribe on it for texture changing
@@ -114,6 +114,24 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             RenderInternal(m_instancedSceneBuffers, InstancedShader, camera, ref projection, true);
     }
 
+    /// <summary>For tests: the per-instance group of <paramref name="scene"/> for <paramref name="texture"/>, or null when there is none.</summary>
+    internal IReadOnlyList<IDrawable>? GetPerInstanceGroup(Scene scene, Texture texture)
+    {
+        return m_sceneBuffers.TryGetValue(scene, out var drawSceneInfo) &&
+               drawSceneInfo.Drawables.TryGetValue(texture, out var group)
+            ? group
+            : null;
+    }
+
+    /// <summary>For tests: the instanced group of <paramref name="scene"/> for <paramref name="texture"/>, or null when there is none.</summary>
+    internal IReadOnlyList<IDrawable>? GetInstancedGroup(Scene scene, Texture texture)
+    {
+        return m_instancedSceneBuffers.TryGetValue(scene, out var drawSceneInfo) &&
+               drawSceneInfo.Drawables.TryGetValue(texture, out var group)
+            ? group
+            : null;
+    }
+
     private void SortInstancedAndPerInstanceObjects()
     {
         //Traverse via scene buffers for finding drawables list drawables count per texture > MaxPerInstanceElements_
@@ -175,9 +193,6 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     private void AddDrawableToInstancedGroup(IDrawable drawable, DrawSceneInfo? drawSceneInfo,
         DrawSceneInfo? instancedDrawSceneInfo, Scene drawableScene)
     {
-        if (InstancedShader is null) 
-            return;
-        
         foreach (var texture in drawable.GetUniqueTexturesFromDrawable())
         {
             List<IDrawable>? instancedDrawables = null;
@@ -194,7 +209,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             {
                 instancedDrawables!.Add(drawable);
             }
-            else if (haveDrawables && !haveInstancedDrawables &&
+            else if (InstancedShader is not null && haveDrawables && !haveInstancedDrawables &&
                      uniqueDrawables!.Count > ObjectRendererConstants.MaxPerInstanceElements_)
             {
                 if (instancedDrawSceneInfo is null)
@@ -405,47 +420,55 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         var maxElements = GetMaxBufferElements(sceneDrawables.Count, buffer);
 
         var modelsData = ArrayPool<ModelData>.Shared.Rent(maxElements);
-        
-        var hiddenElementsAmount = 0;
-        
-        for (int j = 0; j < sceneDrawables.Count; j++)
+
+        var visibleCount = FillInstanceRecords(sceneDrawables, drawables, mesh.HasTextureCoords, modelsData);
+
+        if (visibleCount == 0)
         {
-            var element = sceneDrawables[j];
-
-            if (!element.Visible)
-            {
-                hiddenElementsAmount++;
-                continue;
-            }
-
-            var textureData = drawables[element];
-            var haveTexture = !textureData.Texture.IsEmpty && mesh.HasTextureCoords;
-            var textTransform = Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
-                                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle));
-
-            modelsData[j] = new ModelData(element.Transformation, 
-                haveTexture ? Colors.White : ObjectRendererConstants.DefaultEmptyTextureColor_, 
-                textTransform, haveTexture ? 1 : 0);
-        }
-        
-        if (hiddenElementsAmount == sceneDrawables.Count)
+            ArrayPool<ModelData>.Shared.Return(modelsData);
             return;
+        }
 
         if (needBufferRecreate)
         {
             buffer?.Dispose();
             buffer = RecreateBuffer(drawObjectInfo, renderDto.Shader, maxElements);
-            
+
             drawSceneInfo.TransformationsBuffer = buffer;
         }
 
-        var drawablesToDraw = sceneDrawables.Count - hiddenElementsAmount;
-        
-        buffer!.FillData(modelsData, drawablesToDraw);
-        
-        GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, drawablesToDraw);
-        
+        buffer!.FillData(modelsData, visibleCount);
+
+        GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, visibleCount);
+
         ArrayPool<ModelData>.Shared.Return(modelsData);
+    }
+
+    /// <summary>Packs one instance record per visible drawable contiguously from index 0 and returns how many it wrote.</summary>
+    internal static int FillInstanceRecords(List<IDrawable> sceneDrawables, Dictionary<IDrawable, TextureData> textureDatas,
+        bool meshHasTextureCoords, Span<ModelData> records)
+    {
+        var visibleCount = 0;
+
+        for (int j = 0; j < sceneDrawables.Count; j++)
+        {
+            var element = sceneDrawables[j];
+
+            if (!element.Visible)
+                continue;
+
+            var textureData = textureDatas[element];
+            var haveTexture = !textureData.Texture.IsEmpty && meshHasTextureCoords;
+            var textTransform = Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
+                                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle));
+
+            records[visibleCount] = new ModelData(element.Transformation, 
+                haveTexture ? Colors.White : ObjectRendererConstants.DefaultEmptyTextureColor_, 
+                textTransform, haveTexture ? 1 : 0);
+            visibleCount++;
+        }
+
+        return visibleCount;
     }
     
     private void DrawablesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -482,7 +505,24 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             newTextureGroupDrawables[drawable] = e.TextureData;
         }
 
-        UpdateTextureForSceneInfo(e, existsInSceneBuffer ? drawSceneInfo! : drawInstancedSceneInfo!, drawable);
+        // Update the scene info whose old-texture group holds the drawable: a scene can have per-instance
+        // and instanced groups at once, and the drawable may be in either.
+        var sceneInfoToUpdate = existsInSceneBuffer ? drawSceneInfo! : drawInstancedSceneInfo!;
+
+        if (existsInSceneBuffer &&
+            drawSceneInfo!.Drawables.TryGetValue(e.OldTexture, out var oldPerInstanceGroup) &&
+            oldPerInstanceGroup.Contains(drawable))
+        {
+            sceneInfoToUpdate = drawSceneInfo;
+        }
+        else if (existsInInstancedSceneBuffer &&
+                 drawInstancedSceneInfo!.Drawables.TryGetValue(e.OldTexture, out var oldInstancedGroup) &&
+                 oldInstancedGroup.Contains(drawable))
+        {
+            sceneInfoToUpdate = drawInstancedSceneInfo;
+        }
+
+        UpdateTextureForSceneInfo(e, sceneInfoToUpdate, drawable);
     }
 
     private static void UpdateTextureForSceneInfo(in TexturedObjectInfo.TextureChangedArg e, DrawSceneInfo drawSceneInfo, IDrawable drawable)
@@ -575,7 +615,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     }
     
     [StructLayout(LayoutKind.Sequential)]
-    private readonly struct ModelData
+    internal readonly struct ModelData
     {
         public readonly Matrix4 Transformation;
         public readonly Vector4 Color;

@@ -20,4 +20,8 @@
       <ProjectReference Include="..\CoolEngine.Imaging\CoolEngine.Imaging.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <InternalsVisibleTo Include="CoolEngine.Tests" />
+    </ItemGroup>
+
 </Project>

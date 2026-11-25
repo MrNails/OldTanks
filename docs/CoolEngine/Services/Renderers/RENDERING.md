@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; whole page |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -23,17 +23,19 @@ How the engine draws a frame: the four renderers in `CoolEngine/Services/Rendere
 
 ## 2. `ObjectRenderer<T>`: batching and instancing
 
-**Feeding it:** set `Shader`, then `InstancedShader`, then `DrawableItems` (an `ObservableCollection<T>`). `InstancedShader` is required even for objects drawn one by one, and must be set before any drawable arrives: the method that files drawables into groups returns at once without it, so earlier drawables are never drawn ([KI-019](../../../KNOWN-ISSUES.md#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader)). The renderer subscribes to `CollectionChanged`, and to each `TexturedObjectInfo.TextureChanged`, and regroups on adds, removes and texture changes. It does **not** watch `IDrawable.TexturedObjectInfos` itself, so give a drawable its textures before adding it to the collection.
+**Feeding it:** set `Shader`, then `InstancedShader`, then `DrawableItems` (an `ObservableCollection<T>`). `InstancedShader` is optional and may be set before or after `DrawableItems` (since OT-7, [KI-019](../../../KNOWN-ISSUES.md#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader)): drawables are always filed into per-instance groups, and without `InstancedShader` everything is drawn one by one with `Shader`. A drawable added with a texture new to a scene whose groups are all instanced is not filed ([KI-024](../../../KNOWN-ISSUES.md#ki-024-objectrenderert-drops-a-drawable-whose-texture-is-new-to-a-fully-instanced-scene)). The renderer subscribes to `CollectionChanged`, and to each `TexturedObjectInfo.TextureChanged`, and regroups on adds, removes and texture changes. It does **not** watch `IDrawable.TexturedObjectInfos` itself, so give a drawable its textures before adding it to the collection.
 
 **Grouping:** scene → texture → drawables (`DrawSceneInfo.Drawables`), plus mesh → texture → per-drawable `TextureData`. Each (mesh, shader) pair gets one VAO and VBO, created on first draw.
 
 **Per-instance path** (`DefaultShader`): one `DrawArrays` per visible drawable with uniforms `model`, `color`, `textureTransform` (a 2×2 scale-and-rotate from `TextureData.Scale` and `RotationAngle`) and `hasTexture`.
 
-**Instanced path** (`DefaultShader2`): when a **17th** drawable joins a scene-and-texture group (the check is "more than 15" before the add; setting `InstancedShader` later moves groups of 16 or more), the group moves to the instanced set and is drawn with one `DrawArraysInstanced`. Per-instance data is a 100-byte record (model matrix, color, texture transform, has-texture flag) in a dynamic buffer whose capacity is the next power of two, at least 32. Groups never move back.
+**Instanced path** (`DefaultShader2`): when a **17th** drawable joins a scene-and-texture group (the check is "more than 15" before the add; setting `InstancedShader` later moves groups of 16 or more), the group moves to the instanced set and is drawn with one `DrawArraysInstanced`. Per-instance data is a 100-byte record (model matrix, color, texture transform, has-texture flag) in a dynamic buffer whose capacity is the next power of two, at least 32. Groups never move back. Only **visible** drawables are packed: `ObjectRenderer<T>.FillInstanceRecords` writes one record per visible drawable contiguously from index 0, and the upload and the draw use exactly that count (since OT-7, [KI-009](../../../KNOWN-ISSUES.md#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden)); the rented `ArrayPool` array is returned on the normal paths (the all-hidden return and after the draw), including for a group emptied by deletes. **Exceptions:** the draw path catches none ([CODE-STYLE rule](../../../CODE-STYLE.md#patterns), Denys, 2026-11-25); an exception propagates to the caller of the render pipeline (up the call chain from `OldTanks.Windows.MainWindow.OnRenderFrame`), the frame is torn, and a rental in flight is lost. The high-level caller is meant to catch it and re-run the pipeline, but no such handler exists yet: today the exception ends the game, unlogged ([KI-015](../../../KNOWN-ISSUES.md#ki-015-unhandled-exceptions-are-never-logged), [BACKLOG](../../../BACKLOG.md#game-and-engine-features-not-built)).
+
+**Texture changes:** `DrawableTextureChanged` moves the drawable to the group of the new texture on the path where its old-texture group actually holds it (per-instance checked first, then instanced), and keeps the scene's other groups as they are. A texture can therefore have a per-instance and an instanced group in one scene ([KI-025](../../../KNOWN-ISSUES.md#ki-025-objectrenderert-can-keep-one-scene-texture-on-both-paths)). Before OT-7, retexturing an instanced drawable in a scene that also had per-instance groups threw `KeyNotFoundException` in the next frame (found and fixed in OT-7, no KI number).
 
 **Vertices:** faces are expanded into a non-indexed triangle list of `CoolEngine.GraphicalEngine.Core.Primitives.Vertex` (position, normal, texture coordinate; 32 bytes). Only `iPos` and `iTextureCoord` are bound; normals are uploaded but no shader uses them, so there is no lighting.
 
-**No texture:** a drawable whose `TextureData.Texture` is `Texture.Empty`, or whose mesh has no texture coordinates, is drawn in a flat color with `hasTexture` false ([KI-005](../../../KNOWN-ISSUES.md#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space)).
+**No texture:** a drawable whose `TextureData.Texture` is `Texture.Empty`, or whose mesh has no texture coordinates, is drawn in a flat rose, #AA556F as 0-1 channels, with `hasTexture` false, on both paths (fixed in OT-7, observed in the running game; before, it drew white: [KI-005](../../../KNOWN-ISSUES.md#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space)). `TextureData.Color` is not read.
 
 ## 3. GPU-side types
 
@@ -75,4 +77,4 @@ The ImGui renderer, `OldTanks.UI.Services.ImGUI.ImGuiController`, compiles its o
 
 1. Make the object an `IDrawable` (the game's `OldTanks.Models.WorldObject` already is) whose `Scene` comes from `GlobalCache<Scene>`.
 2. Give it one `TexturedObjectInfo` with a `TextureData` for **every** mesh of its scene (a missing mesh throws in `ObjectRenderer<T>`; no `TexturedObjectInfo` at all makes it invisible).
-3. Add it to `World.WorldObjects`; `ObjectRenderer<T>` picks it up (its `InstancedShader` is already set by the game). For the debug view also call `CollisionRenderer.AddCollision`, and keep `ObjectRendererOld.AddDrawable` in step with what `OldTanks.UI.ImGuiUI.MainWindow` does until the legacy renderer is removed.
+3. Add it to `World.WorldObjects`; `ObjectRenderer<T>` picks it up (the game sets its `InstancedShader` at startup, though the renderer no longer needs it). For the debug view also call `CollisionRenderer.AddCollision`, and keep `ObjectRendererOld.AddDrawable` in step with what `OldTanks.UI.ImGuiUI.MainWindow` does until the legacy renderer is removed.
