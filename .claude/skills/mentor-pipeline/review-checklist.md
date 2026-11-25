@@ -62,7 +62,7 @@ You review one change against its plan. You are read-only; building, running the
 
 ## 9. UI and the generator
 
-- `ControlHandler` exists before any control; control names are unique in a window (KI-010); `Width` push and pop balance (KI-018).
+- `ControlHandler` exists before any control; every control name is unique across the process, HUD and ImGui windows alike, or the constructor throws (OT-10); a leaf control's `Width` goes through `ImGui.SetNextItemWidth` and is consumed by its own widget, containers ignore it, and nothing pushes an item width without popping it (OT-10).
 - Binding attribute strings name real members and events; the generated file compiles and was read (BINDING-GENERATOR §1); `bindingWay` is a named argument.
 - UI handlers that change the world respect the physics thread (KI-003).
 

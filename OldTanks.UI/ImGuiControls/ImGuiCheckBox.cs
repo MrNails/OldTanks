@@ -21,10 +21,10 @@ public class ImGuiCheckBox : ImGuiControl
 
     public override void Draw()
     {
-        base.Draw();
-        
         if (!IsVisible)
             return;
+
+        base.Draw();
 
         var oldIsChecked = m_isChecked;
         ImGui.Checkbox(Name, ref m_isChecked);

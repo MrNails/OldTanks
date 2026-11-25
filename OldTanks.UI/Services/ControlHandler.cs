@@ -8,13 +8,13 @@ public sealed class ControlHandler
 {
     private static object CurrentInstanceLocker = new object();
     
-    private readonly HashSet<IControl> m_controls;
+    private readonly Dictionary<string, IControl> m_controls;
     private readonly Dictionary<IControl, IControl> m_linkedControls;
     private readonly List<IControl> m_windows;
 
     public ControlHandler()
     {
-        m_controls = new HashSet<IControl>();
+        m_controls = new Dictionary<string, IControl>(StringComparer.Ordinal);
         m_linkedControls = new Dictionary<IControl, IControl>();
         m_windows = new List<IControl>();
         
@@ -46,11 +46,16 @@ public sealed class ControlHandler
     
     internal void RegisterControl(IControl control)
     {
-        if (!m_controls.Add(control)) 
+        if (!m_controls.TryAdd(control.Name, control))
             throw new InvalidOperationException($"Control with name {control.Name} already exists.");
     }
 
-    internal bool UnRegisterControl(IControl control) => m_controls.Remove(control);
+    internal bool UnRegisterControl(IControl control)
+    {
+        return m_controls.TryGetValue(control.Name, out var registered) &&
+               ReferenceEquals(registered, control) &&
+               m_controls.Remove(control.Name);
+    }
 
     internal void RegisterLink(IControl parent, IControl child)
     {

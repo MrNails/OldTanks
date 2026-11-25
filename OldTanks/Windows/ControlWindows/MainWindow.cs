@@ -92,7 +92,7 @@ public partial class MainWindow
             Font = font,
         };
         
-        m_tbCollidingPS = new TextBlock("TB_FPS")
+        m_tbCollidingPS = new TextBlock("TB_CollidingPS")
         {
             Position = new Vector2(textBlock3.Position.X + textBlock3.Size.X, textBlock3.Position.Y),
             Font = font,
