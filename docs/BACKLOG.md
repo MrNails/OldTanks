@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living - open work, unwired features, debt |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-7; the new render-exception item against the code, the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -56,6 +56,7 @@ Controls and settings that exist but do nothing yet:
 - **Materials:** the OBJ loader skips `mtllib` and `usemtl`.
 - **Levels:** `CoolEngine.Models.Level` and `CoolEngine.PhysicEngine.Core.WorldSettings` are unused sketches.
 - **Retire `ObjectRendererOld`:** move the skybox and debug primitives to their own renderers (`SkyBoxRenderer` is an empty placeholder) and drop the per-type drawable lists the game still keeps in sync.
+- **A high-level handler for exceptions in the render pipeline.** Denys, 2026-11-25: "exception which will be handled on high-level caller which will re-run whole render pipeline" ([CODE-STYLE](CODE-STYLE.md#patterns)). Nothing catches a render-path exception today: `OldTanks.Windows.MainWindow.OnRenderFrame` and `OldTanks.Program` have no handler (the only `try`/`catch` in `MainWindow` is the physics thread's `WorldHandler`), so the game ends, unlogged ([KI-015](KNOWN-ISSUES.md#ki-015-unhandled-exceptions-are-never-logged)); the retexture crash of OT-7 did exactly that. Not designed: where it sits, what it logs and the retry policy are for Denys to specify.
 
 ## Dead code to remove or finish
 

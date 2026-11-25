@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted; the language, events and package rules against the project files and `Directory.Packages.props`; the rest as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-7; the renderer exception rule as Denys decided it on 2026-11-25; the language, events and package rules against the project files and `Directory.Packages.props`; the rest as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -40,6 +40,7 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 - **Window classes are split in two partial files:** behaviour in `<Name>.cs`, controls (fields and the method that builds the tree) in `ControlsInitialization/<Name>.cs`; the game window's HUD is in `Windows/ControlWindows/MainWindow.cs`.
 - **Caches by name:** shared assets are fetched from `CoolEngine.Services.GlobalCache<T>.Default` by name; keep names in a constants class (`OldTanks.Infrastructure.CollisionConstants`) rather than as scattered literals.
 - **GL calls only on the GL thread** ([ARCHITECTURE §3](ARCHITECTURE.md#3-getting-work-onto-the-gl-thread)). A type that owns GL objects implements `IDisposable`.
+- **No exception handling in the per-frame renderer path.** No `try`, `catch` or `finally`, and no `using` block or declaration (it compiles to `try`/`finally`), in a renderer's draw method or anything it calls each frame. Exception handling belongs only to the high-level methods that call the render pipeline, which are meant to catch and re-run the whole pipeline. No such handler exists yet: today an exception in the render path ends the game, unlogged ([KI-015](KNOWN-ISSUES.md#ki-015-unhandled-exceptions-are-never-logged), [BACKLOG](BACKLOG.md#game-and-engine-features-not-built)). A torn frame, a UI freeze or a lost pooled buffer (`ArrayPool` rental) on an exception is accepted. Denys, 2026-11-25, rejecting a `try`/`finally` around the rental in `ObjectRenderer<T>.RenderInstanced`: "Note, that any renderer pipeline (in loop) should not use try..catch..finaly. Only hight-level methods with calls. So, it is acceptable that we might face with some UI freeze and torn render pipeline on exception which will be handled on high-level caller which will re-run whole render pipeline." ([RENDERING §2](CoolEngine/Services/Renderers/RENDERING.md#2-objectrenderert-batching-and-instancing))
 - **`#region`** is used to group overrides and object setup in long classes; optional.
 
 ## Math types

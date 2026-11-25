@@ -132,7 +132,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Closed: fixed in OT-7 (`bug/OT-7`, 2026-11-25). `ObjectRenderer<T>.FillInstanceRecords` packs one record per visible drawable from index 0 and returns the count, which `RenderInstanced` uploads and draws; the same change makes `RenderInstanced` return its `ArrayPool` rental on every path, which before was skipped when all drawables were hidden and on every frame for an instanced group emptied by deletes (spawn 17 or more cubes, delete them all). Confirmed by `CoolEngine.Tests` only: no object can be hidden in the game, nothing sets `Visible = false` |
+| **Status** | Closed: fixed in OT-7 (`bug/OT-7`, 2026-11-25). `ObjectRenderer<T>.FillInstanceRecords` packs one record per visible drawable from index 0 and returns the count, which `RenderInstanced` uploads and draws; the same change makes `RenderInstanced` return its `ArrayPool` rental on its normal paths (the all-hidden return and after the draw; on an exception the frame is torn and the rental lost, by Denys's rule in [CODE-STYLE](CODE-STYLE.md#patterns)), which before was skipped when all drawables were hidden and on every frame for an instanced group emptied by deletes (spawn 17 or more cubes, delete them all). Confirmed by `CoolEngine.Tests` only: no object can be hidden in the game, nothing sets `Visible = false` |
 | **Scope** | `ObjectRenderer<T>.RenderInstanced` |
 
 ## KI-010: Control names are not checked for uniqueness
