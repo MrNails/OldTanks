@@ -17,10 +17,12 @@
         <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.3" />
     </ItemGroup>
 
-    <!-- Source generator -->
+    <!-- Source generator. Roslyn is held at the compiler version of the .NET SDK that builds the solution
+         (SDK 10.0.401 ships Roslyn 5.9.0): a generator compiled against a newer Microsoft.CodeAnalysis
+         does not load in an older compiler (CS9057). Raise it together with the SDK. -->
     <ItemGroup>
-        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     </ItemGroup>
 
     <!-- Tests -->
