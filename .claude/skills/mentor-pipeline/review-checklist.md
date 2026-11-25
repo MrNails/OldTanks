@@ -56,7 +56,7 @@ You review one change against its plan. You are read-only; building, running the
 
 ## 8. Rendering and shaders
 
-- Every uniform and attribute name the C# side sets exists in the shader files, which change in the same diff (KI-008).
+- Every uniform and attribute name the C# side sets exists, and is used (not optimised away), in the shader files, which change in the same diff. Since OT-6 an unknown name resolves to -1 with one Warning, and a direct `GL.VertexAttribPointer(-1)` raises `GL_INVALID_VALUE`; no new GLSL identifier may reuse a built-in function's name (`texture`, KI-020).
 - GL objects are created and disposed on the GL thread; no handle is used after `Dispose`; state changed for a draw is restored where the next draw relies on it (`GLSettings` around ImGui).
 - Every mesh of a drawable has its `TextureData` before the drawable reaches `ObjectRenderer<T>` (since OT-7 `InstancedShader` may be set before or after drawables arrive; without it everything is drawn per instance).
 

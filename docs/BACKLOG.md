@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living - open work, unwired features, debt |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7; the new render-exception item against the code, the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-7; the new render-exception item against the code, bug/OT-6 for the shader items, the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -20,7 +20,7 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 ## Planned
 
 - **Engines and the tank game** ([plan](plans/ENGINES-AND-TANK-GAME.md), draft): separate physics, render and UI engines, a shared core, and the online game on them. Not ticketed as a whole; D1-D4 and D7-D13 decided, D5 and D6 (names, determinism) open.
-- **Font and skybox shader bug task** ([KI-020](KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway)): rename the `texture` input and uniform in `FontShader`, `3DFontShader` and `SkyBoxShader`, check the link status in `Shader.Create`. A `bug/OT-<n>` task after OT-3 (Denys: "Separate bug task").
+- **Shader tests** (the OT-6 reviewer's suggestion, 2026-11-25): a headless GLSL lint test that fails when a declaration reuses a built-in name such as `texture` (the cause of [KI-020](KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway)), and an opt-in GL-backed shader test (compile and link every folder in `OldTanks/Assets/Shaders/`, check every name the C# side sets) in `tests/CoolEngine.Tests` (added by OT-7). The font and skybox shader fix itself is done on `bug/OT-6`.
 
 ## Platform and build
 

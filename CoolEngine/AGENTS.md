@@ -13,7 +13,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-006, KI-008, KI-016, KI-017, KI-020, KI-024, KI-025 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-006, KI-016, KI-017, KI-024, KI-025 |
 
 ## Project Details
 
@@ -36,6 +36,7 @@ Representative, by folder.
 | `Services/` | `Application`, `EngineSettings`, `GlobalCache<T>`, `UI` (`UIInvoke`), `Colors` |
 | `Services/Renderers/` | `ObjectRenderer<T>`, `ObjectRendererOld` (legacy: skybox, primitives), `CollisionRenderer`, `TextRenderer` |
 | `Services/Loaders/` | `WaveFrontLoader`, `ShaderLoader`, `TextureLoader`, `SkyBoxTextureLoader` (the last two decode through `CoolEngine.Imaging.ImageDecoder`) |
+| `Services/Exceptions/` | `DrawException`, `ObjectException`, `ShaderException` (a shader program that failed to link) |
 | `Services/Threading/` | `Dispatcher`, `DispatcherOperation`, `DispatcherSynchronizationContext` |
 | `Services/Interfaces/` | `IDrawable`, `IPhysicObject`, `ITransformable`, `IMovable`, `ICollisionable`, `IWatchable`, `IRenderer<T>`, `IAssetLoader` |
 
@@ -56,6 +57,6 @@ Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.Fas
 
 - **No game knowledge:** nothing here may reference `OldTanks.*`.
 - **GL calls only on the GL thread.** New loaders keep GL work after an `await` started on the main thread or inside `UI.UIInvoke`; renderers create GL objects lazily in their draw methods (`ObjectRenderer<T>.Render`, `DrawSkyBox`, `DrawPrimitives`, `DrawText2D`/`DrawText3D`, `DrawElementsCollision`).
-- **Changing a uniform or attribute name** means changing the shader files in `OldTanks/Assets/Shaders/` in the same change; mismatches fail silently (KI-008).
+- **Changing a uniform or attribute name** means changing the shader files in `OldTanks/Assets/Shaders/` in the same change; an unknown name now logs a Warning once and resolves to -1 (GL ignores it), and a program that fails to link throws `ShaderException` ([RENDERING §3](../docs/CoolEngine/Services/Renderers/RENDERING.md#3-gpu-side-types)). Never name a GLSL variable like a built-in (`texture`).
 - **The static renderers get their shaders from the game:** `CollisionRenderer.Shader` and `TextRenderer.Shader` when shaders load, `ObjectRendererOld`'s skybox shader through `RegisterScene`; `ObjectRenderer<T>` works without `InstancedShader` (everything is then drawn one by one) and accepts it before or after the drawables (KI-019, closed in OT-7). A new renderer is documented in RENDERING.
 - **`EngineSettings.CollisionIterations`** must stay in 1-128 (the setter throws).
