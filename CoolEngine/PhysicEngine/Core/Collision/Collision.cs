@@ -38,15 +38,30 @@ public class Collision
     public void UpdateCollision()
     {
         var transformation = CollisionData.PhysicObject!.Transformation;
-        var rotation = transformation.ClearTranslation().ClearScale();
+
+        // Normals go through the inverse-transpose of the linear part, not the rotation alone: under uneven scale a
+        // rotated normal is no longer perpendicular to its face. The cofactor rows are that inverse-transpose times
+        // the determinant, so there is no division and no exception for a singular matrix.
+        var row0 = transformation.Row0.Xyz;
+        var row1 = transformation.Row1.Xyz;
+        var row2 = transformation.Row2.Xyz;
+        var cofactor0 = Vector3.Cross(row1, row2);
+        var cofactor1 = Vector3.Cross(row2, row0);
+        var cofactor2 = Vector3.Cross(row0, row1);
+        // A negative determinant (a mirror) would turn every normal inward.
+        var sign = Vector3.Dot(row0, cofactor0) < 0 ? -1f : 1f;
 
         for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
             m_currentCollision.Vertices[i] =
                 new Vector3(new Vector4(m_originalCollision.Vertices[i], 1) * transformation);
-        
+
         for (int i = 0; i < m_currentCollision.Faces.Count; i++)
-            m_currentCollision.Faces[i].Normal = Vector3.Normalize(new Vector3(new Vector4(m_originalCollision.Faces[i].Normal, 1) * rotation));
-        
+        {
+            var normal = m_originalCollision.Faces[i].Normal;
+            m_currentCollision.Faces[i].Normal =
+                Vector3.Normalize(sign * (normal.X * cofactor0 + normal.Y * cofactor1 + normal.Z * cofactor2));
+        }
+
         CollisionData.UpdateBoundingBox();
     }
 

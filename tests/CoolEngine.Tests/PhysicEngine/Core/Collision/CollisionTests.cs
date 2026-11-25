@@ -315,6 +315,24 @@ public sealed class CollisionTests
         });
     }
 
+    [Test]
+    public void UpdateCollision_TetrahedronScaledTwiceAlongX_FaceNormalIsPerpendicularToTheFace()
+    {
+        var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), Matrix4.CreateScale(2, 1, 1), Vector3.Zero);
+
+        var data = tetrahedron.Collision!.CollisionData;
+        var face = data.Faces[0];
+        var first = data.Vertices[face.Indices[0]];
+        var edge1 = data.Vertices[face.Indices[1]] - first;
+        var edge2 = data.Vertices[face.Indices[2]] - first;
+        Assert.Multiple(() =>
+        {
+            AssertVector(face.Normal, new Vector3(-0.333333f, -0.666667f, -0.666667f), NormalTolerance, "face 0 normal");
+            Assert.That(Vector3.Dot(face.Normal, edge1), Is.EqualTo(0f).Within(1e-5f), "normal . edge 1");
+            Assert.That(Vector3.Dot(face.Normal, edge2), Is.EqualTo(0f).Within(1e-5f), "normal . edge 2");
+        });
+    }
+
     private static CollisionTestPhysicObject CreatePolygon(CollisionData shape, Matrix4 transformation, Vector3 position) =>
         CollisionTestPhysicObject.Create(shape, transformation, position, s_polygonSize);
 
