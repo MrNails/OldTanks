@@ -14,6 +14,7 @@ using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Misc;
 using CoolEngine.Services.Renderers;
+using ImGuiNET;
 using OldTanks.DataModels;
 using OldTanks.Infrastructure;
 using OldTanks.UI.Controls;
@@ -54,6 +55,9 @@ public partial class MainWindow : GameWindow
     private bool m_exit;
     private bool m_readyToHandle;
 
+    private volatile bool m_imGuiWantsMouse;
+    private volatile bool m_imGuiWantsKeyboard;
+
     private ImGuiController m_imGuiController;
 
     private Font m_font;
@@ -72,8 +76,11 @@ public partial class MainWindow : GameWindow
     private bool m_debugView;
     private bool m_drawNormals;
     private bool m_drawFaceNumber;
-    private bool m_mouseDown;
+    private volatile bool m_mouseDown;
     private bool m_freeCamMode;
+
+    // GL thread only: true for a key whose press the game took (scene ready, ImGui not wanting the keyboard).
+    private readonly bool[] m_gameOwnedKeys = new bool[(int)Keys.LastKey + 1];
 
     private IMovable m_currentObject;
 
@@ -219,7 +226,9 @@ public partial class MainWindow : GameWindow
 
     protected override void OnMouseDown(MouseButtonEventArgs e)
     {
-        m_mouseDown = true;
+        if (!m_imGuiWantsMouse)
+            m_mouseDown = true;
+
         base.OnMouseDown(e);
     }
 
@@ -234,12 +243,15 @@ public partial class MainWindow : GameWindow
         if (Size.X == 0 || Size.Y == 0)
             return;
 
-        var aspect = (float)Size.X / Size.Y;
-        m_world.CurrentCamera.FOV += -e.OffsetY;
+        if (!m_imGuiWantsMouse)
+        {
+            var aspect = (float)Size.X / Size.Y;
+            m_world.CurrentCamera.FOV += -e.OffsetY;
 
-        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
-            aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
+            EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
+                MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
+                aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
+        }
 
         m_imGuiController.MouseScroll(e.Offset);
     }
@@ -252,7 +264,15 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyDown(KeyboardKeyEventArgs e)
     {
-        if (e.Key == Keys.LeftControl && m_currentObject is IPhysicObject physObj)
+        var keyIndex = (int)e.Key;
+
+        // Ownership is taken from the initial press only; repeats never change the entry; OnKeyUp clears it.
+        if (!e.IsRepeat && keyIndex >= 0 && keyIndex < m_gameOwnedKeys.Length && m_readyToHandle &&
+            !m_imGuiWantsKeyboard)
+            m_gameOwnedKeys[keyIndex] = true;
+
+        if (e.Key == Keys.LeftControl && m_readyToHandle && !m_imGuiWantsKeyboard &&
+            m_currentObject is IPhysicObject physObj)
             physObj.RigidBody.MaxSpeedMultiplier = 3;
 
         base.OnKeyDown(e);
@@ -260,6 +280,22 @@ public partial class MainWindow : GameWindow
 
     protected override void OnKeyUp(KeyboardKeyEventArgs e)
     {
+        var keyIndex = (int)e.Key;
+        var gameOwned = false;
+
+        if (keyIndex >= 0 && keyIndex < m_gameOwnedKeys.Length)
+        {
+            gameOwned = m_gameOwnedKeys[keyIndex];
+            m_gameOwnedKeys[keyIndex] = false;
+        }
+
+        // Releasing Left Ctrl always resets the multiplier; every other game key acts only if the game took its press.
+        if (e.Key != Keys.LeftControl && !gameOwned)
+        {
+            base.OnKeyUp(e);
+            return;
+        }
+
         switch (e.Key)
         {
             case Keys.I:
@@ -375,7 +411,7 @@ public partial class MainWindow : GameWindow
     {
         Application.Current.Dispatcher.HandleQueue();
 
-        if (KeyboardState.IsKeyDown(Keys.Escape))
+        if (KeyboardState.IsKeyPressed(Keys.Escape) && !m_imGuiWantsKeyboard)
             Close();
 
         if (!m_readyToHandle)
@@ -384,6 +420,7 @@ public partial class MainWindow : GameWindow
         var cam = m_world.CurrentCamera;
         
         m_imGuiController.Update(this, (float)args.Time);
+        UpdateImGuiInputClaims();
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
@@ -469,6 +506,15 @@ public partial class MainWindow : GameWindow
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+    }
+
+    // GL thread only: ImGui computed these in NewFrame, inside ImGuiController.Update.
+    private void UpdateImGuiInputClaims()
+    {
+        var io = ImGui.GetIO();
+
+        m_imGuiWantsMouse = io.WantCaptureMouse;
+        m_imGuiWantsKeyboard = io.WantCaptureKeyboard;
     }
 
     private void FillObject(IDrawable drawable, Texture? texture)
@@ -648,7 +694,10 @@ public partial class MainWindow : GameWindow
                     //var elapsedTime2 = (float)0.001;
                     stopWatch.Restart();
 
-                    HandleKeyboardInputs(elapsedTime);
+                    var imGuiWantsKeyboard = m_imGuiWantsKeyboard;
+
+                    if (!imGuiWantsKeyboard)
+                        HandleKeyboardInputs(elapsedTime);
 
                     //Collisions per second
                     var cps = Math.Round(1 / elapsedTime, MidpointRounding.ToEven);
@@ -665,11 +714,14 @@ public partial class MainWindow : GameWindow
                     if (m_freeCamMode)
                     {
                         var cam = m_world.CurrentCamera;
-                        cam.Move(elapsedTime, KeyboardState);
+                        if (!imGuiWantsKeyboard)
+                            cam.Move(elapsedTime, KeyboardState);
+
                         m_ray = new Ray(new Vector3(cam.Position.X, cam.Position.Y - 1, cam.Position.Z), cam.Position + cam.Rotation * 100);
                     }
 
-                    HandleObjectMove(elapsedTime2);
+                    if (!imGuiWantsKeyboard)
+                        HandleObjectMove(elapsedTime2);
 
                     HandleMouseMove();
 
