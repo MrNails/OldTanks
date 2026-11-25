@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Numerics = System.Numerics;
 
 namespace CoolEngine.Mathematics.Tests.TestSupport;
 
@@ -29,6 +30,39 @@ internal static class Oracle
         }
 
         return Unsafe.BitCast<TFrom, TTo>(value);
+    }
+
+    // Vectors convert field by field, independent of the layout and of the library's own conversion operators,
+    // which are under test themselves.
+
+    public static Numerics.Vector2 ToNumerics(Vector2 value)
+    {
+        return new Numerics.Vector2(value.X, value.Y);
+    }
+
+    public static Numerics.Vector3 ToNumerics(Vector3 value)
+    {
+        return new Numerics.Vector3(value.X, value.Y, value.Z);
+    }
+
+    public static Numerics.Vector4 ToNumerics(Vector4 value)
+    {
+        return new Numerics.Vector4(value.X, value.Y, value.Z, value.W);
+    }
+
+    public static Vector2 FromNumerics(Numerics.Vector2 value)
+    {
+        return new Vector2(value.X, value.Y);
+    }
+
+    public static Vector3 FromNumerics(Numerics.Vector3 value)
+    {
+        return new Vector3(value.X, value.Y, value.Z);
+    }
+
+    public static Vector4 FromNumerics(Numerics.Vector4 value)
+    {
+        return new Vector4(value.X, value.Y, value.Z, value.W);
     }
 
     /// <summary>The bytes of <paramref name="value"/> in memory order.</summary>

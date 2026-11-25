@@ -13,8 +13,10 @@ namespace CoolEngine.Mathematics.Tests.TestSupport;
 /// </list>
 /// Every failure names the caller's context (an oracle test passes <see cref="Inputs.Label"/>, so the failing input
 /// index is in the message) and the component index. The cores take spans of components; each library type adds
-/// its one-line overloads in the stage that adds the type, reading its components with <see cref="Floats{T}"/> or
-/// <see cref="Doubles{T}"/>. Inside <c>Assert.Multiple</c> every failing component is reported, not only the first.
+/// its one-line overloads in the stage that adds the type, reading its components from its fields
+/// (<c>Components</c>), so an assertion does not depend on the memory layout it may be testing; <see cref="Floats{T}"/>
+/// and <see cref="Doubles{T}"/> read memory order for the layout tests. Inside <c>Assert.Multiple</c> every failing
+/// component is reported, not only the first.
 /// </summary>
 internal static class MathAssert
 {
@@ -78,9 +80,54 @@ internal static class MathAssert
         }
     }
 
+    public static void Exact(Vector2 actual, Vector2 expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
+    public static void Exact(Vector3 actual, Vector3 expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
+    public static void Exact(Vector4 actual, Vector4 expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
     #endregion
 
     #region Near
+
+    public static void Near(Vector2 actual, Vector2 expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Vector2 actual, Vector2 expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
+
+    public static void Near(Vector3 actual, Vector3 expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Vector3 actual, Vector3 expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
+
+    public static void Near(Vector4 actual, Vector4 expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Vector4 actual, Vector4 expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
 
     public static void Near(float actual, float expected, float tolerance, float scale = 1f, string? context = null)
     {
@@ -191,6 +238,24 @@ internal static class MathAssert
     #endregion
 
     #region Components
+
+    /// <summary>The components of a vector read from its fields, X, Y, Z, W, independent of the memory layout.</summary>
+    public static float[] Components(Vector2 value)
+    {
+        return [value.X, value.Y];
+    }
+
+    /// <inheritdoc cref="Components(Vector2)"/>
+    public static float[] Components(Vector3 value)
+    {
+        return [value.X, value.Y, value.Z];
+    }
+
+    /// <inheritdoc cref="Components(Vector2)"/>
+    public static float[] Components(Vector4 value)
+    {
+        return [value.X, value.Y, value.Z, value.W];
+    }
 
     /// <summary>
     /// The components of a float library type in memory order (vectors X, Y, Z, W; matrices column after column).

@@ -44,6 +44,24 @@ internal static class Inputs
         return NextInRange(random, -ComponentLimit, ComponentLimit);
     }
 
+    /// <summary>A vector with every component in [-100, 100].</summary>
+    public static Vector2 NextVector2(this Random random)
+    {
+        return new Vector2(random.NextComponent(), random.NextComponent());
+    }
+
+    /// <inheritdoc cref="NextVector2"/>
+    public static Vector3 NextVector3(this Random random)
+    {
+        return new Vector3(random.NextComponent(), random.NextComponent(), random.NextComponent());
+    }
+
+    /// <inheritdoc cref="NextVector2"/>
+    public static Vector4 NextVector4(this Random random)
+    {
+        return new Vector4(random.NextComponent(), random.NextComponent(), random.NextComponent(), random.NextComponent());
+    }
+
     /// <summary>An angle in radians in [-2π, 2π].</summary>
     public static float NextAngle(this Random random)
     {
