@@ -16,7 +16,7 @@ public sealed partial class TextureWindow
         m_texturedObjectData = new ImGuiListBox<TexturedObjectInfo>("Object textures", ArrayPool<string>.Shared) { Width = 200 };
         
         m_selectedItemNameTextBlock = new ImGuiTextBlock("SelectedItemTextBlock") { Text = "Item:" };
-        m_texturesListBox = new ImGuiListBox<string>("Textures", ArrayPool<string>.Shared);
+        m_texturesListBox = new ImGuiListBox<string>("Textures", ArrayPool<string>.Shared) { Width = 200 };
         
         m_textureImage = new ImGuiImage("Texture image")
         {
