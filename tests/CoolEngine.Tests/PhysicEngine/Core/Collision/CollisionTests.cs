@@ -1,6 +1,7 @@
 namespace CoolEngine.Tests.PhysicEngine.Core.Collision;
 
 // Inside the namespace so that "Collision" names the engine class, not this test namespace's last segment.
+using CoolEngine.Models;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Tests.TestSupport;
 using OpenTK.Mathematics;
@@ -257,6 +258,61 @@ public sealed class CollisionTests
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.That(allocated, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Constructor_SphereShape_WritesNothingToConsole()
+    {
+        var originalOut = Console.Out;
+        var captured = new StringWriter();
+        Console.SetOut(captured);
+
+        try
+        {
+            CreateSphere(new Vector3(0, 5, 0));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.That(captured.ToString(), Is.Empty);
+    }
+
+    [Test]
+    public void Constructor_PolygonWithoutVertices_ThrowsArgumentException()
+    {
+        var physicObject = new CollisionTestPhysicObject { Size = s_polygonSize };
+        var shape = CollisionTestShapes.PolygonWithoutVertices();
+
+        var exception = Assert.Throws<ArgumentException>(() => _ = new Collision(physicObject, shape));
+
+        Assert.That(exception?.ParamName, Is.EqualTo("originalCollision"));
+    }
+
+    [Test]
+    public void Constructor_CubeShape_LeavesTheSharedOriginalUnchanged()
+    {
+        var original = CollisionTestShapes.Cube();
+        var originalVertices = original.Vertices;
+        var vertexValues = (Vector3[])originalVertices.Clone();
+        var normals = new Vector3[original.Faces.Count];
+        for (var i = 0; i < normals.Length; i++)
+            normals[i] = original.Faces[i].Normal;
+
+        for (var i = 0; i < 3; i++)
+            CreatePolygon(original, s_m, s_positionOfM);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(original.BoundingBox, Is.EqualTo(default(BoundingBox)));
+            Assert.That(original.Vertices, Is.SameAs(originalVertices));
+            Assert.That(original.Vertices, Is.EqualTo(vertexValues));
+            Assert.That(original.Faces, Has.Count.EqualTo(6));
+
+            for (var i = 0; i < normals.Length; i++)
+                Assert.That(original.Faces[i].Normal, Is.EqualTo(normals[i]), $"face {i} normal");
+        });
     }
 
     private static CollisionTestPhysicObject CreatePolygon(CollisionData shape, Matrix4 transformation, Vector3 position) =>

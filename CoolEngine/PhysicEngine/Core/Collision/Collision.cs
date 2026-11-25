@@ -89,19 +89,15 @@ public class Collision
 
     private void InitCollision(CollisionData originalCollision)
     {
-        if (originalCollision.Vertices.Length == 0)
-        {
-            Console.WriteLine("InitCollision error. Cannot copy mesh from original collision because there are no vertices.");
-            return;
-        }
+        // A sphere has no vertices by design (its radius is the object's width), so only a polygon needs them.
+        if (originalCollision.CollisionType == CollisionType.Polygon && originalCollision.Vertices.Length == 0)
+            throw new ArgumentException("A polygon collision needs at least one vertex.", nameof(originalCollision));
 
         m_currentCollision.Vertices = new Vector3[originalCollision.Vertices.Length];
         originalCollision.Vertices.CopyTo(m_currentCollision.Vertices, 0);
 
         foreach (var mesh in originalCollision.Faces)
             m_currentCollision.Faces.Add(new Face(mesh.Indices) { Normal = mesh.Normal });
-
-        originalCollision.UpdateBoundingBox();
     }
 
     private bool IntersectRayWithPolygon(Ray ray, ref Vector3 intersectionResultPoint)
