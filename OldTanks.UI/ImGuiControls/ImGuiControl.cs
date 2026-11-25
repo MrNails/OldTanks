@@ -35,7 +35,7 @@ public abstract class ImGuiControl : ObservableObject, IControl
     public virtual void Draw()
     {
         if (Width.HasValue)
-            ImGui.PushItemWidth(Width.Value);
+            ImGui.SetNextItemWidth(Width.Value);
     }
 
     public bool Equals(IControl? x, IControl? y)

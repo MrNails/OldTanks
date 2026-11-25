@@ -16,16 +16,14 @@ public class ImGuiWindow : ImGuiControlContainer, IDisposable
     public override void Draw()
     {
         if (!IsVisible) return;
-        
-        base.Draw();
 
         var open = IsVisible;
 
-        ImGui.Begin(Title, ref open);
+        var expanded = ImGui.Begin(Title, ref open);
 
         IsVisible = open;
 
-        if (open)
+        if (open && expanded)
             Child?.Draw();
 
         ImGui.End();
