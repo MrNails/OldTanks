@@ -33,13 +33,15 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 | Dependency | Reason |
 |------------|--------|
 | `Common`, `CoolEngine` (projects) | Observable base, typed events; `TextRenderer`, `Font`, `GLSettings`, `Texture` |
-| ImGui.NET 1.89.9.3 | Dear ImGui bindings |
-| OpenTK 4.8.1 | GL calls in the ImGui renderer, window input |
+| ImGui.NET 1.91.6.1 | Dear ImGui bindings |
+| OpenTK 4.9.4 | GL calls in the ImGui renderer, window input |
 
 ## Constraints
 
 - **`ControlHandler` before any control**; one per process.
 - **Control names are ImGui IDs** for ImGui controls: unique within a window (uniqueness is not enforced, KI-010).
+- **ImGui input goes through ImGui's event API** (`AddKeyEvent`, `AddMousePosEvent`, ...) in `ImGuiController`; ImGui.NET 1.91 has no `KeyMap` or `KeysDown`.
+- **Events use `System.EventHandler<TSender, TEventArgs>`** (.NET 10); `Common`'s own delegate was deleted.
 - **ImGui types use `System.Numerics` vectors**; conversion to OpenTK happens in the caller.
 - **No game types here:** controls are generic; game-specific windows belong in `OldTanks`.
 - **Renaming a control property or event** used in a `[BindableElement]` string breaks the generated code at compile time; update the attributes in `OldTanks/UI/ImGuiUI/ControlsInitialization/MainWindow.cs`.

@@ -2,7 +2,7 @@
 
 > **Project knowledge:** [docs/PROJECT-KNOWLEDGE.md](docs/PROJECT-KNOWLEDGE.md)
 
-Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, five projects, `net7.0` (generator `netstandard2.0`), OpenTK 4.8.1, ImGui.NET, Serilog; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
+Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, six projects plus two test projects, `net10.0` (generator `netstandard2.0`), OpenTK 4.9.4, ImGui.NET, Serilog, versions central in `Directory.Packages.props`; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
 
 ## Session bootstrap
 
@@ -27,11 +27,13 @@ Exhaustive: every `AGENTS.md` in the repository.
 | Area | Guide |
 |------|-------|
 | `CoolEngine` — rendering, loaders, physics, dispatcher | [CoolEngine/AGENTS.md](CoolEngine/AGENTS.md) |
+| `CoolEngine.Imaging` — strict PNG and JPEG decoders, no dependencies | [CoolEngine.Imaging/AGENTS.md](CoolEngine.Imaging/AGENTS.md) |
 | `OldTanks` — the game | [OldTanks/AGENTS.md](OldTanks/AGENTS.md) |
 | `OldTanks.UI` — control handler, HUD text, ImGui controls | [OldTanks.UI/AGENTS.md](OldTanks.UI/AGENTS.md) |
 | `OldTanks.UI.SourceGenerators` — binding generator | [OldTanks.UI.SourceGenerators/AGENTS.md](OldTanks.UI.SourceGenerators/AGENTS.md) |
 | `Common` — `ObservableObject`, `SettingsService`, typed events, helpers; no dependencies | This root guide |
 | `tests/OldTanks.Docs.Tests` — the documentation checks | This root guide; its rules are [DOCUMENTATION-GUIDE §9](docs/DOCUMENTATION-GUIDE.md#9-checks) |
+| `tests/CoolEngine.Imaging.Tests` — the decoders against Windows and ImageSharp | This root guide and [IMAGE-DECODERS §6](docs/CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested) |
 
 ## Folder map
 
@@ -39,9 +41,10 @@ Exhaustive for the repository root.
 
 | Path | Purpose |
 |------|---------|
-| `Common/`, `CoolEngine/`, `OldTanks.UI/`, `OldTanks.UI.SourceGenerators/`, `OldTanks/` | The five projects ([architecture](docs/ARCHITECTURE.md#1-solution-layout)) |
+| `Common/`, `CoolEngine/`, `CoolEngine.Imaging/`, `OldTanks.UI/`, `OldTanks.UI.SourceGenerators/`, `OldTanks/` | The six projects ([architecture](docs/ARCHITECTURE.md#1-solution-layout)) |
+| `Directory.Packages.props` | Every NuGet version, once (central package management); project files list packages without a `Version` |
 | `OldTanks/Assets/` | Shaders, textures, skyboxes, models, fonts; copied to the output on build ([asset pipeline](docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md)) |
-| `tests/` | Test projects: `OldTanks.Docs.Tests` (NUnit, `net10.0`), the documentation checks |
+| `tests/` | Two NUnit test projects: `OldTanks.Docs.Tests` (`net10.0`), the documentation checks; `CoolEngine.Imaging.Tests` (`net10.0-windows`), the decoder tests |
 | `docs/` | The knowledge base; index [docs/README.md](docs/README.md) |
 | `.claude/skills/` | Project skills for Claude Code: [mentor-pipeline](.claude/skills/mentor-pipeline/SKILL.md) (agent tiers by risk, plan and brief templates, the review checklist, the calibration table). Personal settings and worktrees under `.claude/` stay git-ignored |
 | `OldTanks.sln` | The solution |
@@ -49,7 +52,7 @@ Exhaustive for the repository root.
 
 ## Build and run
 
-`dotnet build OldTanks.sln` (0 errors, 165 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net7.0\`: assets resolve against the working directory, and a .NET 7 runtime is needed. `dotnet test OldTanks.sln` runs the documentation checks (no game-code tests yet). Details: [docs/BUILD.md](docs/BUILD.md).
+`dotnet build OldTanks.sln` (0 errors, 139 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.sln` runs the documentation checks and the decoder tests (no game-code tests yet). Details: [docs/BUILD.md](docs/BUILD.md).
 
 ## Constraints
 

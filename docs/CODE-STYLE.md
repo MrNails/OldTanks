@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; claims about the existing code |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; the language, events and package rules against the project files and `Directory.Packages.props`; the rest as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -12,7 +12,9 @@ The conventions the code already follows, written down so new code matches. Wher
 
 ## Language and project settings
 
-- **C# 11 on `net7.0`** with `ImplicitUsings` and `Nullable` enabled in every runtime project; the generator is `netstandard2.0` with `LangVersion latest`.
+- **C# latest (`LangVersion latest`) on `net10.0`** with `ImplicitUsings` and `Nullable` enabled in every runtime project; the generator is `netstandard2.0` with `LangVersion latest`.
+- **Package versions live only in `Directory.Packages.props`.** A `<PackageReference>` in a project file has no `Version`; a new package is added there first. Roslyn packages follow the SDK's compiler (BUILD, ARCHITECTURE §1).
+- **Engine libraries take no packages** unless the plan says so: `CoolEngine.Imaging` has none, on purpose ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md)).
 - **Nullable:** new code adds no nullable warnings to the [baseline](BUILD.md#2-build). Use `?` for "may be absent" and the `!` operator only where an invariant guarantees a value (a cache entry that startup has loaded).
 - **Unsafe code** only in `CoolEngine` (`AllowUnsafeBlocks`), for `sizeof` and buffer uploads.
 - **File-scoped namespaces** (`namespace X;`) matching the folder path. A few files still use block namespaces.
@@ -34,7 +36,7 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 ## Patterns
 
 - **Observable properties:** derive from `Common.Models.ObservableObject` and set through `SetField(ref m_field, value)`, which raises `PropertyChanged` only on change. A property that changes a part of another (`WorldObject.X` of `Position`) raises both names.
-- **Events:** `Common.Infrastructure.Delegates.EventHandler<TSender, TArg>` with a typed sender; value changes use `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`.
+- **Events:** `System.EventHandler<TSender, TEventArgs>` (new in .NET 10) with a typed sender; value changes use `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`. `Common`'s own delegate of the same shape was deleted in OT-3 (Denys: "Use the .NET 10 one").
 - **Window classes are split in two partial files:** behaviour in `<Name>.cs`, controls (fields and the method that builds the tree) in `ControlsInitialization/<Name>.cs`; the game window's HUD is in `Windows/ControlWindows/MainWindow.cs`.
 - **Caches by name:** shared assets are fetched from `CoolEngine.Services.GlobalCache<T>.Default` by name; keep names in a constants class (`OldTanks.Infrastructure.CollisionConstants`) rather than as scattered literals.
 - **GL calls only on the GL thread** ([ARCHITECTURE §3](ARCHITECTURE.md#3-getting-work-onto-the-gl-thread)). A type that owns GL objects implements `IDisposable`.
@@ -73,4 +75,5 @@ The branch naming is Denys's rule (2026-11-24). Before it, branches had descript
 
 - **No build output or IDE state:** `bin/`, `obj/`, `.vs/`, `.idea/` are git-ignored.
 - **Build and test before committing:** `dotnet build OldTanks.sln` with 0 errors and no new warnings, then `dotnet test OldTanks.sln`.
-- **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks.
+- **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks. `CoolEngine.Imaging.Tests` is the first code test project.
+- **Math changes** (once `CoolEngine.Mathematics` exists, OT-5) are reviewed at effort `max` by an `opus` or `fable` reviewer ([plan D7](plans/ENGINES-AND-TANK-GAME.md#5-open-decisions)).

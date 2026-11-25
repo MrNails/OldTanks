@@ -3,14 +3,14 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living - known-issues register |
-| Last updated | 2026-11-24 |
-| Verified against | 2026-11-24; develop at d32cbbf; root causes of KI-001 to KI-019 (not observed at run time) |
+| Last updated | 2026-11-25 |
+| Verified against | 2026-11-25; feature/OT-3, uncommitted; KI-004, KI-008 and KI-020 to KI-022 observed in the running game on 2026-11-25, KI-012's new case and KI-023 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-All entries below were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1). None was observed in the running game: the machine had no .NET 7 runtime ([BUILD §3](BUILD.md#3-run)). The remaining check of each says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 and KI-008 and found KI-020 and KI-022; the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work). The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -35,6 +35,10 @@ All entries below were found by reading `develop` at `d32cbbf` on 2026-11-24 for
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
 | [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Open |
 | [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Open |
+| [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Open |
+| [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Open |
+| [KI-022](#ki-022-initcollision-prints-an-error-twice-at-startup) | InitCollision prints an error twice at startup | Physics | Open |
+| [KI-023](#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end) | PNG decoding cannot see a zlib stream's missing end | Assets | Open |
 
 ---
 
@@ -78,8 +82,8 @@ All entries below were found by reading `develop` at `d32cbbf` on 2026-11-24 for
 | **Status** | Open |
 | **Scope** | `OldTanks.Services.LoggerService.CreateLogger` and every logger it creates |
 | **Root cause** | The `fileName` parameter (`ShaderLog.txt`, `TextureLog.txt`, `WaveFontLog.txt` from `GameManager`) is never used; every logger writes to `log.txt` in the working directory, each through its own file sink on that one path |
-| **Current state** | The per-loader log files are never created. Whether the later sinks can open the already-open file was not checked |
-| **Remaining check** | Run the game, then look for per-loader entries in `log.txt` and for Serilog self-log errors; use the parameter, or one shared logger with context |
+| **Current state** | The per-loader log files are never created. Confirmed in the running game on 2026-11-25: the loader messages reach the console only and never `log.txt`, so the later sinks do not write to the already-open file (or the file lacks their entries) |
+| **Remaining check** | Look for Serilog self-log errors to learn why; use the parameter, or one shared logger with context |
 | **Evidence** | `LoggerService.CreateLogger`, `GameManager`'s constructor |
 
 ## KI-005: Untextured objects use a 0-255 color in a 0-1 color space
@@ -122,7 +126,7 @@ All entries below were found by reading `develop` at `d32cbbf` on 2026-11-24 for
 | **Status** | Open |
 | **Scope** | `CoolEngine.GraphicalEngine.Core.Shader` |
 | **Root cause** | `GetUniformLocation`, `GetUniformBlockIndex` and `GetAttribLocation` return the default of a failed dictionary lookup, 0, instead of -1. `Shader.Create` logs compile errors but never checks the link status |
-| **Current state** | A misspelt or optimised-away uniform is written to whatever sits at location 0; a program that fails to link is used silently |
+| **Current state** | A misspelt or optimised-away uniform is written to whatever sits at location 0; a program that fails to link is used silently. Confirmed in the running game on 2026-11-25: the three programs of [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) never link and are used every frame, and their uniform uploads land on location 0 of the program that happens to be current |
 | **Remaining check** | Return -1 for unknown names (GL ignores -1), log once per unknown name, and check `LinkStatus` in `Shader.Create` |
 | **Evidence** | The three lookup methods and `Shader.Create` |
 
@@ -166,7 +170,7 @@ All entries below were found by reading `develop` at `d32cbbf` on 2026-11-24 for
 | **Status** | Open |
 | **Scope** | `OldTanks.Windows.MainWindow.OnLoad` |
 | **Root cause** | The startup work is attached with `Task.WhenAll(...).ContinueWith(...)` without checking the antecedent, so it runs even when a load faulted (for example `DirectoryNotFoundException` when the working directory has no `Assets/`). It then fetches missing cache entries, throws on a thread-pool thread, and nobody observes the exception |
-| **Current state** | Started from the wrong folder, the window stays empty with no error shown ([BUILD §3](BUILD.md#3-run)) |
+| **Current state** | Started from the wrong folder, the window stays empty with no error shown ([BUILD §3](BUILD.md#3-run)). Since OT-3 a texture file that is not PNG or JPEG also faults: `CoolEngine.Imaging.ImageDecoder` throws `NotSupportedException` (ImageSharp read BMP, GIF, TGA and WebP too) from `TextureLoader` or `SkyBoxTextureLoader`, and `OldTanks.Services.GameManager.LoadTextures` has no try/catch around it (reasoned from code) |
 | **Remaining check** | Start the game from the repository root and confirm; then check the antecedent and log or show the failure |
 | **Evidence** | `MainWindow.OnLoad`, `GameManager.Load*` |
 
@@ -246,3 +250,47 @@ All entries below were found by reading `develop` at `d32cbbf` on 2026-11-24 for
 | **Current state** | Latent: the game sets `InstancedShader` before `DrawableItems`. A renderer without an instanced shader, or one fed drawables first, draws nothing, not even through the per-instance path |
 | **Remaining check** | File drawables into the per-instance groups regardless of `InstancedShader`, and move them only when an instanced shader exists |
 | **Evidence** | `ObjectRenderer<T>.AddDrawable`, `AddDrawableToInstancedGroup`, `SortInstancedAndPerInstanceObjects`; found by the documentation review on 2026-11-24 |
+
+## KI-020: Three shaders fail to compile and are used anyway
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `FontShader`, `3DFontShader` (an input named `texture`) and `SkyBoxShader` (a uniform named `texture`) in `OldTanks/Assets/Shaders/`; `CoolEngine.GraphicalEngine.Core.Shader.Create`; HUD text, 3D object labels and the skybox |
+| **Root cause** | The name `texture` hides GLSL's built-in `texture()`; the NVIDIA driver (621.24) reports `error C1105: cannot call a non-function`. The shader files and `Shader.Create` are unchanged from `master`, so this predates OT-3. `Shader.Create` logs the compile errors but never checks the link status ([KI-008](#ki-008-unknown-shader-names-resolve-to-location-0)), so the unlinked programs are cached and used every frame. `glUseProgram` on an unlinked program fails with `GL_INVALID_OPERATION`, so the HUD quads are drawn by whichever program was current before, with that program's 3D camera matrices; the uniform uploads go to location 0 of that program (KI-008), which produces the "Uniform must be a matrix type in call to UniformMatrix*" errors; and the single-channel glyph atlas bound to texture unit 0 is sampled as a colour texture. The chain is from the code and the log, not yet verified by a fix |
+| **Current state** | Observed on 2026-11-25 (smoke run and Denys's own run, .NET 10, OpenGL 4.6 core on NVIDIA 621.24): no skybox (a plain clear-colour sky) and no HUD text; instead a garbled red-and-white vertical strip near the middle of the scene (Denys: the HUD "rendered at center with corrupted appearance"). About 45,000 GL error lines a second go to the console and `log.txt` (552,473 lines in 12 s on the first run). The ImGui debug window draws normally. The FreeTypeSharp 3 port in `CoolEngine.GraphicalEngine.Core.Font.Font` can only be confirmed visually once this is fixed; the console showed no font-loading error |
+| **Remaining check** | Rename the input and the uniform in the three shader files; this needs no C# change ([RENDERING §4](CoolEngine/Services/Renderers/RENDERING.md#4-shader-contract): samplers are not set from C#); also check the link status in `Shader.Create` (KI-008). Then confirm the skybox and the HUD text in the running game and that the error flood is gone. Denys's decision (2026-11-25): "Separate bug task", a `bug/OT-<n>` branch after OT-3 (option turned down: fix it inside OT-3) |
+| **Evidence** | The driver's compile log in the console on 2026-11-25; the three shader files; `Shader.Create` |
+
+## KI-021: Generated binding code calls Equals before its null check
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.UI.SourceGenerators.Generators.BindingGenerator` and the `__<name>GeneratedBindingMethodToObject` methods it emits for `OldTanks.UI.ImGuiUI.MainWindow` |
+| **Root cause** | The generated object-to-control method calls `tmpObject.Equals(...)` on the converted sender before checking that conversion for null. Found by the OT-3 review (finding 7) |
+| **Current state** | Visible as 3 × CS8602 in the build since OT-3, because the generated file is now `#nullable enable`. A `NullReferenceException` would follow if a sender of another type raised `PropertyChanged` into the handler; no code does today (reasoned from code) |
+| **Remaining check** | Move the null check first in the generator's text, rebuild, and compare the generated file; fixing changes the generated output, which OT-3 kept byte-identical apart from `#nullable enable` |
+| **Evidence** | The three CS8602 warnings in the build; the generated file under `OldTanks/obj/` ([BINDING-GENERATOR §1](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md#1-how-it-is-wired)) |
+
+## KI-022: InitCollision prints an error twice at startup
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.PhysicEngine.Core.Collision.Collision.InitCollision` |
+| **Root cause** | Not analysed. The message is `InitCollision error. Cannot copy mesh from original collision because there are no vertices.` |
+| **Current state** | Printed twice at startup with `Console.WriteLine` (not through Serilog), seen in the smoke run of 2026-11-25; the scene still builds. Whether it predates OT-3 is not established, though the physics code is unchanged from `master` |
+| **Remaining check** | Break on the message at startup, find which collisions have no vertices, and decide whether the message or the data is wrong |
+| **Evidence** | The console capture of 2026-11-25 |
+
+## KI-023: PNG decoding cannot see a zlib stream's missing end
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.Imaging.Png.PngDecoder` ([IMAGE-DECODERS §3](CoolEngine.Imaging/IMAGE-DECODERS.md#3-the-strict-rules)) |
+| **Root cause** | The decoder inflates through `System.IO.Compression.ZLibStream`, which does not report a stream that lacks its final block or its Adler-32, or bytes after the stream inside the `IDAT` data |
+| **Current state** | Such files still decode, although the decoder is strict everywhere else. Denys's decision (2026-11-25): "Document, backlog it" (option turned down: an own inflater inside OT-3) |
+| **Remaining check** | An own deflate decoder with full stream-end and checksum checks ([BACKLOG](BACKLOG.md#own-libraries-and-engine-direction)); then add tests for the three cases |
+| **Evidence** | The decoder's class remarks; the OT-3 review |
