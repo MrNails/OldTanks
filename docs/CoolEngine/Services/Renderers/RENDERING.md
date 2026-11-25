@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); bug/OT-6 (rebased on master at 6753e46): §3's Shader row, the name-lookup paragraph (its fail-fast consequences against OT-8's exception logging) and §4's sampler note against the code and the two OT-6 runs; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -41,7 +41,7 @@ How the engine draws a frame: the four renderers in `CoolEngine/Services/Rendere
 
 | Type | Role |
 |------|------|
-| `CoolEngine.GraphicalEngine.Core.Shader` | Compiles and links a vertex and fragment pair (`Shader.Create`), caches active uniforms and attributes by name, sets uniforms, describes vertex attributes (`SetAttributeData` splits attributes wider than 4 floats over consecutive locations) |
+| `CoolEngine.GraphicalEngine.Core.Shader` | Compiles and links a vertex and fragment pair (`Shader.Create`, which checks both stages and the link and throws `CoolEngine.Services.Exceptions.ShaderException` when the program does not link), caches active uniforms, uniform blocks and attributes by name, sets uniforms, describes vertex attributes (`SetAttributeData` splits attributes wider than 4 floats over consecutive locations) |
 | `CoolEngine.GraphicalEngine.Core.Texture.Texture` | A GL texture handle: 2D (`CreateTexture2D`) or cube map (`CreateCubeSkyBoxTexture`); `Texture.Empty` is the handle-0 placeholder |
 | `CoolEngine.GraphicalEngine.Core.Texture.TextureData` | How one mesh of one drawable is textured: texture, offset, scale, rotation, color |
 | `CoolEngine.GraphicalEngine.Core.Texture.TexturedObjectInfo` | Mesh → `TextureData` for one drawable; `ChangeTexture` raises `TextureChanged` |
@@ -51,7 +51,15 @@ How the engine draws a frame: the four renderers in `CoolEngine/Services/Rendere
 | `CoolEngine.GraphicalEngine.Core.Camera` | Position, look **direction** (`Rotation`, a unit vector, not angles), up vector, FOV, `LookAt` view matrix, free-fly `Move` and mouse `Rotate` |
 | `CoolEngine.GraphicalEngine.Services.GLSettings` | Snapshot and restore of the GL state ImGui changes |
 
-**Lookups by name fail silently:** a uniform or attribute name the shader does not declare (or that the GLSL compiler optimised away) resolves to location 0, and link errors are not checked ([KI-008](../../../KNOWN-ISSUES.md#ki-008-unknown-shader-names-resolve-to-location-0)). After changing a shader, check `log.txt` for compile errors and check every name the C# side sets.
+**Lookups by name (since OT-6, 2026-11-25):** `Shader.GetUniformLocation`, `GetUniformBlockIndex` and `GetAttribLocation` return -1 for a name the linked program has no active entry for (GL ignores -1 in uniform calls), and log a Warning once per kind and name. Members of a uniform block have no location and are reported like unknown names (no shader declares a block today). `SetAttributeData` and `BindUniformBlock` make no GL call for -1. After changing a shader, check the console or `log.txt` for compile, link and "has no active" lines, and check every name the C# side sets.
+
+| Case | What happens now | Seen |
+|------|------------------|------|
+| Stage compiles with a log, program links with a log | Warning lines, program used | Checked on the driver by the reviewer's harness (NVIDIA 621.24): a stage with `#extension ...: warn` gave Warning lines and no Error; NVIDIA repeats a stage warning in the link log, so one driver warning gives two Warning lines |
+| Stage fails to compile or program fails to link | Error lines with the driver's log; `Shader.Create` deletes the stage shaders and the program and throws `ShaderException` ("fail fast") | Red run 2026-11-25 at the KI-008 commit of `bug/OT-6` (`3DFontShader`, C1105) |
+| `GetAttribLocation` result passed straight to `GL.VertexAttribPointer` (`TextRenderer`, `ObjectRendererOld`, `CollisionRenderer`, `CollisionRenderGroup`) for an unknown name | -1 raises `GL_INVALID_VALUE` once; every current name exists and is active | Checked on the driver by the reviewer's harness (NVIDIA 621.24) |
+
+**Consequences of a link failure (fail fast):** `OldTanks.Services.GameManager.LoadShaders` loads the shader folders alphabetically (`3DFontShader` first) and stops at the first that throws, so `ShadersLoaded` never fires and nobody awaits the faulted task ([KI-012](../../../KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)); since OT-8 the unobserved-task handler may log it late, after a garbage collection, or never ([ARCHITECTURE §4](../../../ARCHITECTURE.md#4-startup-and-the-frame)). The `Task.WhenAll` continuation in `MainWindow.OnLoad` then fails on the missing `SkyBoxShader` (an `ArgumentNullException` in `ObjectRendererOld.RegisterScene`) before `m_readyToHandle` is set: the window stays blank and still closes with Esc; the dependable trace is the two Error lines (observed in the red run of 2026-11-25, before OT-8). If the ImGui shader (`OldTanks.UI.Services.ImGUI.ImGuiController.CreateDeviceResources`) failed to link, the exception would leave the window constructor and end the process; since OT-8 `Program.CurrentDomainOnUnhandledException` logs it at `Fatal` first ([KI-015](../../../KNOWN-ISSUES.md#ki-015-unhandled-exceptions-are-never-logged), closed; reasoned from code). All 8 programs link on the 2026-11-25 run of bug/OT-6; earlier failures: [KI-008](../../../KNOWN-ISSUES.md#ki-008-unknown-shader-names-resolve-to-location-0) and [KI-020](../../../KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) (closed). A name that hides a GLSL built-in (such as `texture`) fails to compile on NVIDIA drivers, so sampler and varying names must not reuse built-in names.
 
 **Disposal:** `Shader`, `Texture`, `Buffer<T>` and `DrawObjectInfo` free their GL objects in `Dispose` and, if never disposed, in a finalizer ([KI-017](../../../KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)).
 
@@ -69,7 +77,7 @@ Each shader is a folder `Assets/Shaders/<Name>/` holding `<Name>.vert` and `<Nam
 | `FontShader` | `iPos`, `iTexture` | `projection`, `model`, `color` | `TextRenderer` (2D and 3D) |
 | `3DFontShader` | `iPos`, `iTexture` | — | Loaded, not used by any code |
 
-**Not set from C#:** the samplers (`texture0`, and `texture` in `SkyBoxShader`) stay at unit 0, which is where every renderer binds its texture; the font shaders' `boldMultiplier` stays 0, which they treat as 1.
+**Not set from C#:** the samplers (`texture0` in every shader, `SkyBoxShader` included since OT-6) stay at unit 0, which is where every renderer binds its texture; the font shaders' `boldMultiplier` stays 0, which they treat as 1.
 
 The ImGui renderer, `OldTanks.UI.Services.ImGUI.ImGuiController`, compiles its own shader from strings and saves and restores GL state around its draw ([UI-CONTROLS](../../../OldTanks.UI/UI-CONTROLS.md#5-the-imgui-renderer)).
 

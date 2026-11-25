@@ -4,13 +4,13 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there); KI-008 and KI-020 to KI-022 observed in the running game on 2026-11-25, KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022; the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review) and are numbered provisionally after KI-023: they shift at the rebase if other branches' entries reach `master` first. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`) and KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`); they are closed stubs. The remaining check of each entry says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review) and are numbered provisionally after KI-023: they shift at the rebase if other branches' entries reach `master` first. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`) and KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`); they are closed stubs. The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -23,7 +23,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-005](#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space) | Untextured objects use a 0-255 color in a 0-1 color space | Rendering | Closed |
 | [KI-006](#ki-006-scenecenter-is-computed-from-a-wrong-maximum) | `Scene.Center` is computed from a wrong maximum | Engine | Open |
 | [KI-007](#ki-007-robot-cannot-be-constructed) | `Robot` cannot be constructed | Game, assets | Open |
-| [KI-008](#ki-008-unknown-shader-names-resolve-to-location-0) | Unknown shader names resolve to location 0 | Rendering | Open |
+| [KI-008](#ki-008-unknown-shader-names-resolve-to-location-0) | Unknown shader names resolve to location 0 | Rendering | Closed |
 | [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Closed |
 | [KI-010](#ki-010-control-names-are-not-checked-for-uniqueness) | Control names are not checked for uniqueness | UI | Open |
 | [KI-011](#ki-011-dispatcherpost-swallows-callback-exceptions) | `Dispatcher.Post` swallows callback exceptions | Threads | Closed |
@@ -35,7 +35,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
 | [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Open |
 | [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Closed |
-| [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Open |
+| [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Closed |
 | [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Closed |
 | [KI-022](#ki-022-initcollision-prints-an-error-twice-at-startup) | InitCollision prints an error twice at startup | Physics | Open |
 | [KI-023](#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end) | PNG decoding cannot see a zlib stream's missing end | Assets | Open |
@@ -116,12 +116,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `CoolEngine.GraphicalEngine.Core.Shader` |
-| **Root cause** | `GetUniformLocation`, `GetUniformBlockIndex` and `GetAttribLocation` return the default of a failed dictionary lookup, 0, instead of -1. `Shader.Create` logs compile errors but never checks the link status |
-| **Current state** | A misspelt or optimised-away uniform is written to whatever sits at location 0; a program that fails to link is used silently. Confirmed in the running game on 2026-11-25: the three programs of [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) never link and are used every frame, and their uniform uploads land on location 0 of the program that happens to be current |
-| **Remaining check** | Return -1 for unknown names (GL ignores -1), log once per unknown name, and check `LinkStatus` in `Shader.Create` |
-| **Evidence** | The three lookup methods and `Shader.Create` |
+| **Status** | Closed on `bug/OT-6` (2026-11-25, the commit "OT-6 Check shader link status and return -1 for unknown names"): the lookups return -1 and warn once, and `Shader.Create` checks compile and link status and throws `ShaderException` on a link failure ([RENDERING §3](CoolEngine/Services/Renderers/RENDERING.md#3-gpu-side-types)) |
 
 ## KI-009: Instanced rendering skips the wrong objects when some are hidden
 
@@ -230,12 +225,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `FontShader`, `3DFontShader` (an input named `texture`) and `SkyBoxShader` (a uniform named `texture`) in `OldTanks/Assets/Shaders/`; `CoolEngine.GraphicalEngine.Core.Shader.Create`; HUD text, 3D object labels and the skybox |
-| **Root cause** | The name `texture` hides GLSL's built-in `texture()`; the NVIDIA driver (621.24) reports `error C1105: cannot call a non-function`. The shader files and `Shader.Create` are unchanged from `master`, so this predates OT-3. `Shader.Create` logs the compile errors but never checks the link status ([KI-008](#ki-008-unknown-shader-names-resolve-to-location-0)), so the unlinked programs are cached and used every frame. `glUseProgram` on an unlinked program fails with `GL_INVALID_OPERATION`, so the HUD quads are drawn by whichever program was current before, with that program's 3D camera matrices; the uniform uploads go to location 0 of that program (KI-008), which produces the "Uniform must be a matrix type in call to UniformMatrix*" errors; and the single-channel glyph atlas bound to texture unit 0 is sampled as a colour texture. The chain is from the code and the log, not yet verified by a fix |
-| **Current state** | Observed on 2026-11-25 (smoke run and Denys's own run, .NET 10, OpenGL 4.6 core on NVIDIA 621.24): no skybox (a plain clear-colour sky) and no HUD text; instead a garbled red-and-white vertical strip near the middle of the scene (Denys: the HUD "rendered at center with corrupted appearance"). About 45,000 GL error lines a second go to the console and `log.txt` (552,473 lines in 12 s on the first run). The ImGui debug window draws normally. The FreeTypeSharp 3 port in `CoolEngine.GraphicalEngine.Core.Font.Font` can only be confirmed visually once this is fixed; the console showed no font-loading error |
-| **Remaining check** | Rename the input and the uniform in the three shader files; this needs no C# change ([RENDERING §4](CoolEngine/Services/Renderers/RENDERING.md#4-shader-contract): samplers are not set from C#); also check the link status in `Shader.Create` (KI-008). Then confirm the skybox and the HUD text in the running game and that the error flood is gone. Denys's decision (2026-11-25): "Separate bug task", a `bug/OT-<n>` branch after OT-3 (option turned down: fix it inside OT-3) |
-| **Evidence** | The driver's compile log in the console on 2026-11-25; the three shader files; `Shader.Create` |
+| **Status** | Closed on `bug/OT-6` (2026-11-25, the commit "OT-6 Rename shader names that hide GLSL texture()"): the font varying is `textureCoord` and the skybox sampler `texture0`; skybox and HUD text confirmed in the running game ([RENDERING §4](CoolEngine/Services/Renderers/RENDERING.md#4-shader-contract)) |
 
 ## KI-021: Generated binding code calls Equals before its null check
 
