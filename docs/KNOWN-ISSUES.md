@@ -4,13 +4,13 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); KI-004, KI-008 and KI-020 to KI-022 observed in the running game on 2026-11-25, KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there); KI-008 and KI-020 to KI-022 observed in the running game on 2026-11-25, KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-012's new case and KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 and KI-008 and found KI-020 and KI-022; the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review) and are numbered provisionally after KI-023: they shift at the rebase if other branches' entries reach `master` first. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`) and are closed stubs. The remaining check of each entry says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022; the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review) and are numbered provisionally after KI-023: they shift at the rebase if other branches' entries reach `master` first. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`) and KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`); they are closed stubs. The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -19,18 +19,18 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-001](#ki-001-the-player-is-never-assigned) | The player is never assigned | Game | Open |
 | [KI-002](#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another) | `WorldObject.Rotation` is read as radians in one place and degrees in another | Game, physics | Open |
 | [KI-003](#ki-003-worldobjects-is-changed-across-threads-without-a-shared-lock) | `WorldObjects` is changed across threads without a shared lock | Threads | Open |
-| [KI-004](#ki-004-loggerservice-ignores-the-log-file-name) | `LoggerService` ignores the log file name | Logging | Open |
+| [KI-004](#ki-004-loggerservice-ignores-the-log-file-name) | `LoggerService` ignores the log file name | Logging | Closed |
 | [KI-005](#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space) | Untextured objects use a 0-255 color in a 0-1 color space | Rendering | Closed |
 | [KI-006](#ki-006-scenecenter-is-computed-from-a-wrong-maximum) | `Scene.Center` is computed from a wrong maximum | Engine | Open |
 | [KI-007](#ki-007-robot-cannot-be-constructed) | `Robot` cannot be constructed | Game, assets | Open |
 | [KI-008](#ki-008-unknown-shader-names-resolve-to-location-0) | Unknown shader names resolve to location 0 | Rendering | Open |
 | [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Closed |
 | [KI-010](#ki-010-control-names-are-not-checked-for-uniqueness) | Control names are not checked for uniqueness | UI | Open |
-| [KI-011](#ki-011-dispatcherpost-swallows-callback-exceptions) | `Dispatcher.Post` swallows callback exceptions | Threads | Open |
+| [KI-011](#ki-011-dispatcherpost-swallows-callback-exceptions) | `Dispatcher.Post` swallows callback exceptions | Threads | Closed |
 | [KI-012](#ki-012-startup-continues-after-a-failed-asset-load) | Startup continues after a failed asset load | Startup | Open |
 | [KI-013](#ki-013-window-size-settings-are-ignored) | Window size settings are ignored | Settings | Open |
 | [KI-014](#ki-014-mouse-look-ignores-imgui-focus) | Mouse look ignores ImGui focus | Input | Open |
-| [KI-015](#ki-015-unhandled-exceptions-are-never-logged) | Unhandled exceptions are never logged | Logging | Open |
+| [KI-015](#ki-015-unhandled-exceptions-are-never-logged) | Unhandled exceptions are never logged | Logging | Closed |
 | [KI-016](#ki-016-polygon-tests-use-face-normals-only) | Polygon tests use face normals only | Physics | Open |
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
 | [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Open |
@@ -81,12 +81,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.Services.LoggerService.CreateLogger` and every logger it creates |
-| **Root cause** | The `fileName` parameter (`ShaderLog.txt`, `TextureLog.txt`, `WaveFontLog.txt` from `GameManager`) is never used; every logger writes to `log.txt` in the working directory, each through its own file sink on that one path |
-| **Current state** | The per-loader log files are never created. Confirmed in the running game on 2026-11-25: the loader messages reach the console only and never `log.txt`, so the later sinks do not write to the already-open file (or the file lacks their entries) |
-| **Remaining check** | Look for Serilog self-log errors to learn why; use the parameter, or one shared logger with context |
-| **Evidence** | `LoggerService.CreateLogger`, `GameManager`'s constructor |
+| **Status** | Closed: fixed on `bug/OT-8` (2026-11-25): one root logger and one `log.txt`, every line tagged `[source]` ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes), [CODE-STYLE](CODE-STYLE.md#logging)) |
 
 ## KI-005: Untextured objects use a 0-255 color in a 0-1 color space
 
@@ -150,12 +145,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `CoolEngine.Services.Threading.Dispatcher`, `DispatcherOperation`, the synchronization context |
-| **Root cause** | `DispatcherOperation.Execute` stores any exception in its completion source. `Invoke` waits on it and rethrows, but nobody waits on a `Post` from another thread, so the exception is lost. (On the GL thread itself `Post` runs the callback inline, so nothing is queued) |
-| **Current state** | Latent: no current code posts a throwing callback from another thread (await continuations of `async Task` methods keep their exceptions in their tasks). Related: an exception escaping an `async void` method on the GL thread is re-thrown through the inline `Post`, ends up on the thread pool and ends the process without a log line (KI-015); the one `async void` handler today, `TextureWindow.AddNewTextureButtonOnClick`, catches everything |
-| **Remaining check** | Log the exception in `Execute` before storing it |
-| **Evidence** | `DispatcherOperation.Execute`, `Dispatcher.Post(Delegate, object?)`, `DispatcherSynchronizationContext.Post` |
+| **Status** | Closed: fixed on `bug/OT-8` (2026-11-25): a throwing posted callback is logged at `Error` and the queue goes on ([ARCHITECTURE §3](ARCHITECTURE.md#3-getting-work-onto-the-gl-thread)) |
 
 ## KI-012: Startup continues after a failed asset load
 
@@ -194,12 +184,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.Program` |
-| **Root cause** | `Program.CurrentDomainOnUnhandledException` exists but is never subscribed to `AppDomain.CurrentDomain.UnhandledException` |
-| **Current state** | A crash leaves no `Fatal` entry in `log.txt` |
-| **Remaining check** | Subscribe it at the start of `Main` |
-| **Evidence** | `Program` |
+| **Status** | Closed: fixed on `bug/OT-8` (2026-11-25): `Program.Main` subscribes the unhandled and the unobserved-task handlers and flushes the log on exit ([ARCHITECTURE §4](ARCHITECTURE.md#4-startup-and-the-frame)) |
 
 ## KI-016: Polygon tests use face normals only
 

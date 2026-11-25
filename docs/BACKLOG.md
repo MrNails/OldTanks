@@ -32,7 +32,7 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 - ~~**Move the generator to `IIncrementalGenerator`.**~~ Done in OT-3 ([BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md)); its review finding, [KI-021](KNOWN-ISSUES.md#ki-021-generated-binding-code-calls-equals-before-its-null-check), was fixed on `bug/OT-11`.
 - **Stop tracking `OldTanks.slnx.DotSettings.user`.** It is a per-user Rider file.
 - ~~**Docs check.**~~ Done in OT-1: `tests/OldTanks.Docs.Tests` ([DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)).
-- **Add code tests and CI.** No game or engine code is tested and there is no workflow. The first useful tests are pure logic: `Collision` tests, `RigidBody.OnTick`, the OBJ loader on the repository's models, `SettingsService`, and a snapshot of the binding generator's output (KI-021 showed only as compiler warnings). A CI workflow would run `dotnet build` and `dotnet test` on pull requests.
+- **Add code tests and CI.** In the engine only `ObjectRenderer<T>` (OT-7) and the dispatcher (OT-8) are tested (`tests/CoolEngine.Tests`, 2026-11-25); no game code is tested and there is no workflow. The first useful tests are pure logic: `Collision` tests, `RigidBody.OnTick`, the OBJ loader on the repository's models, `SettingsService`, and a snapshot of the binding generator's output (KI-021 showed only as compiler warnings). A CI workflow would run `dotnet build` and `dotnet test` on pull requests.
 
 ## Unwired features
 

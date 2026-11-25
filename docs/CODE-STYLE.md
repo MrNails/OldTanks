@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7; the renderer exception rule as Denys decided it on 2026-11-25; the language, events and package rules against the project files and `Directory.Packages.props`; the rest as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (OT-7); the renderer exception rule as Denys decided it on 2026-11-25; the language, events and package rules against the project files and `Directory.Packages.props`, Logging against the OT-8 code; the rest as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -52,7 +52,8 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 
 ## Logging
 
-- **Serilog** `ILogger` from `OldTanks.Services.LoggerService.CreateLogger`, or the static `Log.Logger` where no logger is injected.
+- **Serilog** `ILogger` from `OldTanks.Services.LoggerService.CreateLogger(source)`, passing the class name with `nameof` (`nameof(GameManager)`); the source shows as `[source]` on every line of the one `log.txt`. Engine code, which cannot reach the game's service, uses the static `Log.Logger`.
+- **One `LoggerService` per process:** it builds the root logger and its file sink once; a second one would open a second sink on `log.txt`, which fails. `CreateLogger` never creates a sink ([ARCHITECTURE §4](ARCHITECTURE.md#4-startup-and-the-frame)).
 - **Message templates with named properties** (`"Model {ModelName} loaded."`), never string interpolation in the template.
 - **GL debug output** already reaches the log through `AddGLMessageHandling`; don't add `GL.GetError` polling.
 
@@ -76,5 +77,5 @@ The branch naming is Denys's rule (2026-11-24). Before it, branches had descript
 
 - **No build output or IDE state:** `bin/`, `obj/`, `.vs/`, `.idea/` are git-ignored.
 - **Build and test before committing:** `dotnet build OldTanks.slnx` with 0 errors and no new warnings, then `dotnet test OldTanks.slnx`.
-- **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks. `CoolEngine.Imaging.Tests` is the first code test project; `CoolEngine.Tests` (OT-7) holds the engine's headless unit tests, so a test there may not make an OpenGL call (no context exists); `GL`-calling types such as `Texture` and `Shader` are built by reflection with finalizers suppressed ([KI-017](KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)).
+- **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks. `CoolEngine.Imaging.Tests` is the first code test project; `CoolEngine.Tests` (OT-7; the dispatcher's tests since OT-8) holds the engine's headless unit tests, so a test there may not make an OpenGL call (no context exists); `GL`-calling types such as `Texture` and `Shader` are built by reflection with finalizers suppressed ([KI-017](KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)).
 - **Math changes** (once `CoolEngine.Mathematics` exists, OT-5) are reviewed at effort `max` by an `opus` or `fable` reviewer ([plan D7](plans/ENGINES-AND-TANK-GAME.md#5-open-decisions)).

@@ -163,7 +163,9 @@ public sealed class Dispatcher
     }
 
     /// <summary>
-    /// Execute callback asynchronously on thread where invokes HandleQueue
+    /// Execute callback asynchronously on thread where invokes HandleQueue.
+    /// From another thread, an exception thrown by the callback is logged at Error through <c>Serilog.Log.Logger</c>
+    /// and the queue goes on; on the owner thread the callback runs inline and its exception reaches the caller.
     /// </summary>
     /// <param name="callback">Callback that will be invoked</param>
     public void Post(Action callback)
@@ -174,14 +176,16 @@ public sealed class Dispatcher
         }
         else
         {
-            var op = new DispatcherOperation(callback);
+            var op = new DispatcherOperation(callback, null, isPosted: true);
             
             m_operations.Enqueue(op);
         }
     }
     
     /// <summary>
-    /// Execute callback asynchronously on thread where invokes HandleQueue
+    /// Execute callback asynchronously on thread where invokes HandleQueue.
+    /// From another thread, an exception thrown by the callback is logged at Error through <c>Serilog.Log.Logger</c>
+    /// and the queue goes on; on the owner thread the callback runs inline and its exception reaches the caller.
     /// </summary>
     /// <param name="callback">Callback that will be invoked</param>
     /// <param name="state">State for callback</param>
@@ -193,14 +197,16 @@ public sealed class Dispatcher
         }
         else
         {
-            var op = new DispatcherOperation(callback, state);
+            var op = new DispatcherOperation(callback, state, isPosted: true);
             
             m_operations.Enqueue(op);
         }
     }
     
     /// <summary>
-    /// Execute callback asynchronously on thread where invokes HandleQueue
+    /// Execute callback asynchronously on thread where invokes HandleQueue.
+    /// From another thread, an exception thrown by the callback is logged at Error through <c>Serilog.Log.Logger</c>
+    /// and the queue goes on; on the owner thread the callback runs inline and its exception reaches the caller.
     /// </summary>
     /// <param name="callback">Callback that will be invoked</param>
     /// <param name="state">State for callback</param>
@@ -212,7 +218,7 @@ public sealed class Dispatcher
         }
         else
         {
-            var op = new DispatcherOperation(callback, state);
+            var op = new DispatcherOperation(callback, state, isPosted: true);
             
             m_operations.Enqueue(op);
         }

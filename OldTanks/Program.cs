@@ -15,17 +15,25 @@ public static class Program
     {
         var loggerService = new LoggerService();
         Log.Logger = loggerService.CreateLogger();
-        
-        s_app = new Application();
+        AppDomain.CurrentDomain.UnhandledException += CurrentDomainOnUnhandledException;
+        TaskScheduler.UnobservedTaskException += TaskSchedulerOnUnobservedTaskException;
 
-        
-        Log.Logger.Information("Thread Id {ThreadId}", Thread.CurrentThread.ManagedThreadId);
+        try
+        {
+            s_app = new Application();
 
-        using var mainWindow = new MainWindow("Test", SetUpSettings(), loggerService);
+            Log.Logger.Information("Thread Id {ThreadId}", Thread.CurrentThread.ManagedThreadId);
 
-        mainWindow.Run();
+            using var mainWindow = new MainWindow("Test", SetUpSettings(), loggerService);
 
-        return 0;
+            mainWindow.Run();
+
+            return 0;
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
     }
 
     private static SettingsService SetUpSettings()
@@ -68,10 +76,16 @@ public static class Program
         if (e.IsTerminating)
         {
             Log.Logger.Fatal(e.ExceptionObject as Exception, "Fatal error.");
+            Log.CloseAndFlush();
         }
         else
         {
             Log.Logger.Error(e.ExceptionObject as Exception, "Unexpected error occured.");
         }
+    }
+
+    private static void TaskSchedulerOnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        Log.Logger.Error(e.Exception, "A faulted task was never observed.");
     }
 }

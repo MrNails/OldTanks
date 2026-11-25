@@ -13,7 +13,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-006, KI-008, KI-011, KI-016, KI-017, KI-020, KI-024, KI-025 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-006, KI-008, KI-016, KI-017, KI-020, KI-024, KI-025 |
 
 ## Project Details
 
@@ -47,7 +47,7 @@ Representative, by folder.
 | `CoolEngine.Imaging` (project) | PNG and JPEG decoding for the texture and skybox loaders |
 | OpenTK 4.9.4 | OpenGL bindings, math types, windowing types |
 | FreeTypeSharp 3.1.0 | Font rasterising, through its pointer API (`Font` wraps it in small `unsafe` helpers) |
-| Serilog 4.4.0 | Logging and GL debug output (core API only) |
+| Serilog 4.4.0 | Logging, GL debug output and the dispatcher's `Error` log of a throwing posted callback, through the static `Log.Logger` (core API only) |
 | `Serilog.Sinks.File` 7.0.0 | Not used by this project's code: the game's `LoggerService` uses the file sink through this reference |
 
 Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.FastConsole` and SixLabors.ImageSharp were removed in OT-3.

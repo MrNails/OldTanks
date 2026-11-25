@@ -32,7 +32,7 @@ You review one change against its plan. You are read-only; building, running the
 ## 5. Threads and the GL thread
 
 - **OpenGL only on the GL thread** (ARCHITECTURE §3): no GL call in a constructor that can run on another thread, in a finalizer (KI-017) or in an `await` continuation that may resume elsewhere.
-- **Dispatcher:** `Invoke` from the GL thread runs inline and from another thread blocks until the next update frame; a wait on the GL thread for work queued to itself deadlocks. Exceptions in queued `Post` work are lost (KI-011).
+- **Dispatcher:** `Invoke` from the GL thread runs inline and from another thread blocks until the next update frame; a wait on the GL thread for work queued to itself deadlocks. Exceptions in `Post` work queued from another thread are logged at `Error` and the queue goes on (since OT-8; KI-011 closed); an exception escaping an `async void` method on the GL thread still ends the process.
 - **Shared state:** collections read by one thread and changed by another (KI-003), locks that guard more or less than they say, lock order, `ReaderWriterLockSlim` used as a plain mutex, torn reads of `Vector3` or `Matrix4` fields written by another thread.
 - **Parallel physics:** work split across threads writes disjoint data; the result of a parallel step equals the serial step's for the plan's test scene; shutdown and exceptions on a worker are handled; no `Parallel` loop on a per-frame path without a measured benefit.
 - No `async void` outside event handlers, no `.Result` or `.Wait()` on a task that needs the GL thread.
