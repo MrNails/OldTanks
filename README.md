@@ -50,7 +50,7 @@ The **Debug window** spawns, deletes and edits objects; its **Show texture windo
 | `OldTanks.UI.SourceGenerators` | Source generator for the debug window's bindings |
 | `Common` | Shared helpers |
 | `tests/OldTanks.Docs.Tests` | Documentation checks (`dotnet test OldTanks.slnx`) |
-| `tests/CoolEngine.Tests` | Headless unit tests of the engine (today the `ObjectRenderer<T>` grouping and instancing) |
+| `tests/CoolEngine.Tests` | Headless unit tests of the engine (today the `ObjectRenderer<T>` grouping and instancing, and the dispatcher) |
 | `tests/CoolEngine.Imaging.Tests` | The image decoders against Windows and ImageSharp (Windows only; a Release build needs a Six Labors key, see [docs/BUILD.md](docs/BUILD.md#2-build)) |
 
 ## Documentation

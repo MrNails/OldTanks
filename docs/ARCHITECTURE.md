@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §1 against the project files and Directory.Packages.props, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
+| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
@@ -12,7 +12,7 @@ How the six projects fit together, which thread does what, and the process-wide 
 
 ## 1. Solution layout
 
-`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus three test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; OT-7) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
+`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus three test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8; [BUILD §2](BUILD.md#2-build)) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
 
 | Project | Type | Target | Role |
 |---------|------|--------|------|
@@ -57,11 +57,32 @@ The window is created with an OpenGL **4.6** forward-compatible **debug** contex
 | `CoolEngine.Services.UI.UIInvoke` (`Dispatcher.Invoke`) | `CoolEngine.GraphicalEngine.Core.Font.Font.CreateFont` inside `Task.Run` | Blocks the worker until the main thread has run the callback |
 | Lazy GL object creation inside `Render` | `ObjectRenderer<T>`, `CollisionRenderer`, `TextRenderer` | Objects can be registered from any thread; VAOs and buffers are created on first draw |
 
-**Rules that follow:** `Invoke` and `Post` called on the main thread run the callback inline; from another thread they queue it until the next update frame (`Invoke` then blocks until it has run). An exception thrown by a callback queued with `Post` is stored in its `DispatcherOperation` and never surfaced ([KI-011](KNOWN-ISSUES.md#ki-011-dispatcherpost-swallows-callback-exceptions)).
+**Rules that follow:** `Invoke` and `Post` called on the main thread run the callback inline; from another thread they queue it until the next update frame (`Invoke` then blocks until it has run).
+
+**Exceptions in posted callbacks** (since OT-8, KI-011 closed on `bug/OT-8`, 2026-11-25): when a callback queued by `Post` from another thread throws, `DispatcherOperation.Execute` stores the exception as before, marks it observed (so `TaskScheduler.UnobservedTaskException` does not report it a second time), logs it at `Error` through `Log.Logger` ("A callback posted to the dispatcher threw an exception: {Callback}") and the queue goes on. `Invoke` is unchanged: its caller gets the exception as an `AggregateException` and nothing is logged. `Post` run inline on the main thread gives the exception to its caller. `DispatcherSynchronizationContext` is unchanged.
+
+| Case | Result |
+|------|--------|
+| `Dispatcher.Post` called directly from another thread | `Error` line |
+| An exception escaping an `async void` method off the GL thread | `Error` line |
+| Await continuation of an `async Task` method | The exception stays in its task; nothing is logged |
+| An exception escaping an `async void` method **on** the GL thread | The inline `Post` rethrows and .NET rethrows it on the thread pool: the process ends, now with a `Fatal` line from the handler in §4. Open question for Denys: whether to log and survive it too |
+
+`{Callback}` names the delegate's method; on those runtime paths that is a .NET lambda (for example `System.Threading.Tasks.Task+<>c.<ThrowAsync>…`), so the exception's stack trace, not `{Callback}`, names the failing method. The one `async void` handler today, `TextureWindow.AddNewTextureButtonOnClick`, catches everything. The `Post` rows are checked by the tests of `CoolEngine.Tests`; the `async void` and continuation rows by the OT-8 review's probes (2026-11-25).
 
 ## 4. Startup and the frame
 
-**Startup** (`OldTanks.Program.Main`): create the Serilog logger, then `Application`, load or create `%USERPROFILE%\OldTanksProject\AppSettings.json` ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes)), construct `MainWindow`, `Run()`.
+**Startup** (`OldTanks.Program.Main`): create the one `OldTanks.Services.LoggerService` and set `Log.Logger` to its root logger, subscribe the two exception handlers (below), then `Application`, load or create `%USERPROFILE%\OldTanksProject\AppSettings.json` ([BUILD §4](BUILD.md#4-files-the-game-reads-and-writes)), construct `MainWindow`, `Run()`. The rest of `Main` runs in `try`/`finally` with `Log.CloseAndFlush()`.
+
+**Logging and crashes** (since OT-8, KI-004 and KI-015 closed on `bug/OT-8`, 2026-11-25):
+
+| Part | Behaviour |
+|------|-----------|
+| Root logger | Built once in the `LoggerService` constructor: level `Debug`, console and `log.txt` in the working directory, enriched with `SourceContext` `OldTanks`. `CreateLogger(source)` returns the root tagged with `source`; null or blank gives the root; it never creates a sink |
+| `Program.CurrentDomainOnUnhandledException` | Subscribed to `AppDomain.CurrentDomain.UnhandledException`; the terminating branch logs `Fatal` and calls `Log.CloseAndFlush()`. On .NET 10 `IsTerminating` is always true, so its `Error` branch is effectively unreachable (the OT-8 review's crash probes, 2026-11-25) |
+| `Program.TaskSchedulerOnUnobservedTaskException` | Subscribed to `TaskScheduler.UnobservedTaskException`; logs `Error`, does not call `SetObserved`. Raised from a faulted task's finalizer: late (after a GC collects the task) or never if the process exits first, so it is not a dependable report of [KI-012](KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load) |
+| Crash order on .NET 10 | On the main thread the handler runs first, then the `finally` blocks (so lines logged while the stack unwinds reach the console only); on another thread `Main`'s `finally` never runs, so the handler's own flush is the one that matters |
+| After `Log.CloseAndFlush()` | `Log.Logger` is a silent logger; loggers handed out earlier still write to the console and their file writes fail silently (Serilog reports them only to its `SelfLog`). Finalizer lines after exit ([KI-017](KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)) are lost |
 
 `MainWindow.OnLoad` turns on VSync, creates the `ImGuiController`, starts the five `GameManager` loads (shaders, fonts, textures, skyboxes, models) without waiting for any, and attaches a `Task.WhenAll(...).ContinueWith` that, on a thread-pool thread: registers the skybox shader with `ObjectRendererOld`, builds the default scene (`InitDefaultObjects`, which also starts the physics thread), hands `World.WorldObjects` to the renderers, and sets `m_readyToHandle`. Until then `OnRenderFrame` returns at once and `OnUpdateFrame` only drains the dispatcher (which is what lets the loads finish) and checks `Esc`, so the window stays empty while assets load. The continuation runs even if a load faulted ([KI-012](KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)).
 
@@ -78,6 +99,7 @@ Everything below is a static or a singleton, so there is one window, one world a
 | `CoolEngine.Services.Application.Current` | Dispatcher and synchronization context | A second instance throws |
 | `CoolEngine.Services.EngineSettings.Current` | Projection matrices, window size, `CollisionIterations` (1-128, the game sets 5), `GlobalLock`, `PhysicsEnable` | Lazily created |
 | `CoolEngine.Services.GlobalCache<T>.Default` | Name-keyed registries for `Shader`, `Texture`, `Scene`, `FontInformation`, `CollisionData` | One per `T`; key rules in [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md#2-cache-keys) |
+| `OldTanks.Services.LoggerService` (one per process) and `Serilog.Log.Logger` | The root logger and its console and `log.txt` sinks | A second `LoggerService` would open a second file sink on `log.txt`, which fails (its XML doc says so) |
 | `OldTanks.UI.Services.ControlHandler.Current` | Every UI control and window | Must exist before any control is constructed; a second instance throws |
 | Static renderers | `ObjectRendererOld`, `CollisionRenderer`, `TextRenderer` | `CollisionRenderer.Shader` and `TextRenderer.Shader` are set in `MainWindow.OnShadersLoaded`; `ObjectRendererOld` gets the skybox shader through `RegisterScene` in the startup continuation |
 | `OldTanks.Services.EngineSettings` (game side) | `MaxDepthLength` 2000 (far plane), `MovementDirectionUnit` (+X) | Not the same class as the engine's `EngineSettings` |
