@@ -421,29 +421,27 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
 
         var modelsData = ArrayPool<ModelData>.Shared.Rent(maxElements);
 
-        try
-        {
-            var visibleCount = FillInstanceRecords(sceneDrawables, drawables, mesh.HasTextureCoords, modelsData);
+        var visibleCount = FillInstanceRecords(sceneDrawables, drawables, mesh.HasTextureCoords, modelsData);
 
-            if (visibleCount == 0)
-                return;
-
-            if (needBufferRecreate)
-            {
-                buffer?.Dispose();
-                buffer = RecreateBuffer(drawObjectInfo, renderDto.Shader, maxElements);
-
-                drawSceneInfo.TransformationsBuffer = buffer;
-            }
-
-            buffer!.FillData(modelsData, visibleCount);
-
-            GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, visibleCount);
-        }
-        finally
+        if (visibleCount == 0)
         {
             ArrayPool<ModelData>.Shared.Return(modelsData);
+            return;
         }
+
+        if (needBufferRecreate)
+        {
+            buffer?.Dispose();
+            buffer = RecreateBuffer(drawObjectInfo, renderDto.Shader, maxElements);
+
+            drawSceneInfo.TransformationsBuffer = buffer;
+        }
+
+        buffer!.FillData(modelsData, visibleCount);
+
+        GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, visibleCount);
+
+        ArrayPool<ModelData>.Shared.Return(modelsData);
     }
 
     /// <summary>Packs one instance record per visible drawable contiguously from index 0 and returns how many it wrote.</summary>
