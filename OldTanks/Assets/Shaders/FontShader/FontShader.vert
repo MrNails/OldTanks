@@ -2,12 +2,12 @@
 in vec3 iPos;
 in vec2 iTexture;
 
-out vec2 texture;
+out vec2 textureCoord;
 
 uniform mat4 projection;
 uniform mat4 model;
 
 void main() {
-        texture = iTexture;
+        textureCoord = iTexture;
         gl_Position = projection * model * vec4(iPos, 1.0);
 }

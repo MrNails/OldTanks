@@ -2,8 +2,8 @@
 in vec3 textureCoord;
 
 layout(location = 0) out vec4 fragColor;
-uniform samplerCube texture;
+uniform samplerCube texture0;
 
 void main() {
-    fragColor = texture(texture, textureCoord);
+    fragColor = texture(texture0, textureCoord);
 }
