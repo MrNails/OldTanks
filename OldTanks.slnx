@@ -3,6 +3,7 @@
     <Project Path="tests/CoolEngine.Tests/CoolEngine.Tests.csproj" />
     <Project Path="tests/CoolEngine.Imaging.Tests/CoolEngine.Imaging.Tests.csproj" />
     <Project Path="tests/OldTanks.Docs.Tests/OldTanks.Docs.Tests.csproj" />
+    <Project Path="tests/OldTanks.UI.Tests/OldTanks.UI.Tests.csproj" />
   </Folder>
   <Project Path="Common/Common.csproj" />
   <Project Path="CoolEngine.Imaging/CoolEngine.Imaging.csproj" />
