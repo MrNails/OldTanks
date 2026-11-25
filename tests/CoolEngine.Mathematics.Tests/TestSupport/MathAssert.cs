@@ -95,9 +95,69 @@ internal static class MathAssert
         Exact(Components(actual), Components(expected), context);
     }
 
+    public static void Exact(Matrix2 actual, Matrix2 expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
+    public static void Exact(Matrix3 actual, Matrix3 expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
+    public static void Exact(Matrix4 actual, Matrix4 expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
+    public static void Exact(Quaternion actual, Quaternion expected, string? context = null)
+    {
+        Exact(Components(actual), Components(expected), context);
+    }
+
     #endregion
 
     #region Near
+
+    public static void Near(Matrix2 actual, Matrix2 expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Matrix2 actual, Matrix2 expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
+
+    public static void Near(Matrix3 actual, Matrix3 expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Matrix3 actual, Matrix3 expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
+
+    public static void Near(Matrix4 actual, Matrix4 expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Matrix4 actual, Matrix4 expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
+
+    public static void Near(Quaternion actual, Quaternion expected, float tolerance, float scale = 1f, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+    }
+
+    public static void Near(Quaternion actual, Quaternion expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
+    {
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+    }
 
     public static void Near(Vector2 actual, Vector2 expected, float tolerance, float scale = 1f, string? context = null)
     {
@@ -235,9 +295,164 @@ internal static class MathAssert
         return scales;
     }
 
+    /// <summary>
+    /// The sums-of-products scale of a matrix product, per element in column-major order: <c>Σk |a[r,k] b[k,c]|</c>.
+    /// </summary>
+    public static float[] ProductScales(Matrix2 a, Matrix2 b)
+    {
+        return ProductScales(Components(a), Components(b), 2, 2);
+    }
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Matrix2)"/>
+    public static float[] ProductScales(Matrix3 a, Matrix3 b)
+    {
+        return ProductScales(Components(a), Components(b), 3, 3);
+    }
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Matrix2)"/>
+    public static float[] ProductScales(Matrix4 a, Matrix4 b)
+    {
+        return ProductScales(Components(a), Components(b), 4, 4);
+    }
+
+    /// <summary>The sums-of-products scale of <c>M * v</c>, per component: <c>Σk |m[r,k] v[k]|</c>.</summary>
+    public static float[] ProductScales(Matrix2 matrix, Vector2 vector)
+    {
+        return ProductScales(Components(matrix), Components(vector), 2, 1);
+    }
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Vector2)"/>
+    public static float[] ProductScales(Matrix3 matrix, Vector3 vector)
+    {
+        return ProductScales(Components(matrix), Components(vector), 3, 1);
+    }
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Vector2)"/>
+    public static float[] ProductScales(Matrix4 matrix, Vector4 vector)
+    {
+        return ProductScales(Components(matrix), Components(vector), 4, 1);
+    }
+
+    /// <summary>
+    /// The sums-of-products scale of a determinant: the sum of the absolute values of its Leibniz terms (the permanent
+    /// of the element-wise absolute matrix).
+    /// </summary>
+    public static float DeterminantScale(Matrix2 matrix)
+    {
+        return (float)AbsPermanent(Components(matrix), 2, 0, 0);
+    }
+
+    /// <inheritdoc cref="DeterminantScale(Matrix2)"/>
+    public static float DeterminantScale(Matrix3 matrix)
+    {
+        return (float)AbsPermanent(Components(matrix), 3, 0, 0);
+    }
+
+    /// <inheritdoc cref="DeterminantScale(Matrix2)"/>
+    public static float DeterminantScale(Matrix4 matrix)
+    {
+        return (float)AbsPermanent(Components(matrix), 4, 0, 0);
+    }
+
+    /// <summary>The sums-of-products scale of the Hamilton product <c>a * b</c>, per component X, Y, Z, W.</summary>
+    public static float[] ProductScales(Quaternion a, Quaternion b)
+    {
+        return
+        [
+            SumOfAbs(a.W * b.X, a.X * b.W, a.Y * b.Z, a.Z * b.Y),
+            SumOfAbs(a.W * b.Y, a.X * b.Z, a.Y * b.W, a.Z * b.X),
+            SumOfAbs(a.W * b.Z, a.X * b.Y, a.Y * b.X, a.Z * b.W),
+            SumOfAbs(a.W * b.W, a.X * b.X, a.Y * b.Y, a.Z * b.Z),
+        ];
+    }
+
+    /// <summary>
+    /// The sums-of-products scale of rotating <paramref name="vector"/> by the unit quaternion <paramref name="rotation"/>,
+    /// per component. The expanded terms of <c>v + 2w(u × v) + 2u × (u × v)</c> are the same products as the terms of
+    /// the rotation matrix times the vector, so one scale serves both forms: for component i (j, k the next two)
+    /// <c>|v_i| + |2w u_j v_k| + |2w u_k v_j| + |2u_j u_i v_j| + |2u_j² v_i| + |2u_k² v_i| + |2u_k u_i v_k|</c>.
+    /// </summary>
+    public static float[] RotationScales(Quaternion rotation, Vector3 vector)
+    {
+        float[] u = [rotation.X, rotation.Y, rotation.Z];
+        float[] v = [vector.X, vector.Y, vector.Z];
+        var w = rotation.W;
+        var scales = new float[3];
+        for (var i = 0; i < 3; i++)
+        {
+            var j = (i + 1) % 3;
+            var k = (i + 2) % 3;
+            scales[i] = SumOfAbs(v[i], 2f * w * u[j] * v[k], 2f * w * u[k] * v[j], 2f * u[j] * u[i] * v[j], 2f * u[j] * u[j] * v[i],
+                2f * u[k] * u[k] * v[i], 2f * u[k] * u[i] * v[k]);
+        }
+
+        return scales;
+    }
+
+    // a is n × n and b is n × m, both column-major; the result is n × m, column-major.
+    private static float[] ProductScales(float[] a, float[] b, int n, int m)
+    {
+        var scales = new float[n * m];
+        for (var column = 0; column < m; column++)
+        {
+            for (var row = 0; row < n; row++)
+            {
+                var sum = 0.0;
+                for (var k = 0; k < n; k++)
+                    sum += Math.Abs((double)a[k * n + row] * b[column * n + k]);
+
+                scales[column * n + row] = (float)sum;
+            }
+        }
+
+        return scales;
+    }
+
+    // Σ over the permutations of the rows still free: |m[row, column]| times the permanent of the rest.
+    private static double AbsPermanent(float[] columnMajor, int n, int row, int usedColumns)
+    {
+        if (row == n)
+            return 1.0;
+
+        var sum = 0.0;
+        for (var column = 0; column < n; column++)
+        {
+            if ((usedColumns & (1 << column)) != 0)
+                continue;
+
+            sum += Math.Abs(columnMajor[column * n + row]) * AbsPermanent(columnMajor, n, row + 1, usedColumns | (1 << column));
+        }
+
+        return sum;
+    }
+
     #endregion
 
     #region Components
+
+    /// <summary>The elements of a matrix read from its column fields, column after column (column-major).</summary>
+    public static float[] Components(Matrix2 value)
+    {
+        return [.. Components(value.Column0), .. Components(value.Column1)];
+    }
+
+    /// <inheritdoc cref="Components(Matrix2)"/>
+    public static float[] Components(Matrix3 value)
+    {
+        return [.. Components(value.Column0), .. Components(value.Column1), .. Components(value.Column2)];
+    }
+
+    /// <inheritdoc cref="Components(Matrix2)"/>
+    public static float[] Components(Matrix4 value)
+    {
+        return [.. Components(value.Column0), .. Components(value.Column1), .. Components(value.Column2), .. Components(value.Column3)];
+    }
+
+    /// <summary>The components of a quaternion read from its fields: X, Y, Z, W.</summary>
+    public static float[] Components(Quaternion value)
+    {
+        return [value.X, value.Y, value.Z, value.W];
+    }
 
     /// <summary>The components of a vector read from its fields, X, Y, Z, W, independent of the memory layout.</summary>
     public static float[] Components(Vector2 value)

@@ -1,3 +1,5 @@
+using Numerics = System.Numerics;
+
 namespace CoolEngine.Mathematics.Tests.TestSupport;
 
 /// <summary>
@@ -60,6 +62,70 @@ internal static class Inputs
     public static Vector4 NextVector4(this Random random)
     {
         return new Vector4(random.NextComponent(), random.NextComponent(), random.NextComponent(), random.NextComponent());
+    }
+
+    /// <summary>A quaternion with every component in [-100, 100] (not a rotation; for the algebra tests).</summary>
+    public static Quaternion NextQuaternion(this Random random)
+    {
+        return new Quaternion(random.NextComponent(), random.NextComponent(), random.NextComponent(), random.NextComponent());
+    }
+
+    /// <summary>A unit quaternion, uniform over all rotations (<see cref="NextUnitQuaternion"/>).</summary>
+    public static Quaternion NextRotation(this Random random)
+    {
+        var (x, y, z, w) = random.NextUnitQuaternion();
+        return new Quaternion(x, y, z, w);
+    }
+
+    /// <summary>A matrix with every element in [-100, 100].</summary>
+    public static Matrix2 NextMatrix2(this Random random)
+    {
+        return Matrix2.FromColumns(random.NextVector2(), random.NextVector2());
+    }
+
+    /// <inheritdoc cref="NextMatrix2"/>
+    public static Matrix3 NextMatrix3(this Random random)
+    {
+        return Matrix3.FromColumns(random.NextVector3(), random.NextVector3(), random.NextVector3());
+    }
+
+    /// <inheritdoc cref="NextMatrix2"/>
+    public static Matrix4 NextMatrix4(this Random random)
+    {
+        return Matrix4.FromColumns(random.NextVector4(), random.NextVector4(), random.NextVector4(), random.NextVector4());
+    }
+
+    /// <summary>
+    /// A TRS matrix <c>T * R * S</c>: scale per axis in [0.5, 2] first, then a uniformly random rotation, then a
+    /// translation in [-100, 100]. Built with System.Numerics (row vectors, <c>S * R * T</c>) and moved over byte for
+    /// byte, so the input does not depend on the library's own factories.
+    /// </summary>
+    public static Matrix4 NextTrs(this Random random)
+    {
+        var (x, y, z, w) = random.NextUnitQuaternion();
+        var scale = Numerics.Matrix4x4.CreateScale(random.NextScaleFactor(), random.NextScaleFactor(), random.NextScaleFactor());
+        var rotation = Numerics.Matrix4x4.CreateFromQuaternion(new Numerics.Quaternion(x, y, z, w));
+        var translation = Numerics.Matrix4x4.CreateTranslation(random.NextComponent(), random.NextComponent(), random.NextComponent());
+
+        return Oracle.FromNumerics(scale * rotation * translation);
+    }
+
+    /// <summary>The upper-left 3 × 3 of <see cref="NextTrs"/>: a random rotation times a per-axis scale.</summary>
+    public static Matrix3 NextRotationScale3(this Random random)
+    {
+        var trs = random.NextTrs();
+        return Matrix3.FromColumns(trs.Column0.Xyz, trs.Column1.Xyz, trs.Column2.Xyz);
+    }
+
+    /// <summary>A 2D rotation by a random angle times a per-axis scale in [0.5, 2]: <c>R * S</c>.</summary>
+    public static Matrix2 NextRotationScale2(this Random random)
+    {
+        var (sin, cos) = MathF.SinCos(random.NextAngle());
+        var scaleX = random.NextScaleFactor();
+        var scaleY = random.NextScaleFactor();
+
+        // Column j of R * S is column j of R times scale j.
+        return Matrix2.FromColumns(new Vector2(cos, sin) * scaleX, new Vector2(-sin, cos) * scaleY);
     }
 
     /// <summary>An angle in radians in [-2π, 2π].</summary>

@@ -194,6 +194,33 @@ public struct Vector3 : IEquatable<Vector3>
         return Simd.ToVector3(va + (Simd.Load(b) - va) * t);
     }
 
+    /// <summary>
+    /// The point <paramref name="position"/> transformed by <paramref name="matrix"/>: <c>(matrix * (position, 1)).Xyz</c>,
+    /// so the translation applies. No divide by w (use it with affine matrices, not projections).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Vector3 TransformPosition(Matrix4 matrix, Vector3 position)
+    {
+        return (matrix * new Vector4(position, 1f)).Xyz;
+    }
+
+    /// <summary>
+    /// The direction <paramref name="direction"/> transformed by <paramref name="matrix"/>:
+    /// <c>(matrix * (direction, 0)).Xyz</c>, so the translation does not apply.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Vector3 TransformDirection(Matrix4 matrix, Vector3 direction)
+    {
+        return (matrix * new Vector4(direction, 0f)).Xyz;
+    }
+
+    /// <summary><paramref name="vector"/> rotated by the unit quaternion <paramref name="rotation"/>: <c>rotation * vector</c>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Vector3 Transform(Quaternion rotation, Vector3 vector)
+    {
+        return rotation * vector;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector3 operator +(Vector3 left, Vector3 right)
     {

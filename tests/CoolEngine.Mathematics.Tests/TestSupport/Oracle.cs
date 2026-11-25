@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Numerics = System.Numerics;
+using OpenTKMath = OpenTK.Mathematics;
 
 namespace CoolEngine.Mathematics.Tests.TestSupport;
 
@@ -63,6 +64,78 @@ internal static class Oracle
     public static Vector4 FromNumerics(Numerics.Vector4 value)
     {
         return new Vector4(value.X, value.Y, value.Z, value.W);
+    }
+
+    public static Numerics.Quaternion ToNumerics(Quaternion value)
+    {
+        return new Numerics.Quaternion(value.X, value.Y, value.Z, value.W);
+    }
+
+    public static Quaternion FromNumerics(Numerics.Quaternion value)
+    {
+        return new Quaternion(value.X, value.Y, value.Z, value.W);
+    }
+
+    public static OpenTKMath.Vector2 ToOpenTK(Vector2 value)
+    {
+        return new OpenTKMath.Vector2(value.X, value.Y);
+    }
+
+    public static OpenTKMath.Vector3 ToOpenTK(Vector3 value)
+    {
+        return new OpenTKMath.Vector3(value.X, value.Y, value.Z);
+    }
+
+    public static Vector2 FromOpenTK(OpenTKMath.Vector2 value)
+    {
+        return new Vector2(value.X, value.Y);
+    }
+
+    public static Vector3 FromOpenTK(OpenTKMath.Vector3 value)
+    {
+        return new Vector3(value.X, value.Y, value.Z);
+    }
+
+    // Matrices move byte for byte: the same memory is the same transform (see the class summary).
+
+    public static Numerics.Matrix4x4 ToNumerics(Matrix4 value)
+    {
+        return Reinterpret<Matrix4, Numerics.Matrix4x4>(value);
+    }
+
+    public static Matrix4 FromNumerics(Numerics.Matrix4x4 value)
+    {
+        return Reinterpret<Numerics.Matrix4x4, Matrix4>(value);
+    }
+
+    public static OpenTKMath.Matrix2 ToOpenTK(Matrix2 value)
+    {
+        return Reinterpret<Matrix2, OpenTKMath.Matrix2>(value);
+    }
+
+    public static OpenTKMath.Matrix3 ToOpenTK(Matrix3 value)
+    {
+        return Reinterpret<Matrix3, OpenTKMath.Matrix3>(value);
+    }
+
+    public static OpenTKMath.Matrix4 ToOpenTK(Matrix4 value)
+    {
+        return Reinterpret<Matrix4, OpenTKMath.Matrix4>(value);
+    }
+
+    public static Matrix2 FromOpenTK(OpenTKMath.Matrix2 value)
+    {
+        return Reinterpret<OpenTKMath.Matrix2, Matrix2>(value);
+    }
+
+    public static Matrix3 FromOpenTK(OpenTKMath.Matrix3 value)
+    {
+        return Reinterpret<OpenTKMath.Matrix3, Matrix3>(value);
+    }
+
+    public static Matrix4 FromOpenTK(OpenTKMath.Matrix4 value)
+    {
+        return Reinterpret<OpenTKMath.Matrix4, Matrix4>(value);
     }
 
     /// <summary>The bytes of <paramref name="value"/> in memory order.</summary>

@@ -412,6 +412,56 @@ public sealed class Vector3Tests
     }
 
     [Test]
+    public void TransformPosition_Translation_AddsOffset()
+    {
+        MathAssert.Exact(Vector3.TransformPosition(Matrix4.CreateTranslation(1f, 2f, 3f), new Vector3(1f, 1f, 1f)), new Vector3(2f, 3f, 4f));
+    }
+
+    [Test]
+    public void TransformPosition_RandomTrs_MatchesSystemNumerics()
+    {
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                var trs = random.NextTrs();
+                var position = random.NextVector3();
+
+                var expected = Oracle.FromNumerics(Numerics.Vector3.Transform(Oracle.ToNumerics(position), Oracle.ToNumerics(trs)));
+                var scales = MathAssert.ProductScales(trs, new Vector4(position, 1f));
+
+                MathAssert.Near(Vector3.TransformPosition(trs, position), expected, MathAssert.SumsOfProducts, scales.AsSpan(0, 3),
+                    Inputs.Label(i));
+            }
+        });
+    }
+
+    [Test]
+    public void TransformDirection_Translation_IgnoresOffset()
+    {
+        MathAssert.Exact(Vector3.TransformDirection(Matrix4.CreateTranslation(1f, 2f, 3f), new Vector3(1f, 1f, 1f)), new Vector3(1f, 1f, 1f));
+    }
+
+    [Test]
+    public void Transform_Quaternion_EqualsOperator()
+    {
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                var rotation = random.NextRotation();
+                var vector = random.NextVector3();
+
+                MathAssert.Exact(Vector3.Transform(rotation, vector), rotation * vector, Inputs.Label(i));
+            }
+        });
+    }
+
+    [Test]
     public void SystemNumerics_RoundTrip_IsExact()
     {
         var random = Inputs.CreateRandom();
