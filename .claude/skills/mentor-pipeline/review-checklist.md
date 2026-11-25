@@ -6,7 +6,7 @@ You review one change against its plan. You are read-only; building, running the
 
 ## 1. Verify, don't trust
 
-- **Run** `dotnet build OldTanks.sln --no-incremental` and `dotnet test OldTanks.sln`, and quote the warning, error and test lines. Warnings must not exceed the baseline; Total must equal the baseline plus the plan's new tests, less any test the plan removes. A test that went from passed to skipped is a blocker. The test run includes the documentation checks.
+- **Run** `dotnet build OldTanks.slnx --no-incremental` and `dotnet test OldTanks.slnx`, and quote the warning, error and test lines. Warnings must not exceed the baseline; Total must equal the baseline plus the plan's new tests, less any test the plan removes. A test that went from passed to skipped is a blocker. The test run includes the documentation checks.
 - **Weakened tests are blockers:** in `git diff tests/`, an existing assertion changed, a test deleted, skipped or `[Ignore]`d without the plan saying so, or an expected value that differs from the plan.
 - **Does the new test bite?** For a bug fix, read the new test and say whether it fails on the old code. A test that passes either way proves nothing. For a guard that hangs on one line, undo that line in a scratch copy of the checkout, never in the shared one, and confirm a test turns red.
 - **Claims:** check every row of the implementer's claims table against the code, including the thread each method runs on. A claim that doesn't hold is a finding.

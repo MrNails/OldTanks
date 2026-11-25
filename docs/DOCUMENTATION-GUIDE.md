@@ -3,7 +3,7 @@
 | Field        | Value                                                              |
 |--------------|--------------------------------------------------------------------|
 | Status       | Living - conventions, adapted from ArbBot, the Crypto KB and AnalysisTools |
-| Last updated | 2026-11-24                                                         |
+| Last updated | 2026-11-25                                                         |
 
 ---
 
@@ -120,7 +120,7 @@ A page about one project's feature lives at `docs/<Project>/<relative path of th
 
 ## 9. Checks
 
-`tests/OldTanks.Docs.Tests` runs these over every Markdown file in the checkout (build output, `.git` and nested checkouts such as Claude Code's worktrees aside) with every `dotnet test OldTanks.sln`; adapted from ArbBot's documentation checks ([BUILD §2](BUILD.md#2-build)).
+`tests/OldTanks.Docs.Tests` runs these over every Markdown file in the checkout (build output, `.git` and nested checkouts such as Claude Code's worktrees aside) with every `dotnet test OldTanks.slnx`; adapted from ArbBot's documentation checks ([BUILD §2](BUILD.md#2-build)).
 
 | Check | Fails on |
 |-------|----------|

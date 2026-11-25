@@ -38,8 +38,8 @@ Saved as `plan-OT-<n>.md` in the session's scratchpad directory. The implementer
 - <nearby code not to touch, including tempting clean-ups>
 
 ## Acceptance
-- Build: dotnet build OldTanks.sln --no-incremental → 0 errors, warnings ≤ <baseline>
-- Tests: dotnet test OldTanks.sln → baseline <Total> + <k> new = <Total + k>, all passed
+- Build: dotnet build OldTanks.slnx --no-incremental → 0 errors, warnings ≤ <baseline>
+- Tests: dotnet test OldTanks.slnx → baseline <Total> + <k> new = <Total + k>, all passed
 - Benchmarks: <lines within budget, or n/a>
 
 ## Open questions
@@ -77,8 +77,8 @@ How to work
 - Engine boundaries: the physics engine never references OpenGL, windowing or the game; engine projects never reference OldTanks.* game types. OpenGL calls happen only on the GL thread (docs\ARCHITECTURE.md §3).
 - <Navigation: "Gortex does not track this checkout: use the built-in Read, Grep and Glob tools and check callers by hand." | "Navigate and edit with Gortex as the global CLAUDE.md says: change(operation:"impact") before an edit, change(operation:"detect") after.">
 - Edit C# files with the Edit tool, not sed (Git Bash's sed -i rewrites line endings).
-- Build: dotnet build OldTanks.sln --no-incremental   (0 errors, warnings not above the baseline)
-- Test:  dotnet test OldTanks.sln
+- Build: dotnet build OldTanks.slnx --no-incremental   (0 errors, warnings not above the baseline)
+- Test:  dotnet test OldTanks.slnx
 - <Benchmarks: dotnet run -c Release --project <benchmark project> -- --filter <pattern>, when the plan names them>
 - Never: commit, stage, stash, reset, switch branches or push; add or bump a package; start the game (it writes %USERPROFILE%\OldTanksProject\AppSettings.json); edit docs\ (the documenter does that).
 
@@ -150,7 +150,7 @@ Update:
 
 Rules: bump "Last updated" to <YYYY-MM-DD> on every page you substantively edit; tables over prose; no pasted source code; symbols by full name, never by line number; dated claims; relative links that resolve with exact case; English.
 
-Then run dotnet test OldTanks.sln and fix every failure the documentation checks name.
+Then run dotnet test OldTanks.slnx and fix every failure the documentation checks name.
 
 Report: each file changed with one line on what, the test result line, and any doc statement you found that the code now contradicts.
 ```

@@ -12,7 +12,7 @@ A hobby 3D game in C# on its own OpenGL engine, **CoolEngine**. There are some s
 ## Build and run
 
 ```powershell
-dotnet build OldTanks.sln
+dotnet build OldTanks.slnx
 ```
 
 ```powershell
@@ -49,7 +49,7 @@ The **Debug window** spawns, deletes and edits objects; its **Show texture windo
 | `OldTanks.UI` | HUD text, ImGui control wrappers, ImGui renderer |
 | `OldTanks.UI.SourceGenerators` | Source generator for the debug window's bindings |
 | `Common` | Shared helpers |
-| `tests/OldTanks.Docs.Tests` | Documentation checks (`dotnet test OldTanks.sln`) |
+| `tests/OldTanks.Docs.Tests` | Documentation checks (`dotnet test OldTanks.slnx`) |
 | `tests/CoolEngine.Imaging.Tests` | The image decoders against Windows and ImageSharp (Windows only; a Release build needs a Six Labors key, see [docs/BUILD.md](docs/BUILD.md#2-build)) |
 
 ## Documentation

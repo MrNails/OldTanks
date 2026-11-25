@@ -6,7 +6,7 @@ namespace OldTanks.Docs.Tests;
 /// </summary>
 internal sealed class Checkout
 {
-    public const string SolutionFileName = "OldTanks.sln";
+    public const string SolutionFileName = "OldTanks.slnx";
 
     // Build output, tool state and test results hold no docs; skipping .git keeps its objects out of the walk
     private static readonly HashSet<string> s_skippedFolders =

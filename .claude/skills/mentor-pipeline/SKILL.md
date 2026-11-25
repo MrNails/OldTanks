@@ -55,8 +55,8 @@ Pick the tier by the riskiest file the plan touches, not by how good the plan is
 4. **Branch:** `feature/OT-<n>` for new work, improvements and docs, `bug/OT-<n>` for a fix, from `master` (Denys, 2026-11-24; `develop` is no longer used). Propose `<n>` as the highest `OT-<n>` in `git log --all` plus one and confirm it with Denys at the go (step 1.7). If the checkout is on another task's branch or on `master` with uncommitted work, ask before creating or switching.
 5. **Baseline**, before any dispatch. Keep the three result lines for the briefs:
    ```
-   dotnet build OldTanks.sln --no-incremental
-   dotnet test OldTanks.sln
+   dotnet build OldTanks.slnx --no-incremental
+   dotnet test OldTanks.slnx
    ```
    After OT-3 (2026-11-25) they read `139 Warning(s)` (138 compiler warnings plus the Six Labors license notice from `CoolEngine.Imaging.Tests`), `0 Error(s)`, and two test lines: `OldTanks.Docs.Tests` 31 of 31 and `CoolEngine.Imaging.Tests` 247 of 247. `--no-incremental` is what makes the compiler warnings count; an incremental build hides them. A red baseline is reported and dealt with before dispatch, never blamed on the implementer later.
 6. **Packages:** every version lives in `Directory.Packages.props` (central package management since OT-3); diff it and every `.csproj` against `HEAD`, staged and unstaged, and list every added, removed or changed package. If the work needs a package or a version change, ask Denys; agents never add or bump one.

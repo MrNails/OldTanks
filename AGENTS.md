@@ -2,7 +2,7 @@
 
 > **Project knowledge:** [docs/PROJECT-KNOWLEDGE.md](docs/PROJECT-KNOWLEDGE.md)
 
-Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.sln`, six projects plus two test projects, `net10.0` (generator `netstandard2.0`), OpenTK 4.9.4, ImGui.NET, Serilog, versions central in `Directory.Packages.props`; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
+Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.slnx`, six projects plus two test projects, `net10.0` (generator `netstandard2.0`), OpenTK 4.9.4, ImGui.NET, Serilog, versions central in `Directory.Packages.props`; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
 
 ## Session bootstrap
 
@@ -14,7 +14,7 @@ Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engin
 
 - Add a session-log entry ([guide §5](docs/DOCUMENTATION-GUIDE.md#5-session-log-format)): decisions in full, everything else as pointers.
 - Update the pages the change touched ([update triggers](docs/DOCUMENTATION-GUIDE.md#8-update-triggers)); a new defect gets the next `KI-nnn`, open work goes to [BACKLOG](docs/BACKLOG.md), a changed state to PROJECT-KNOWLEDGE §2. Bump `Last updated`.
-- `dotnet build OldTanks.sln` (0 errors, no new warnings) and `dotnet test OldTanks.sln` (the docs checks) before any commit. Commit subjects start with the task id ([Git rules](docs/CODE-STYLE.md#git-rules)).
+- `dotnet build OldTanks.slnx` (0 errors, no new warnings) and `dotnet test OldTanks.slnx` (the docs checks) before any commit. Commit subjects start with the task id ([Git rules](docs/CODE-STYLE.md#git-rules)).
 
 ## AGENTS.md discovery
 
@@ -47,12 +47,12 @@ Exhaustive for the repository root.
 | `tests/` | Two NUnit test projects: `OldTanks.Docs.Tests` (`net10.0`), the documentation checks; `CoolEngine.Imaging.Tests` (`net10.0-windows`), the decoder tests |
 | `docs/` | The knowledge base; index [docs/README.md](docs/README.md) |
 | `.claude/skills/` | Project skills for Claude Code: [mentor-pipeline](.claude/skills/mentor-pipeline/SKILL.md) (agent tiers by risk, plan and brief templates, the review checklist, the calibration table). Personal settings and worktrees under `.claude/` stay git-ignored |
-| `OldTanks.sln` | The solution |
-| `OldTanks.sln.DotSettings.user` | A tracked per-user Rider file ([BACKLOG](docs/BACKLOG.md#platform-and-build)) |
+| `OldTanks.slnx` | The solution |
+| `OldTanks.slnx.DotSettings.user` | A tracked per-user Rider file ([BACKLOG](docs/BACKLOG.md#platform-and-build)) |
 
 ## Build and run
 
-`dotnet build OldTanks.sln` (0 errors, 139 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.sln` runs the documentation checks and the decoder tests (no game-code tests yet). Details: [docs/BUILD.md](docs/BUILD.md).
+`dotnet build OldTanks.slnx` (0 errors, 139 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks and the decoder tests (no game-code tests yet). Details: [docs/BUILD.md](docs/BUILD.md).
 
 ## Constraints
 

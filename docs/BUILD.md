@@ -19,10 +19,10 @@
 
 ## 2. Build
 
-From the repository root:
+The solution file is `OldTanks.slnx` (the XML solution format; converted from `OldTanks.sln` at the end of OT-3 with `dotnet sln OldTanks.sln migrate`, SDK 10.0.401, at Denys's request; the same eight projects, the two test projects in the `tests` solution folder). The IDE needs to read `.slnx`; the .NET SDK used here builds and tests it. From the repository root:
 
 ```powershell
-dotnet build OldTanks.sln
+dotnet build OldTanks.slnx
 ```
 
 **Baseline (2026-11-25, `--no-incremental`, on the integrated OT-3 tree):** 0 errors, 139 warnings (`master` had 165):
@@ -44,7 +44,7 @@ An incremental build that compiles nothing shows only the restore and SDK warnin
 **Tests** (2026-11-25): `tests/OldTanks.Docs.Tests` (NUnit, `net10.0`, 31 tests) checks the documentation ([DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)); `tests/CoolEngine.Imaging.Tests` (NUnit, `net10.0-windows`, 247 tests: 98 PNG side, 149 JPEG) checks the image decoders against Windows and ImageSharp ([IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)): 278 in all. There are no tests of the game code yet ([BACKLOG](BACKLOG.md#platform-and-build)). Run them from the repository root:
 
 ```powershell
-dotnet test OldTanks.sln
+dotnet test OldTanks.slnx
 ```
 
 ## 3. Run

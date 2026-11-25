@@ -74,6 +74,6 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 The branch naming is Denys's rule (2026-11-24). Before it, branches had descriptive names (`bug/CollisionFix`, `bug/FixDeterminingOnGroundState`) and commit subjects were past-tense sentences. The commit-message form is carried over from ArbBot with the documentation start; change it here if it does not fit.
 
 - **No build output or IDE state:** `bin/`, `obj/`, `.vs/`, `.idea/` are git-ignored.
-- **Build and test before committing:** `dotnet build OldTanks.sln` with 0 errors and no new warnings, then `dotnet test OldTanks.sln`.
+- **Build and test before committing:** `dotnet build OldTanks.slnx` with 0 errors and no new warnings, then `dotnet test OldTanks.slnx`.
 - **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks. `CoolEngine.Imaging.Tests` is the first code test project.
 - **Math changes** (once `CoolEngine.Mathematics` exists, OT-5) are reviewed at effort `max` by an `opus` or `fable` reviewer ([plan D7](plans/ENGINES-AND-TANK-GAME.md#5-open-decisions)).

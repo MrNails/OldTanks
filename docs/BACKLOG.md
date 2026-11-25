@@ -30,7 +30,7 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 - **A Six Labors community key for the test project.** `tests/CoolEngine.Imaging.Tests` references ImageSharp 4.1.4, which needs a license key at build time: Debug builds warn, Release builds of the solution fail until a `sixlabors.lic` file or the `SixLaborsLicenseKey` property supplies one ([BUILD §2](BUILD.md#2-build)).
 - **Clear the warning baseline** (138 compiler warnings on a full build, mostly nullable, [BUILD §2](BUILD.md#2-build)), or at least stop adding to it.
 - ~~**Move the generator to `IIncrementalGenerator`.**~~ Done in OT-3 ([BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md)); its review finding is [KI-021](KNOWN-ISSUES.md#ki-021-generated-binding-code-calls-equals-before-its-null-check).
-- **Stop tracking `OldTanks.sln.DotSettings.user`.** It is a per-user Rider file.
+- **Stop tracking `OldTanks.slnx.DotSettings.user`.** It is a per-user Rider file.
 - ~~**Docs check.**~~ Done in OT-1: `tests/OldTanks.Docs.Tests` ([DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)).
 - **Add code tests and CI.** No game or engine code is tested and there is no workflow. The first useful tests are pure logic: `Collision` tests, `RigidBody.OnTick`, the OBJ loader on the repository's models, `SettingsService`. A CI workflow would run `dotnet build` and `dotnet test` on pull requests.
 

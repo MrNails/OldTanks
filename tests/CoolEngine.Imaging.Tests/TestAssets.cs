@@ -3,9 +3,9 @@ namespace CoolEngine.Imaging.Tests;
 /// <summary>The game's texture assets, found from the test output folder by walking up to the checkout root.</summary>
 internal static class TestAssets
 {
-    private const string SolutionFileName = "OldTanks.sln";
+    private const string SolutionFileName = "OldTanks.slnx";
 
-    /// <summary>The folder holding <c>OldTanks.sln</c>, the nearest one above the test output folder.</summary>
+    /// <summary>The folder holding <c>OldTanks.slnx</c>, the nearest one above the test output folder.</summary>
     public static string RepositoryRoot
     {
         get
