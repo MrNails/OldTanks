@@ -10,7 +10,8 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 |-------|------|
 | Control handler, controls, events, the ImGui renderer, adding a window | [UI-CONTROLS](../docs/OldTanks.UI/UI-CONTROLS.md) |
 | Generated bindings over these controls | [BINDING-GENERATOR](../docs/OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-010, KI-018 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-026 to KI-029 open (provisional numbers); KI-010 and KI-018 closed |
+| Tests of this project | `tests/OldTanks.UI.Tests` ([BUILD §2](../docs/BUILD.md#2-build)) |
 
 ## Project Details
 
@@ -39,7 +40,8 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 ## Constraints
 
 - **`ControlHandler` before any control**; one per process.
-- **Control names are ImGui IDs** for ImGui controls: unique within a window (uniqueness is not enforced, KI-010).
+- **Control names are unique across the process** (HUD and ImGui controls, case-sensitive): a duplicate makes the control's constructor throw `InvalidOperationException` (KI-010). For ImGui controls the name is also the ImGui ID, so repeat a label only with an ID suffix (`Position##Tank`).
+- **`Width` sizes only a leaf control** (`ImGui.SetNextItemWidth`); containers ignore it, and a new ImGui control must not push state it does not pop (KI-018).
 - **ImGui input goes through ImGui's event API** (`AddKeyEvent`, `AddMousePosEvent`, ...) in `ImGuiController`; ImGui.NET 1.91 has no `KeyMap` or `KeysDown`.
 - **Events use `System.EventHandler<TSender, TEventArgs>`** (.NET 10); `Common`'s own delegate was deleted.
 - **ImGui types use `System.Numerics` vectors**; conversion to OpenTK happens in the caller.

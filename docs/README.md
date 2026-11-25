@@ -19,7 +19,7 @@ Entry point for agents: [../AGENTS.md](../AGENTS.md) (Claude Code loads it throu
 Records that cut across areas:
 
 - [PROJECT-KNOWLEDGE](PROJECT-KNOWLEDGE.md): mission, current state, conventions, rules of thumb; read first, about 10 KiB.
-- [KNOWN-ISSUES](KNOWN-ISSUES.md): the defect register, `KI-001` to `KI-023`; stable numbers that code and pages cite.
+- [KNOWN-ISSUES](KNOWN-ISSUES.md): the defect register, `KI-001` to `KI-029`; stable numbers that code and pages cite.
 - [BACKLOG](BACKLOG.md): open work, unwired features, debt.
 - [CODE-STYLE](CODE-STYLE.md) and [DOCUMENTATION-GUIDE](DOCUMENTATION-GUIDE.md): how code, commits and docs are written.
 - [knowledge/GLOSSARY](knowledge/GLOSSARY.md): terms, and the type names that clash.

@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; feature/OT-3, uncommitted, and bug/OT-9 (the `ImGuiTextBlock` row, read from code); §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
+| Verified against | 2026-11-25; bug/OT-10 rebased on master at 483d63f, and bug/OT-9 (the `ImGuiTextBlock` row, read from code); §1's names and §3's width against the code and `tests/OldTanks.UI.Tests` (reasoned from code, not seen in the running game); §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
 
 ---
 
@@ -17,7 +17,9 @@
 - **Create it first.** Every control's constructor registers itself through `ControlHandler.Current`, so constructing a control before the handler exists throws `NullReferenceException`; a second handler throws `InvalidOperationException`. The game creates it in `OldTanks.Windows.MainWindow`'s constructor before any window.
 - **Windows:** an `ImGuiWindow` registers itself as a window; `HandleControls` draws every registered window, and the game calls it once per render frame.
 - **Parent links:** adding a control to a container (`ControlCollection.Add`, `ImGuiControlContainer.Child`) links it to that parent. A control can have one parent; linking it twice throws `OldTanks.UI.Services.CustomExceptions.ControlLinkedException`.
-- **Names:** the handler means to reject duplicate names but compares controls by reference ([KI-010](../KNOWN-ISSUES.md#ki-010-control-names-are-not-checked-for-uniqueness)). For ImGui controls the name is also the ImGui label and ID, so keep names unique within a window.
+- **Names:** the handler keeps controls in a dictionary keyed by `Name` (`StringComparer.Ordinal`, so case-sensitive, as ImGui's label hashes are). Names are unique across the whole process, HUD text and ImGui controls alike: `RegisterControl` throws `InvalidOperationException` ("Control with name ... already exists.") from the constructor of any control whose name is taken ([KI-010](../KNOWN-ISSUES.md#ki-010-control-names-are-not-checked-for-uniqueness), closed on `bug/OT-10`). `UnRegisterControl` (internal, no caller) removes an entry only when the control under that name is the same instance.
+- **Names and ImGui IDs:** for ImGui controls the name is also the ImGui label and ID. The process-wide rule is stricter than ImGui's per-window IDs, so a later window that repeats a label such as "Position" must give it an ID suffix (for example `Position##Tank`). The check compares whole names, so it does not see ImGui's `###` ID override (`A###x` and `B###x` pass it but collide in ImGui; nothing uses `###` today). `IControl.Name` has a public setter, which lets a registered control be renamed past the check ([KI-029](../KNOWN-ISSUES.md#ki-029-a-control-renamed-after-construction-bypasses-the-name-check)).
+- **Where a duplicate throws:** where the control is built. Debug-window controls: in `OldTanks.Windows.MainWindow`'s constructor (a crash with no log line, [KI-015](../KNOWN-ISSUES.md#ki-015-unhandled-exceptions-are-never-logged)). Texture-window controls: inside the render frame when the window first opens. HUD text blocks: in `OldTanks.Windows.MainWindow.InitControls`, which runs from `OnFontsLoaded` inside `GameManager.LoadFonts`' task, so the task faults and startup carries on ([KI-012](../KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)). The HUD's second `TB_FPS` (the colliding-objects-per-second block) is `TB_CollidingPS` since OT-10; no other name repeats.
 
 ## 2. Screen text controls (`OldTanks.UI.Controls`)
 
@@ -48,7 +50,9 @@ Each wraps one ImGui widget, keeps its state between frames and raises events wi
 | `ImGuiImage` | `Texture` (a GL handle), `Size` |
 | `ImGuiSameLine`, `ImGuiNewLine` | Layout only |
 
-Setting `Width` pushes an ImGui item width that is never popped ([KI-018](../KNOWN-ISSUES.md#ki-018-imguicontrolwidth-is-pushed-and-never-popped)).
+**Width** ([KI-018](../KNOWN-ISSUES.md#ki-018-imguicontrolwidth-is-pushed-and-never-popped), closed on `bug/OT-10`): `ImGuiControl.Draw` calls `ImGui.SetNextItemWidth` when `Width` is set, so it sizes only a leaf control's own widget and nothing is pushed; `ImGuiCheckBox` applies it after its visibility check. The containers `ImGuiPanel`, `ImGuiTreeNode`, `ImGuiColumnsControl` and `ImGuiWindow` do not call the base `Draw`, so they ignore `Width`. `ImGuiImage`, `ImGuiSameLine` and `ImGuiNewLine` never applied it. `ImGuiWindow` draws its `Child` only when the window is open and `ImGui.Begin` returned true (a collapsed window draws nothing inside; `End` is always called). In the texture window the "Textures" list box and the "Asset path" text box now take the window's default item width; "Object textures" and "Meshes" stay 200 px (reasoned from code, not seen in the game).
+
+**Tests:** `tests/OldTanks.UI.Tests` ([BUILD §2](../BUILD.md#2-build)) covers names (`OldTanks.UI.Tests.Services.ControlHandlerTests`) and width (`OldTanks.UI.Tests.ImGuiControls.ImGuiControlTests`, a headless ImGui context, no GL). The one `ControlHandler` per test process cannot be reset, so every test uses unique names.
 
 ## 4. Other types
 

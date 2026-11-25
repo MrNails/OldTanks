@@ -4,13 +4,13 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review) and are numbered provisionally after KI-023: they shift at the rebase if other branches' entries reach `master` first. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`) and KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`); they are closed stubs. The remaining check of each entry says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review). KI-026 to KI-029 come from reading the UI controls for OT-10 (2026-11-25, reasoned from code, not observed); their numbers are provisional while parallel bug branches add KIs, and final numbers follow merge order. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`), KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`) and KI-010 and KI-018 in OT-10 (`bug/OT-10`); they are closed stubs. The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -25,7 +25,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-007](#ki-007-robot-cannot-be-constructed) | `Robot` cannot be constructed | Game, assets | Open |
 | [KI-008](#ki-008-unknown-shader-names-resolve-to-location-0) | Unknown shader names resolve to location 0 | Rendering | Closed |
 | [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Closed |
-| [KI-010](#ki-010-control-names-are-not-checked-for-uniqueness) | Control names are not checked for uniqueness | UI | Open |
+| [KI-010](#ki-010-control-names-are-not-checked-for-uniqueness) | Control names are not checked for uniqueness | UI | Closed |
 | [KI-011](#ki-011-dispatcherpost-swallows-callback-exceptions) | `Dispatcher.Post` swallows callback exceptions | Threads | Closed |
 | [KI-012](#ki-012-startup-continues-after-a-failed-asset-load) | Startup continues after a failed asset load | Startup | Closed |
 | [KI-013](#ki-013-window-size-settings-are-ignored) | Window size settings are ignored | Settings | Closed |
@@ -33,7 +33,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-015](#ki-015-unhandled-exceptions-are-never-logged) | Unhandled exceptions are never logged | Logging | Closed |
 | [KI-016](#ki-016-polygon-tests-use-face-normals-only) | Polygon tests use face normals only | Physics | Open |
 | [KI-017](#ki-017-gl-objects-are-deleted-from-finalizers) | GL objects are deleted from finalizers | Rendering | Open |
-| [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Open |
+| [KI-018](#ki-018-imguicontrolwidth-is-pushed-and-never-popped) | `ImGuiControl.Width` is pushed and never popped | UI | Closed |
 | [KI-019](#ki-019-objectrenderer-draws-nothing-without-an-instanced-shader) | `ObjectRenderer` draws nothing without an instanced shader | Rendering | Closed |
 | [KI-020](#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) | Three shaders fail to compile and are used anyway | Rendering | Closed |
 | [KI-021](#ki-021-generated-binding-code-calls-equals-before-its-null-check) | Generated binding code calls Equals before its null check | Generator | Closed |
@@ -41,6 +41,10 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-023](#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end) | PNG decoding cannot see a zlib stream's missing end | Assets | Open |
 | [KI-024](#ki-024-objectrenderert-drops-a-drawable-whose-texture-is-new-to-a-fully-instanced-scene) | `ObjectRenderer<T>` drops a drawable whose texture is new to a fully instanced scene | Rendering | Open |
 | [KI-025](#ki-025-objectrenderert-can-keep-one-scene-texture-on-both-paths) | `ObjectRenderer<T>` can keep one scene texture on both paths | Rendering | Open |
+| [KI-026](#ki-026-imguitreenode-skips-treepop-when-it-is-expanded-but-hidden) | `ImGuiTreeNode` skips `TreePop` when it is expanded but hidden | UI | Open |
+| [KI-027](#ki-027-imguitextbox-flag-setters-test-the-password-flag-and-clear-every-other-flag) | `ImGuiTextBox` flag setters test the Password flag and clear every other flag | UI | Open |
+| [KI-028](#ki-028-imguilistboxtselectedindex-accepts-itemscount) | `ImGuiListBox<T>.SelectedIndex` accepts `Items.Count` | UI | Open |
+| [KI-029](#ki-029-a-control-renamed-after-construction-bypasses-the-name-check) | A control renamed after construction bypasses the name check | UI | Open |
 
 ---
 
@@ -129,12 +133,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.UI.Services.ControlHandler.RegisterControl` |
-| **Root cause** | The handler stores controls in a `HashSet<IControl>` built without a comparer, so it compares references; the `Equals` the controls implement as `IEqualityComparer<IControl>` (by name in `Control`, by name and `IsVisible` in `ImGuiControl`) is never used, and the "already exists" exception cannot fire |
-| **Current state** | The HUD has two text blocks named `TB_FPS`. For ImGui controls the name is the ImGui ID, so duplicates in one window would share state |
-| **Remaining check** | Pass a name comparer to the set, then fix the duplicates it reports |
-| **Evidence** | `ControlHandler`'s constructor, `OldTanks.Windows.MainWindow.InitControls` |
+| **Status** | Closed - fixed on `bug/OT-10` (2026-11-25): `ControlHandler` keys controls by name and a duplicate throws; the HUD's second `TB_FPS` is now `TB_CollidingPS`. Rules: [UI-CONTROLS §1](OldTanks.UI/UI-CONTROLS.md#1-controlhandler) |
 
 ## KI-011: `Dispatcher.Post` swallows callback exceptions
 
@@ -192,12 +191,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `OldTanks.UI.ImGuiControls.ImGuiControl.Draw` |
-| **Root cause** | When `Width` is set, `Draw` calls `ImGui.PushItemWidth` and no code calls `PopItemWidth` |
-| **Current state** | The width also applies to the controls drawn after it in the same window (the texture window's 200-pixel list boxes) |
-| **Remaining check** | Pop after the derived control has drawn its widget |
-| **Evidence** | `ImGuiControl.Draw`; no `PopItemWidth` in the solution |
+| **Status** | Closed - fixed on `bug/OT-10` (2026-11-25): `Draw` calls `ImGui.SetNextItemWidth`, so `Width` sizes only a leaf control's own widget; containers ignore it. Rules: [UI-CONTROLS §3](OldTanks.UI/UI-CONTROLS.md#3-imgui-controls-oldtanksuiimguicontrols) |
 
 ## KI-019: `ObjectRenderer` draws nothing without an instanced shader
 
@@ -261,3 +255,47 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Current state** | Drawing stays correct, since each path draws its own group. But `AddDrawableToInstancedGroup` never promotes that texture's per-instance group again (the move needs no instanced group for the texture; the OT-7 reviewer's probe added 20 more drawables and the per-instance group reached 21, unpromoted), and setting `InstancedShader` a second time throws `ArgumentException` ("An item with the same key has already been added") in `SortInstancedAndPerInstanceObjects`. Reachable in the game (retexture a spawned instanced cube to the wall texture or FloorTile) but harmless today: nothing joins that group afterwards and the game sets `InstancedShader` once. Not fixed under Denys's rule "Firstly run, then fix if reproduced": it is not a visible failure in today's game (Claude's application of the rule) |
 | **Remaining check** | Choose the scene info by where the new texture's group already lives, for both directions, and make `SortInstancedAndPerInstanceObjects` merge into an existing instanced group |
 | **Evidence** | The OT-7 review (a scratch probe, not kept), 2026-11-25 |
+
+## KI-026: `ImGuiTreeNode` skips `TreePop` when it is expanded but hidden
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.UI.ImGuiControls.ImGuiTreeNode.Draw` |
+| **Root cause** | `ImGui.TreeNodeEx` runs before the visibility check; when it returns true and `IsVisible` is false, `Draw` returns without `ImGui.TreePop`. A hidden node also still draws its header |
+| **Current state** | Latent (reasoned from code, not observed): nothing hides a tree node (the debug window's "Rigid body" node is always visible). Hiding an open node would leave ImGui's ID and tree stacks unbalanced for the rest of the window |
+| **Remaining check** | Check `IsVisible` before `TreeNodeEx`, and pop whenever `TreeNodeEx` returned true |
+| **Evidence** | `ImGuiTreeNode.Draw` |
+
+## KI-027: `ImGuiTextBox` flag setters test the Password flag and clear every other flag
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.UI.ImGuiControls.ImGuiTextBox.SetFlagAndNotifyIfChanged`, behind `IsPassword`, `IsReadOnly`, `DisableUndoRedo`, `UseUpperCase`, `AllowNewLine`, `AllowTab` and `ClearAllOnEscape`; the unused `SetFlagsFromCharsDisplayForm` |
+| **Root cause** | The "already set" test reads `ImGuiInputTextFlags.Password` instead of the flag passed in, and clearing does `m_flags &= flag` (keeps only that flag) instead of `&= ~flag`; `CharsDisplayForm` never reaches the flags |
+| **Current state** | Latent (reasoned from code, not observed): no code sets these properties (the texture window's "Asset path" box uses the defaults) |
+| **Remaining check** | Test the passed flag, clear with `&= ~flag`, and wire or drop `CharsDisplayForm` |
+| **Evidence** | The method and the seven properties |
+
+## KI-028: `ImGuiListBox<T>.SelectedIndex` accepts `Items.Count`
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.UI.ImGuiControls.ImGuiListBox<T>.SelectedIndex` |
+| **Root cause** | The range check rejects `value > Count` where `>= Count` is meant |
+| **Current state** | Latent (reasoned from code, not observed): setting `Count` selects nothing (`SelectedItem` returns default) and raises `SelectionChanged` with index `Count` |
+| **Remaining check** | Reject `Count` |
+| **Evidence** | The setter |
+
+## KI-029: A control renamed after construction bypasses the name check
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.UI.Services.Interfaces.IControl.Name` (public setter), `OldTanks.UI.Services.ControlHandler` |
+| **Root cause** | The handler registers the name once, from the constructor; a later rename keeps the old dictionary key, so the new name is unchecked and the old one stays reserved |
+| **Current state** | Latent (reasoned from code, not observed): nothing renames a control |
+| **Remaining check** | Make the name init-only, or re-key in the handler on rename |
+| **Evidence** | `IControl`, `ControlHandler.RegisterControl` |

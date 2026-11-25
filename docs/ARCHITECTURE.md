@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
+| Verified against | 2026-11-25; bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
@@ -12,7 +12,7 @@ How the six projects fit together, which thread does what, and the process-wide 
 
 ## 1. Solution layout
 
-`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus three test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8; [BUILD §2](BUILD.md#2-build)) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
+`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus four test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8; [BUILD §2](BUILD.md#2-build)), `OldTanks.UI.Tests` (`net10.0`; it references `OldTanks.UI`; it tests the control handler and the ImGui controls on a headless ImGui context, [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md#1-controlhandler); OT-10) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
 
 | Project | Type | Target | Role |
 |---------|------|--------|------|
@@ -94,7 +94,7 @@ The window is created with an OpenGL **4.6** forward-compatible **debug** contex
 
 ## 5. Process-wide state
 
-Everything below is a static or a singleton, so there is one window, one world and one UI tree per process, and a test would have to reset them.
+Everything below is a static or a singleton, so there is one window, one world and one UI tree per process, and a test would have to reset them. The UI tests do not: they share the one `ControlHandler` of the test process and use unique control names.
 
 | Holder | What | Notes |
 |--------|------|-------|
@@ -102,7 +102,7 @@ Everything below is a static or a singleton, so there is one window, one world a
 | `CoolEngine.Services.EngineSettings.Current` | Projection matrices, window size, `CollisionIterations` (1-128, the game sets 5), `GlobalLock`, `PhysicsEnable` | Lazily created |
 | `CoolEngine.Services.GlobalCache<T>.Default` | Name-keyed registries for `Shader`, `Texture`, `Scene`, `FontInformation`, `CollisionData` | One per `T`; key rules in [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md#2-cache-keys) |
 | `OldTanks.Services.LoggerService` (one per process) and `Serilog.Log.Logger` | The root logger and its console and `log.txt` sinks | A second `LoggerService` would open a second file sink on `log.txt`, which fails (its XML doc says so) |
-| `OldTanks.UI.Services.ControlHandler.Current` | Every UI control and window | Must exist before any control is constructed; a second instance throws |
+| `OldTanks.UI.Services.ControlHandler.Current` | Every UI control and window | Must exist before any control is constructed; a second instance throws; control names are unique or the control's constructor throws ([UI-CONTROLS §1](OldTanks.UI/UI-CONTROLS.md#1-controlhandler)) |
 | Static renderers | `ObjectRendererOld`, `CollisionRenderer`, `TextRenderer` | `CollisionRenderer.Shader` and `TextRenderer.Shader` are set in `MainWindow.OnShadersLoaded`; `ObjectRendererOld` gets the skybox shader through `RegisterScene` in the startup continuation |
 | `OldTanks.Services.EngineSettings` (game side) | `MaxDepthLength` 2000 (far plane), `MovementDirectionUnit` (+X) | Not the same class as the engine's `EngineSettings` |
 
