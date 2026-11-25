@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using CoolEngine.Services.Exceptions;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using Serilog;
 
@@ -8,17 +9,30 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
 {
     private static readonly int MaxShaderAttributeSize_ = 4;
     
-    private readonly Dictionary<string, (int uniformLocation, int uniformBlockIndex)> m_uniforms;
+    private readonly ILogger m_logger;
+    private readonly Dictionary<string, int> m_uniforms;
+    private readonly Dictionary<string, int> m_uniformBlocks;
     private readonly Dictionary<string, int> m_attributes;
+    private readonly HashSet<(string Kind, string Name)> m_reportedUnknownNames;
 
-    public Shader(string name, int handle)
+    /// <summary>
+    /// Wraps a linked program and reads its active uniforms, uniform blocks and attributes. GL thread only.
+    /// </summary>
+    /// <param name="name">Shader name, used in log messages.</param>
+    /// <param name="handle">Handle of a successfully linked program.</param>
+    /// <param name="logger">Logger for the once-per-name reports of unknown names.</param>
+    public Shader(string name, int handle, ILogger logger)
     {
         Name = name;
         Handle = handle;
+        m_logger = logger;
 
-        m_uniforms = new Dictionary<string, (int uniformLocation, int uniformBlockIndex)>();
+        m_uniforms = new Dictionary<string, int>();
+        m_uniformBlocks = new Dictionary<string, int>();
         m_attributes = new Dictionary<string, int>();
+        m_reportedUnknownNames = new HashSet<(string Kind, string Name)>();
         LoadShaderUniforms();
+        LoadShaderUniformBlocks();
         LoadShaderAttributes();
     }
 
@@ -74,25 +88,53 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
         GL.Uniform1(GetUniformLocation(name), boolean ? 1 : 0);
     }
 
+    /// <summary>
+    /// Returns the location of an active vertex attribute.
+    /// </summary>
+    /// <param name="attribName">Attribute name in the shader.</param>
+    /// <returns>The attribute location, or -1 for a name the linked program does not have active
+    /// (not declared, or optimised away); such a name is logged once per name.</returns>
     public int GetAttribLocation(string attribName)
     {
-        m_attributes.TryGetValue(attribName, out int location);
+        if (m_attributes.TryGetValue(attribName, out int location))
+            return location;
 
-        return location;
+        ReportUnknownName("attribute", attribName);
+
+        return -1;
     }
 
+    /// <summary>
+    /// Returns the location of an active uniform.
+    /// </summary>
+    /// <param name="uniformName">Uniform name in the shader.</param>
+    /// <returns>The uniform location, or -1 for a name the linked program does not have active
+    /// (not declared, or optimised away); such a name is logged once per name. GL ignores uploads to -1.
+    /// A member of a uniform block has no location and is reported and returned the same way.</returns>
     public int GetUniformLocation(string uniformName)
     {
-        m_uniforms.TryGetValue(uniformName, out var uniformData);
+        if (m_uniforms.TryGetValue(uniformName, out int location))
+            return location;
 
-        return uniformData.uniformLocation;
+        ReportUnknownName("uniform", uniformName);
+
+        return -1;
     }
     
+    /// <summary>
+    /// Returns the index of an active uniform block.
+    /// </summary>
+    /// <param name="uniformName">Uniform block name in the shader.</param>
+    /// <returns>The uniform block index, or -1 for a name the linked program does not have active
+    /// (not declared, or optimised away); such a name is logged once per name.</returns>
     public int GetUniformBlockIndex(string uniformName)
     {
-        m_uniforms.TryGetValue(uniformName, out var uniformData);
+        if (m_uniformBlocks.TryGetValue(uniformName, out int index))
+            return index;
 
-        return uniformData.uniformBlockIndex;
+        ReportUnknownName("uniform block", uniformName);
+
+        return -1;
     }
     
     /// <summary>
@@ -120,6 +162,10 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
             throw new ArgumentOutOfRangeException(nameof(vertexAttbDivisor), "VertexAttbDivisor cannot be less then 0.");
         
         var attribLocation = GetAttribLocation(attribName);
+
+        if (attribLocation == -1)
+            return;
+
         var tmpSize = size;
         var localOffset = offset;
 
@@ -146,7 +192,12 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
 
     public void BindUniformBlock(string uniformName, int bindingValue = 0)
     {
-        GL.UniformBlockBinding(Handle, GetUniformBlockIndex(uniformName), bindingValue);
+        var index = GetUniformBlockIndex(uniformName);
+
+        if (index == -1)
+            return;
+
+        GL.UniformBlockBinding(Handle, index, bindingValue);
     }
     
     public bool Equals(Shader? other)
@@ -179,8 +230,38 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
 
             var key = GL.GetActiveUniform(Handle, i, out size, out uniformType);
 
-            m_uniforms[key] = (GL.GetUniformLocation(Handle, key), GL.GetUniformBlockIndex(Handle, key));
+            var location = GL.GetUniformLocation(Handle, key);
+
+            // A member of a uniform block has no location; leaving it out reports it once like an unknown name.
+            if (location == -1)
+                continue;
+
+            m_uniforms[key] = location;
         }
+    }
+
+    private void LoadShaderUniformBlocks()
+    {
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveUniformBlocks, out int count);
+
+        if (count == 0)
+            return;
+
+        GL.GetProgram(Handle, GetProgramParameterName.ActiveUniformBlockMaxNameLength, out int maxNameLength);
+
+        for (int i = 0; i < count; i++)
+        {
+            GL.GetActiveUniformBlockName(Handle, i, maxNameLength, out _, out string blockName);
+
+            m_uniformBlocks[blockName] = i;
+        }
+    }
+
+    private void ReportUnknownName(string nameKind, string name)
+    {
+        if (m_reportedUnknownNames.Add((nameKind, name)))
+            m_logger.Warning("Shader {Shader} has no active {NameKind} named {Name}; -1 is used, so GL ignores it",
+                Name, nameKind, name);
     }
 
     private void LoadShaderAttributes()
@@ -220,20 +301,38 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
         ReleaseUnmanagedResources();
     }
 
+    /// <summary>
+    /// Compiles both stages, links them into a program and wraps it. GL thread only.
+    /// Each stage's compile status and log are logged (Error when it fails, Warning when it compiles with a log),
+    /// and so are the link status and log.
+    /// </summary>
+    /// <param name="vertexShaderText">Vertex stage source.</param>
+    /// <param name="fragmentShaderText">Fragment stage source.</param>
+    /// <param name="name">Shader name, used in log messages and in the exception.</param>
+    /// <param name="logger">Logger for compile and link results; the shader keeps it for unknown-name reports.</param>
+    /// <returns>The linked shader.</returns>
+    /// <exception cref="ShaderException">The program fails to link; the program is deleted and the
+    /// message carries the link log.</exception>
     public static Shader Create(string vertexShaderText, string fragmentShaderText, string name, ILogger logger)
     {
         var vertexShader = CreateShader(ShaderType.VertexShader, vertexShaderText);
         var fragmentShader = CreateShader(ShaderType.FragmentShader, fragmentShaderText);
 
-        var shaderCompilingText = CompileShader(vertexShader);
-        if (shaderCompilingText != string.Empty)
-            logger.Error("Error compiling shader {Shader}.\n{ShaderCompilingText}", name, shaderCompilingText);
+        var shaderLog = CompileShader(vertexShader);
+        GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out int vertexCompiled);
+        if (vertexCompiled == 0)
+            logger.Error("Error compiling {ShaderStage} shader {Shader}.\n{ShaderLog}", "vertex", name, shaderLog);
+        else if (!string.IsNullOrWhiteSpace(shaderLog))
+            logger.Warning("Vertex part of shader {Shader} compiled with warnings.\n{ShaderLog}", name, shaderLog);
         else
             logger.Information("Vertex part of shader {Shader} compiled successfully", name);
 
-        shaderCompilingText = CompileShader(fragmentShader);
-        if (shaderCompilingText != string.Empty)
-            logger.Error("Error compiling shader {Shader}.\n{ShaderCompilingText}", name, shaderCompilingText);
+        shaderLog = CompileShader(fragmentShader);
+        GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out int fragmentCompiled);
+        if (fragmentCompiled == 0)
+            logger.Error("Error compiling {ShaderStage} shader {Shader}.\n{ShaderLog}", "fragment", name, shaderLog);
+        else if (!string.IsNullOrWhiteSpace(shaderLog))
+            logger.Warning("Fragment part of shader {Shader} compiled with warnings.\n{ShaderLog}", name, shaderLog);
         else
             logger.Information("Fragment part of shader {Shader} compiled successfully", name);
 
@@ -244,12 +343,29 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
 
         GL.LinkProgram(handle);
 
+        GL.GetProgram(handle, GetProgramParameterName.LinkStatus, out int linked);
+        var linkLog = GL.GetProgramInfoLog(handle);
+
+        if (linked == 0)
+            logger.Error("Shader {Shader} failed to link.\n{LinkLog}", name, linkLog);
+        else if (!string.IsNullOrWhiteSpace(linkLog))
+            logger.Warning("Shader {Shader} linked with warnings.\n{LinkLog}", name, linkLog);
+        else
+            logger.Information("Shader {Shader} linked successfully", name);
+
         GL.DetachShader(handle, vertexShader);
         GL.DetachShader(handle, fragmentShader);
         GL.DeleteShader(vertexShader);
         GL.DeleteShader(fragmentShader);
 
-        return new Shader(name, handle);
+        if (linked == 0)
+        {
+            GL.DeleteProgram(handle);
+
+            throw new ShaderException($"Shader {name} failed to link.\n{linkLog}");
+        }
+
+        return new Shader(name, handle, logger);
     }
 
     private static int CreateShader(ShaderType shaderType, string source)
