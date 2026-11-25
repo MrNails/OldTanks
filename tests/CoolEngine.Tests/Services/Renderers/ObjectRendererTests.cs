@@ -265,6 +265,35 @@ public sealed class ObjectRendererTests
     #region Texture changes
 
     [Test]
+    public void TextureChanged_InstancedDrawableWhileSceneHasPerInstanceGroups_LeavesOldInstancedGroup()
+    {
+        var scene = CreateScene();
+        var mesh = scene.Meshes[0];
+        var tex7 = CreateTexture(7);
+        var renderer = new ObjectRenderer<FakeDrawable> { InstancedShader = CreateShaderWithoutGl() };
+        var items = new ObservableCollection<FakeDrawable>();
+        renderer.DrawableItems = items;
+        var texturedDrawable = CreateDrawable(scene, tex7);
+        items.Add(texturedDrawable);
+        var untexturedDrawables = CreateDrawables(scene, Texture.Empty, 17);
+        foreach (var drawable in untexturedDrawables)
+            items.Add(drawable);
+        var changed = untexturedDrawables[0];
+
+        changed.TexturedObjectInfos[0].ChangeTexture(mesh, tex7);
+
+        var oldInstancedGroup = renderer.GetInstancedGroup(scene, Texture.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(oldInstancedGroup, Has.Count.EqualTo(16));
+            Assert.That(oldInstancedGroup, Does.Not.Contain(changed));
+            Assert.That(renderer.GetInstancedGroup(scene, tex7), Does.Contain(changed));
+            Assert.That(renderer.GetPerInstanceGroup(scene, tex7), Is.EqualTo(new[] { texturedDrawable }));
+            Assert.That(renderer.GetPerInstanceGroup(scene, Texture.Empty), Is.Null);
+        });
+    }
+
+    [Test]
     public void TextureChanged_PerInstanceDrawable_MovesItBetweenPerInstanceGroups()
     {
         var scene = CreateScene();

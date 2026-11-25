@@ -507,7 +507,24 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             newTextureGroupDrawables[drawable] = e.TextureData;
         }
 
-        UpdateTextureForSceneInfo(e, existsInSceneBuffer ? drawSceneInfo! : drawInstancedSceneInfo!, drawable);
+        // Update the scene info whose old-texture group holds the drawable: a scene can have per-instance
+        // and instanced groups at once, and the drawable may be in either.
+        var sceneInfoToUpdate = existsInSceneBuffer ? drawSceneInfo! : drawInstancedSceneInfo!;
+
+        if (existsInSceneBuffer &&
+            drawSceneInfo!.Drawables.TryGetValue(e.OldTexture, out var oldPerInstanceGroup) &&
+            oldPerInstanceGroup.Contains(drawable))
+        {
+            sceneInfoToUpdate = drawSceneInfo;
+        }
+        else if (existsInInstancedSceneBuffer &&
+                 drawInstancedSceneInfo!.Drawables.TryGetValue(e.OldTexture, out var oldInstancedGroup) &&
+                 oldInstancedGroup.Contains(drawable))
+        {
+            sceneInfoToUpdate = drawInstancedSceneInfo;
+        }
+
+        UpdateTextureForSceneInfo(e, sceneInfoToUpdate, drawable);
     }
 
     private static void UpdateTextureForSceneInfo(in TexturedObjectInfo.TextureChangedArg e, DrawSceneInfo drawSceneInfo, IDrawable drawable)
