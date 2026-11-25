@@ -423,47 +423,57 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         var maxElements = GetMaxBufferElements(sceneDrawables.Count, buffer);
 
         var modelsData = ArrayPool<ModelData>.Shared.Rent(maxElements);
-        
-        var hiddenElementsAmount = 0;
-        
+
+        try
+        {
+            var visibleCount = FillInstanceRecords(sceneDrawables, drawables, mesh.HasTextureCoords, modelsData);
+
+            if (visibleCount == 0)
+                return;
+
+            if (needBufferRecreate)
+            {
+                buffer?.Dispose();
+                buffer = RecreateBuffer(drawObjectInfo, renderDto.Shader, maxElements);
+
+                drawSceneInfo.TransformationsBuffer = buffer;
+            }
+
+            buffer!.FillData(modelsData, visibleCount);
+
+            GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, visibleCount);
+        }
+        finally
+        {
+            ArrayPool<ModelData>.Shared.Return(modelsData);
+        }
+    }
+
+    /// <summary>Packs one instance record per visible drawable contiguously from index 0 and returns how many it wrote.</summary>
+    internal static int FillInstanceRecords(List<IDrawable> sceneDrawables, Dictionary<IDrawable, TextureData> textureDatas,
+        bool meshHasTextureCoords, Span<ModelData> records)
+    {
+        var visibleCount = 0;
+
         for (int j = 0; j < sceneDrawables.Count; j++)
         {
             var element = sceneDrawables[j];
 
             if (!element.Visible)
-            {
-                hiddenElementsAmount++;
                 continue;
-            }
 
-            var textureData = drawables[element];
-            var haveTexture = !textureData.Texture.IsEmpty && mesh.HasTextureCoords;
+            var textureData = textureDatas[element];
+            var haveTexture = !textureData.Texture.IsEmpty && meshHasTextureCoords;
             var textTransform = Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
                                 Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle));
 
-            modelsData[j] = new ModelData(element.Transformation, 
+            records[visibleCount] = new ModelData(element.Transformation, 
                 haveTexture ? Colors.White : ObjectRendererConstants.DefaultEmptyTextureColor_, 
                 textTransform, haveTexture ? 1 : 0);
-        }
-        
-        if (hiddenElementsAmount == sceneDrawables.Count)
-            return;
-
-        if (needBufferRecreate)
-        {
-            buffer?.Dispose();
-            buffer = RecreateBuffer(drawObjectInfo, renderDto.Shader, maxElements);
-            
-            drawSceneInfo.TransformationsBuffer = buffer;
+            visibleCount++;
         }
 
-        var drawablesToDraw = sceneDrawables.Count - hiddenElementsAmount;
-        
-        buffer!.FillData(modelsData, drawablesToDraw);
-        
-        GL.DrawArraysInstanced(PrimitiveType.Triangles, 0, drawObjectInfo.VerticesLength, drawablesToDraw);
-        
-        ArrayPool<ModelData>.Shared.Return(modelsData);
+        return visibleCount;
     }
     
     private void DrawablesOnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -593,7 +603,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
     }
     
     [StructLayout(LayoutKind.Sequential)]
-    private readonly struct ModelData
+    internal readonly struct ModelData
     {
         public readonly Matrix4 Transformation;
         public readonly Vector4 Color;

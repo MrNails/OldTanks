@@ -13,6 +13,101 @@ namespace CoolEngine.Tests.Services.Renderers;
 [TestFixture]
 public sealed class ObjectRendererTests
 {
+    private const float Tolerance = 1e-6f;
+
+    #region FillInstanceRecords
+
+    [Test]
+    public void FillInstanceRecords_MiddleDrawableHidden_PacksVisibleRecordsContiguously()
+    {
+        var scene = CreateScene();
+        var drawables = CreateTranslatedDrawables(scene);
+        drawables[1].Visible = false;
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[3];
+
+        var count = ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), false, records);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(count, Is.EqualTo(2));
+            Assert.That(records[0].Transformation, Is.EqualTo(Matrix4.CreateTranslation(1, 0, 0)));
+            Assert.That(records[1].Transformation, Is.EqualTo(Matrix4.CreateTranslation(3, 0, 0)));
+        });
+    }
+
+    [Test]
+    public void FillInstanceRecords_FirstDrawableHidden_PacksRemainingRecordsFromIndexZero()
+    {
+        var scene = CreateScene();
+        var drawables = CreateTranslatedDrawables(scene);
+        drawables[0].Visible = false;
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[3];
+
+        var count = ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), false, records);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(count, Is.EqualTo(2));
+            Assert.That(records[0].Transformation, Is.EqualTo(Matrix4.CreateTranslation(2, 0, 0)));
+            Assert.That(records[1].Transformation, Is.EqualTo(Matrix4.CreateTranslation(3, 0, 0)));
+        });
+    }
+
+    [Test]
+    public void FillInstanceRecords_AllVisible_PacksEveryRecordInOrder()
+    {
+        var scene = CreateScene();
+        var drawables = CreateTranslatedDrawables(scene);
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[3];
+
+        var count = ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), false, records);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(count, Is.EqualTo(3));
+            Assert.That(records[0].Transformation, Is.EqualTo(Matrix4.CreateTranslation(1, 0, 0)));
+            Assert.That(records[1].Transformation, Is.EqualTo(Matrix4.CreateTranslation(2, 0, 0)));
+            Assert.That(records[2].Transformation, Is.EqualTo(Matrix4.CreateTranslation(3, 0, 0)));
+        });
+    }
+
+    [Test]
+    public void FillInstanceRecords_AllHidden_ReturnsZero()
+    {
+        var scene = CreateScene();
+        var drawables = CreateTranslatedDrawables(scene);
+        foreach (var drawable in drawables)
+            drawable.Visible = false;
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[3];
+
+        var count = ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), false, records);
+
+        Assert.That(count, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void FillInstanceRecords_TexturedDrawableOnMeshWithTextureCoords_UsesWhite()
+    {
+        var scene = CreateScene();
+        var drawables = new List<FakeDrawable> { CreateDrawable(scene, CreateTexture(7)) };
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[1];
+
+        ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables),
+            CreateTextureDatas(scene, drawables), true, records);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(records[0].Color, Is.EqualTo(Colors.White));
+            Assert.That(records[0].HaveTexture, Is.EqualTo(1f).Within(Tolerance));
+        });
+    }
+
+    #endregion
+
     #region Filing with an instanced shader
 
     [Test]
@@ -107,6 +202,31 @@ public sealed class ObjectRendererTests
             drawables.Add(CreateDrawable(scene, texture));
 
         return drawables;
+    }
+
+    private static List<FakeDrawable> CreateTranslatedDrawables(Scene scene)
+    {
+        return new List<FakeDrawable>
+        {
+            CreateDrawable(scene, Texture.Empty, Matrix4.CreateTranslation(1, 0, 0)),
+            CreateDrawable(scene, Texture.Empty, Matrix4.CreateTranslation(2, 0, 0)),
+            CreateDrawable(scene, Texture.Empty, Matrix4.CreateTranslation(3, 0, 0))
+        };
+    }
+
+    private static List<IDrawable> AsDrawableList(List<FakeDrawable> drawables)
+    {
+        return new List<IDrawable>(drawables);
+    }
+
+    private static Dictionary<IDrawable, TextureData> CreateTextureDatas(Scene scene, List<FakeDrawable> drawables)
+    {
+        var mesh = scene.Meshes[0];
+        var textureDatas = new Dictionary<IDrawable, TextureData>();
+        foreach (var drawable in drawables)
+            textureDatas.Add(drawable, drawable.TexturedObjectInfos[0][mesh]);
+
+        return textureDatas;
     }
 
     // Texture's constructor is private, and its finalizer calls GL.DeleteTexture (KI-017): no GL context here.
