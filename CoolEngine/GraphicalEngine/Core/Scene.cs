@@ -39,9 +39,9 @@ public sealed class Scene
                 if (min.Y > vertices[j].Y) min.Y = vertices[j].Y;
                 if (min.Z > vertices[j].Z) min.Z = vertices[j].Z;
             
-                if (max.X < vertices[j].X) min.X = vertices[j].X;
-                if (max.Y < vertices[j].Y) min.Y = vertices[j].Y;
-                if (max.Z < vertices[j].Z) min.Z = vertices[j].Z;
+                if (max.X < vertices[j].X) max.X = vertices[j].X;
+                if (max.Y < vertices[j].Y) max.Y = vertices[j].Y;
+                if (max.Z < vertices[j].Z) max.Z = vertices[j].Z;
             }
         }
         

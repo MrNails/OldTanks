@@ -4,13 +4,13 @@
 |--------------|--------|
 | Status       | Living - known-issues register |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Verified against | 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
 Defects that are understood and not yet fixed, with their root cause and the check that would close them. Rules for entries: [DOCUMENTATION-GUIDE §7](DOCUMENTATION-GUIDE.md#7-known-issue-entries). Unwired features and debt that is not a defect are in [BACKLOG](BACKLOG.md).
 
-KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review). KI-026 to KI-029 come from reading the UI controls for OT-10 (2026-11-25, reasoned from code, not observed); their numbers are provisional while parallel bug branches add KIs, and final numbers follow merge order. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`), KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`) and KI-010 and KI-018 in OT-10 (`bug/OT-10`); they are closed stubs. The remaining check of each entry says what would confirm it.
+KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for the documentation start (OT-1); the machine had no .NET 7 runtime then. The game runs since OT-3 (.NET 10, 2026-11-25, [BUILD §3](BUILD.md#3-run)), and one smoke run confirmed KI-004 (closed on `bug/OT-8`, 2026-11-25) and KI-008 and found KI-020 and KI-022 (KI-008 and KI-020 are closed on `bug/OT-6`, 2026-11-25); the other entries of KI-001 to KI-019 are still reasoned from code, not observed. KI-020 to KI-023 come from OT-3 (KI-021 from its review, KI-023 from its decoder work); KI-024 and KI-025 come from OT-7 (KI-024 from its planning, KI-025 from its review). KI-026 to KI-029 come from reading the UI controls for OT-10 (2026-11-25, reasoned from code, not observed), KI-030 from the OT-12 review (2026-11-25, reasoned from code, not observed); KI-030's number is provisional while parallel bug branches add KIs, and final numbers follow merge order. KI-005, KI-009 and KI-019 were fixed in OT-7 (`bug/OT-7`), KI-004, KI-011 and KI-015 in OT-8 (`bug/OT-8`) and KI-010 and KI-018 in OT-10 (`bug/OT-10`); they are closed stubs. The remaining check of each entry says what would confirm it.
 
 ## Index
 
@@ -21,7 +21,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-003](#ki-003-worldobjects-is-changed-across-threads-without-a-shared-lock) | `WorldObjects` is changed across threads without a shared lock | Threads | Open |
 | [KI-004](#ki-004-loggerservice-ignores-the-log-file-name) | `LoggerService` ignores the log file name | Logging | Closed |
 | [KI-005](#ki-005-untextured-objects-use-a-0-255-color-in-a-0-1-color-space) | Untextured objects use a 0-255 color in a 0-1 color space | Rendering | Closed |
-| [KI-006](#ki-006-scenecenter-is-computed-from-a-wrong-maximum) | `Scene.Center` is computed from a wrong maximum | Engine | Open |
+| [KI-006](#ki-006-scenecenter-is-computed-from-a-wrong-maximum) | `Scene.Center` is computed from a wrong maximum | Engine | Closed |
 | [KI-007](#ki-007-robot-cannot-be-constructed) | `Robot` cannot be constructed | Game, assets | Open |
 | [KI-008](#ki-008-unknown-shader-names-resolve-to-location-0) | Unknown shader names resolve to location 0 | Rendering | Closed |
 | [KI-009](#ki-009-instanced-rendering-skips-the-wrong-objects-when-some-are-hidden) | Instanced rendering skips the wrong objects when some are hidden | Rendering | Closed |
@@ -45,6 +45,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-027](#ki-027-imguitextbox-flag-setters-test-the-password-flag-and-clear-every-other-flag) | `ImGuiTextBox` flag setters test the Password flag and clear every other flag | UI | Open |
 | [KI-028](#ki-028-imguilistboxtselectedindex-accepts-itemscount) | `ImGuiListBox<T>.SelectedIndex` accepts `Items.Count` | UI | Open |
 | [KI-029](#ki-029-a-control-renamed-after-construction-bypasses-the-name-check) | A control renamed after construction bypasses the name check | UI | Open |
+| [KI-030](#ki-030-a-malformed-last-v-vt-or-vn-line-drops-the-last-mesh-of-an-obj-file) | A malformed last v, vt or vn line drops the last mesh of an OBJ file | Assets | Open |
 
 ---
 
@@ -98,12 +99,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 
 | Field | Value |
 |---|---|
-| **Status** | Open |
-| **Scope** | `CoolEngine.GraphicalEngine.Core.Scene.EvaluateSceneCenter` |
-| **Root cause** | The branch that should raise `max` writes into `min`, so `max` stays at `float.MinValue` |
-| **Current state** | `Scene.Center` is wrong for every scene; nothing reads it yet |
-| **Remaining check** | Fix the three assignments before the first use of `Center` |
-| **Evidence** | `Scene.EvaluateSceneCenter`; no reader of `Scene.Center` in the solution |
+| **Status** | Closed: fixed on `bug/OT-12` (2026-11-25); `Scene.Center` is now the midpoint of the model-space axis-aligned bounds of every vertex of every mesh, `(0, 0, 0)` for a scene with no vertices (today's result, not a decided rule); covered by `CoolEngine.Tests.GraphicalEngine.Core.SceneTests` |
 
 ## KI-007: `Robot` cannot be constructed
 
@@ -299,3 +295,14 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Current state** | Latent (reasoned from code, not observed): nothing renames a control |
 | **Remaining check** | Make the name init-only, or re-key in the handler on rename |
 | **Evidence** | `IControl`, `ControlHandler.RegisterControl` |
+
+## KI-030: A malformed last v, vt or vn line drops the last mesh of an OBJ file
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.Services.Loaders.ModelsLoaders.WaveFrontLoader.LoadAsset` |
+| **Root cause** | The loader adds the file's last mesh only when `parseError` is false, but `parseError` holds only the result of the last `v`, `vt` or `vn` line parsed (a failed `f` line returns before caching) |
+| **Current state** | When the last data line of the file is a `v`, `vt` or `vn` line whose number does not parse, the last mesh is dropped; a one-object file then caches a `Scene` with no meshes. Latent: the shipped assets parse. Reasoned from code, not observed. Whether to keep the mesh, drop the model or throw is Denys's decision |
+| **Remaining check** | Write an OBJ whose last line is a malformed `v` line, load it and look at the cached scene's meshes |
+| **Evidence** | `WaveFrontLoader.LoadAsset`; found by the OT-12 review on 2026-11-25 |

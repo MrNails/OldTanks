@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
+| Verified against | 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (§1's test projects against the project files); bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
@@ -12,7 +12,7 @@ How the six projects fit together, which thread does what, and the process-wide 
 
 ## 1. Solution layout
 
-`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus four test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8; [BUILD §2](BUILD.md#2-build)), `OldTanks.UI.Tests` (`net10.0`; it references `OldTanks.UI`; it tests the control handler and the ImGui controls on a headless ImGui context, [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md#1-controlhandler); OT-10) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
+`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus four test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8, `Scene` tests since OT-12; [BUILD §2](BUILD.md#2-build)), `OldTanks.UI.Tests` (`net10.0`; it references `OldTanks.UI`; it tests the control handler and the ImGui controls on a headless ImGui context, [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md#1-controlhandler); OT-10) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
 
 | Project | Type | Target | Role |
 |---------|------|--------|------|

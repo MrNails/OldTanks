@@ -33,7 +33,7 @@ Exhaustive: every `AGENTS.md` in the repository.
 | `OldTanks.UI.SourceGenerators` — binding generator | [OldTanks.UI.SourceGenerators/AGENTS.md](OldTanks.UI.SourceGenerators/AGENTS.md) |
 | `Common` — `ObservableObject`, `SettingsService`, typed events, helpers; no dependencies | This root guide |
 | `tests/OldTanks.Docs.Tests` — the documentation checks | This root guide; its rules are [DOCUMENTATION-GUIDE §9](docs/DOCUMENTATION-GUIDE.md#9-checks) |
-| `tests/CoolEngine.Tests` — the engine's headless unit tests (today `ObjectRenderer<T>` and the dispatcher) | This root guide and [BUILD §2](docs/BUILD.md#2-build) |
+| `tests/CoolEngine.Tests` — the engine's headless unit tests (today `ObjectRenderer<T>`, the dispatcher and `Scene`) | This root guide and [BUILD §2](docs/BUILD.md#2-build) |
 | `tests/OldTanks.UI.Tests` — control names and item width, headless ImGui | This root guide and [UI-CONTROLS](docs/OldTanks.UI/UI-CONTROLS.md) |
 | `tests/CoolEngine.Imaging.Tests` — the decoders against Windows and ImageSharp | This root guide and [IMAGE-DECODERS §6](docs/CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested) |
 
