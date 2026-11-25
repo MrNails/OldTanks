@@ -10,10 +10,8 @@
 
     <ItemGroup>
       <PackageReference Include="FreeTypeSharp" />
-      <PackageReference Include="MIConvexHull" />
       <PackageReference Include="OpenTK" />
       <PackageReference Include="Serilog" />
-      <PackageReference Include="Serilog.Sinks.FastConsole" />
       <PackageReference Include="Serilog.Sinks.File" />
       <PackageReference Include="SixLabors.ImageSharp" />
     </ItemGroup>
