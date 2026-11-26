@@ -202,7 +202,7 @@ public sealed class Matrix3Tests
         {
             for (var i = 0; i < Inputs.Count; i++)
             {
-                var matrix = random.NextMatrix3();
+                var matrix = random.NextWellConditionedMatrix3();
 
                 var expected = Oracle.FromOpenTK(OpenTKMath.Matrix3.Invert(Oracle.ToOpenTK(matrix)));
 
@@ -238,6 +238,20 @@ public sealed class Matrix3Tests
                 "singular result");
             Assert.That(invertible, Is.True, "invertible returns");
             MathAssert.Exact(inverse, Matrix3.CreateScale(0.5f), "invertible result");
+        });
+    }
+
+    [Test]
+    public void TryInvert_TinyButInvertible_ReturnsTrue()
+    {
+        // The determinant 1e-36 is tiny but not 0: the matrix is invertible.
+        var invertible = Matrix3.TryInvert(Matrix3.CreateScale(1e-12f), out var inverse);
+        var expected = Matrix3.CreateScale(1e12f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(invertible, Is.True, "returns");
+            MathAssert.Near(inverse, expected, 1e-6f, MathAssert.AtLeastOne(MathAssert.Components(expected)), "result");
         });
     }
 

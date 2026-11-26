@@ -107,19 +107,18 @@ public struct Matrix4 : IEquatable<Matrix4>
     }
 
     /// <summary>
-    /// The determinant by Laplace expansion along the top two rows: the six 2 × 2 minors of rows 0-1 times the
-    /// complementary minors of rows 2-3, summed in a fixed order. The same own computation (no fused multiply-add) that
-    /// <see cref="TryInvert"/> uses, so both agree exactly on which matrices are singular (<c>Determinant == 0</c>); the
-    /// same bits on every instruction set.
+    /// The determinant: row 0 dotted with the cofactors of row 0, the products summed as <c>(t0 + t1) + (t2 + t3)</c>. The
+    /// same own computation (no fused multiply-add, the same order on every instruction set) that <see cref="TryInvert"/>
+    /// uses, so both agree exactly on which matrices are singular (<c>Determinant == 0</c>).
     /// </summary>
     public readonly float Determinant
     {
         get
         {
             var rows = Rows(this);
-            var top = new Minors(rows.Column0.AsVector128(), rows.Column1.AsVector128());
             var bottom = new Minors(rows.Column2.AsVector128(), rows.Column3.AsVector128());
-            return Laplace(top, bottom);
+            var cofactors0 = Cofactors(rows.Column1.AsVector128(), bottom, SignsPlusMinus, SignsMinusPlus);
+            return Dot(rows.Column0.AsVector128(), cofactors0).ToScalar();
         }
     }
 
@@ -164,15 +163,16 @@ public struct Matrix4 : IEquatable<Matrix4>
         var column2 = Cofactors(row3, top, SignsPlusMinus, SignsMinusPlus);
         var column3 = Cofactors(row2, top, SignsMinusPlus, SignsPlusMinus);
 
-        var determinant = Laplace(top, bottom);
-        if (determinant == 0f)
+        // Every lane holds the determinant (see Dot).
+        var determinant = Dot(row0, column0);
+        if (determinant.ToScalar() == 0f)
         {
             var nan = new Vector4(float.NaN);
             result = FromColumns(nan, nan, nan, nan);
             return false;
         }
 
-        var inverseDeterminant = Vector128.Create(1f / determinant);
+        var inverseDeterminant = Vector128<float>.One / determinant;
         result.Column0 = (column0 * inverseDeterminant).AsVector4();
         result.Column1 = (column1 * inverseDeterminant).AsVector4();
         result.Column2 = (column2 * inverseDeterminant).AsVector4();
@@ -181,16 +181,26 @@ public struct Matrix4 : IEquatable<Matrix4>
     }
 
     /// <summary>
-    /// This matrix with the upper-left 3 × 3 replaced by identity: the X, Y, Z of <see cref="Column0"/>,
-    /// <see cref="Column1"/> and <see cref="Column2"/> become the unit axes; every <c>W</c> and <see cref="Column3"/> are kept.
+    /// This matrix with the rotation removed and each axis's length kept (OpenTK's <c>ClearRotation</c> on identical
+    /// bytes): the X, Y, Z of <see cref="Column0"/> become <c>(|Column0.xyz|, 0, 0)</c>, of <see cref="Column1"/>
+    /// <c>(0, |Column1.xyz|, 0)</c>, of <see cref="Column2"/> <c>(0, 0, |Column2.xyz|)</c>; every <c>W</c> and
+    /// <see cref="Column3"/> are kept. For a TRS matrix the result is the translation times the scale. Each length is
+    /// <c>sqrt(x·x + y·y + z·z)</c>, multiply then add, no fused multiply-add.
     /// </summary>
     public readonly Matrix4 ClearRotation()
     {
         return FromColumns(
-            new Vector4(1f, 0f, 0f, Column0.W),
-            new Vector4(0f, 1f, 0f, Column1.W),
-            new Vector4(0f, 0f, 1f, Column2.W),
+            new Vector4(AxisLength(Column0), 0f, 0f, Column0.W),
+            new Vector4(0f, AxisLength(Column1), 0f, Column1.W),
+            new Vector4(0f, 0f, AxisLength(Column2), Column2.W),
             Column3);
+    }
+
+    // The length of a column's X, Y, Z, in scalar arithmetic left to right (no FMA), the same on every path.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static float AxisLength(Vector4 column)
+    {
+        return MathF.Sqrt(column.X * column.X + column.Y * column.Y + column.Z * column.Z);
     }
 
     /// <summary>
@@ -323,13 +333,20 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// plane. With <c>f = 1 / tan(fovY / 2)</c>, <c>n</c> = <paramref name="depthNear"/> and <c>F</c> =
     /// <paramref name="depthFar"/>, rows <c>(f/aspect,0,0,0) (0,f,0,0) (0,0,n/(F-n),n·F/(F-n)) (0,0,-1,0)</c>.
     /// Throws <see cref="ArgumentOutOfRangeException"/> unless <c>0 &lt; fovY &lt; π</c>, <c>aspectRatio &gt; 0</c>,
-    /// <c>depthNear &gt; 0</c> and <c>depthFar &gt; depthNear</c> (NaN fails every check).
+    /// <c>depthNear &gt; 0</c>, <c>depthFar &gt; depthNear</c> and <c>depthFar</c> is finite (NaN fails every check; for a
+    /// far plane at infinity use <see cref="CreatePerspectiveFieldOfViewInfinite"/>). The constant <c>n·F/(F-n)</c> is
+    /// computed as <c>n · (F / (F - n))</c>, so <c>n·F</c> cannot overflow.
     /// </summary>
     public static Matrix4 CreatePerspectiveFieldOfView(float fovY, float aspectRatio, float depthNear, float depthFar)
     {
         CheckPerspective(fovY, aspectRatio, depthNear);
         if (!(depthFar > depthNear))
             throw new ArgumentOutOfRangeException(nameof(depthFar), depthFar, "The far plane must lie beyond the near plane.");
+        if (!float.IsFinite(depthFar))
+        {
+            throw new ArgumentOutOfRangeException(nameof(depthFar), depthFar,
+                "The far plane must be finite; use CreatePerspectiveFieldOfViewInfinite for a far plane at infinity.");
+        }
 
         var f = 1f / MathF.Tan(fovY * 0.5f);
         var range = depthFar - depthNear;
@@ -338,7 +355,7 @@ public struct Matrix4 : IEquatable<Matrix4>
             new Vector4(f / aspectRatio, 0f, 0f, 0f),
             new Vector4(0f, f, 0f, 0f),
             new Vector4(0f, 0f, depthNear / range, -1f),
-            new Vector4(0f, 0f, depthNear * depthFar / range, 0f));
+            new Vector4(0f, 0f, depthNear * (depthFar / range), 0f));
     }
 
     /// <summary>
@@ -499,18 +516,15 @@ public struct Matrix4 : IEquatable<Matrix4>
         return x * (minors.P ^ signsOfPAndR) + y * (minors.Q ^ signsOfQ) + z * (minors.R ^ signsOfPAndR);
     }
 
-    // det = S01 C23 - S02 C13 + S03 C12 + S12 C03 - S13 C02 + S23 C01 (S: minors of rows 0-1, C: of rows 2-3, by column
-    // pair), in scalar arithmetic, left to right: no horizontal vector sum, so the order is the same on every path. The
-    // minors are read from the lanes where Minors keeps them (see its summary).
+    // The dot product with the additions in a fixed order, (t0 + t1) + (t2 + t3), written as lane-wise adds of shuffled
+    // copies (a library horizontal sum could add in another order on another instruction set). Every lane ends with the
+    // same bits: each adds the same two pair sums, and IEEE addition is commutative.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static float Laplace(in Minors top, in Minors bottom)
+    private static Vector128<float> Dot(Vector128<float> left, Vector128<float> right)
     {
-        return top.R.GetElement(2) * bottom.P.GetElement(0)
-               - top.R.GetElement(1) * bottom.Q.GetElement(0)
-               + top.Q.GetElement(1) * bottom.P.GetElement(3)
-               + top.R.GetElement(0) * bottom.Q.GetElement(1)
-               - top.Q.GetElement(0) * bottom.R.GetElement(1)
-               + top.P.GetElement(0) * bottom.R.GetElement(2);
+        var products = left * right;
+        var pairs = products + Vector128.Shuffle(products, Vector128.Create(1, 0, 3, 2));
+        return pairs + Vector128.Shuffle(pairs, Vector128.Create(2, 3, 0, 1));
     }
 
     /// <summary>

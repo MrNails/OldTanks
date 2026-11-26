@@ -217,7 +217,7 @@ public sealed class Matrix4Tests
         {
             for (var i = 0; i < Inputs.Count; i++)
             {
-                var matrix = random.NextMatrix4();
+                var matrix = random.NextWellConditionedMatrix4();
 
                 Numerics.Matrix4x4.Invert(Oracle.ToNumerics(matrix), out var inverse);
                 var expected = Oracle.FromNumerics(inverse);
@@ -262,6 +262,20 @@ public sealed class Matrix4Tests
     }
 
     [Test]
+    public void TryInvert_TinyButInvertible_ReturnsTrue()
+    {
+        // The determinant 1e-36 (w stays 1) is tiny but not 0: the matrix is invertible.
+        var invertible = Matrix4.TryInvert(Matrix4.CreateScale(1e-12f), out var inverse);
+        var expected = Matrix4.CreateScale(1e12f);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(invertible, Is.True, "returns");
+            MathAssert.Near(inverse, expected, 1e-6f, MathAssert.AtLeastOne(MathAssert.Components(expected)), "result");
+        });
+    }
+
+    [Test]
     public void Translation_GetAndSet_MapToColumn3()
     {
         var matrix = Matrix4.FromColumns(new Vector4(1f), new Vector4(2f), new Vector4(3f), new Vector4(4f, 5f, 6f, 7f));
@@ -279,7 +293,7 @@ public sealed class Matrix4Tests
     }
 
     [Test]
-    public void ClearRotation_Trs_KeepsTranslationAndW()
+    public void ClearRotation_Trs_KeepsScaleTranslationAndW()
     {
         var random = Inputs.CreateRandom();
 
@@ -287,18 +301,41 @@ public sealed class Matrix4Tests
         {
             for (var i = 0; i < Inputs.Count; i++)
             {
-                var trs = random.NextTrs();
+                var trs = random.NextTrs(out var scale);
                 trs.Column0.W = random.NextComponent();
                 trs.Column1.W = random.NextComponent();
                 trs.Column2.W = random.NextComponent();
+                var label = Inputs.Label(i);
 
-                var expected = Matrix4.FromColumns(
-                    new Vector4(1f, 0f, 0f, trs.Column0.W),
-                    new Vector4(0f, 1f, 0f, trs.Column1.W),
-                    new Vector4(0f, 0f, 1f, trs.Column2.W),
-                    trs.Column3);
+                var cleared = trs.ClearRotation();
 
-                MathAssert.Exact(trs.ClearRotation(), expected, Inputs.Label(i));
+                float[] diagonal = [scale.X, scale.Y, scale.Z];
+                MathAssert.Near([cleared[0, 0], cleared[1, 1], cleared[2, 2]], diagonal, 1e-6f, MathAssert.AtLeastOne(diagonal),
+                    label + " diagonal = scale");
+                MathAssert.Exact([cleared[1, 0], cleared[2, 0], cleared[0, 1], cleared[2, 1], cleared[0, 2], cleared[1, 2]],
+                    [0f, 0f, 0f, 0f, 0f, 0f], label + " off-diagonal");
+                MathAssert.Exact([cleared.Column0.W, cleared.Column1.W, cleared.Column2.W],
+                    [trs.Column0.W, trs.Column1.W, trs.Column2.W], label + " W");
+                MathAssert.Exact(cleared.Column3, trs.Column3, label + " Column3");
+            }
+        });
+    }
+
+    [Test]
+    public void ClearRotation_Random_MatchesOpenTK()
+    {
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                var matrix = random.NextMatrix4();
+
+                var expected = Oracle.FromOpenTK(Oracle.ToOpenTK(matrix).ClearRotation());
+
+                MathAssert.Near(matrix.ClearRotation(), expected, MathAssert.SumsOfProducts,
+                    MathAssert.AtLeastOne(MathAssert.Components(expected)), Inputs.Label(i));
             }
         });
     }
@@ -537,8 +574,8 @@ public sealed class Matrix4Tests
 
                 var expected = Oracle.FromOpenTK(OpenTKMath.Matrix4.LookAt(Oracle.ToOpenTK(eye), Oracle.ToOpenTK(target), Oracle.ToOpenTK(up)));
 
-                MathAssert.Near(Matrix4.LookAt(eye, target, up), expected, MathAssert.Projection,
-                    MathAssert.AtLeastOne(MathAssert.Components(expected)), Inputs.Label(i));
+                MathAssert.Near(Matrix4.LookAt(eye, target, up), expected, MathAssert.Projection, LookAtScales(expected, eye),
+                    Inputs.Label(i));
             }
         });
     }
@@ -588,6 +625,7 @@ public sealed class Matrix4Tests
     [TestCase(MathHelper.PiOver4, 0f, 0.1f, 1000f)]
     [TestCase(MathHelper.PiOver4, 16f / 9f, 0f, 1000f)]
     [TestCase(MathHelper.PiOver4, 16f / 9f, 0.1f, 0.1f)]
+    [TestCase(MathHelper.PiOver4, 16f / 9f, 0.1f, float.PositiveInfinity)]
     public void CreatePerspectiveFieldOfView_InvalidArguments_Throw(float fovY, float aspectRatio, float depthNear, float depthFar)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4.CreatePerspectiveFieldOfView(fovY, aspectRatio, depthNear, depthFar));
@@ -604,6 +642,35 @@ public sealed class Matrix4Tests
             {
                 MathAssert.Near(Project(projection, new Vector3(0f, 0f, -distance)).Z, depth, 1e-5f, depth,
                     $"distance {distance}");
+            }
+        });
+    }
+
+    [Test]
+    public void CreatePerspectiveFieldOfViewInfinite_RandomPoints_MatchSystemNumericsXY()
+    {
+        const float fovY = MathHelper.PiOver4;
+        const float aspectRatio = 16f / 9f;
+        const float depthNear = 0.1f;
+        var projection = Matrix4.CreatePerspectiveFieldOfViewInfinite(fovY, aspectRatio, depthNear);
+
+        // x/w and y/w do not depend on the far plane, so any finite far plane gives the oracle.
+        var oracle = Numerics.Matrix4x4.CreatePerspectiveFieldOfView(fovY, aspectRatio, depthNear, 1000f);
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                // In front of the camera: x, y in [-100, 100], z in [-1000, -1].
+                var point = new Vector3(random.NextComponent(), random.NextComponent(), -1f - 999f * random.NextSingle());
+
+                var clip = Numerics.Vector4.Transform(new Numerics.Vector4(point.X, point.Y, point.Z, 1f), oracle);
+                var expected = new Vector2(clip.X / clip.W, clip.Y / clip.W);
+
+                var projected = Project(projection, point);
+                MathAssert.Near(new Vector2(projected.X, projected.Y), expected, MathAssert.Projection,
+                    MathAssert.AtLeastOne(MathAssert.Components(expected)), Inputs.Label(i));
             }
         });
     }
@@ -718,6 +785,24 @@ public sealed class Matrix4Tests
             new Vector4(13f, 14f, 15f, 16f));
 
         Assert.That(matrix.ToString(), Is.EqualTo("(1.5, 2, -3, 0.25)\n(5, 6, 7, 8)\n(9, 10, 11, 12)\n(13, 14, 15, 16)"));
+    }
+
+    // LookAt's per-element scales for the Projection tolerance (1e-5). The rotation part and Column3.W: max(1, |expected|).
+    // Column3's X, Y, Z are -dot(axis, eye), which cancels terms of about 100: there the bound is the sums-of-products
+    // tolerance (1e-6) times |axis.X·eye.X| + |axis.Y·eye.Y| + |axis.Z·eye.Z| of that row's axis, with a floor of
+    // 1e-5 × max(1, |expected|). Expressed as a scale for 1e-5, the sums-of-products part is 0.1 × that sum.
+    private static float[] LookAtScales(Matrix4 expected, Vector3 eye)
+    {
+        var scales = MathAssert.AtLeastOne(MathAssert.Components(expected));
+        for (var row = 0; row < 3; row++)
+        {
+            var axis = new Vector3(expected[row, 0], expected[row, 1], expected[row, 2]);
+            var sumOfProducts = MathAssert.SumOfAbs(axis.X * eye.X, axis.Y * eye.Y, axis.Z * eye.Z);
+            var index = 3 * N + row;
+            scales[index] = MathF.Max(scales[index], MathAssert.SumsOfProducts / MathAssert.Projection * sumOfProducts);
+        }
+
+        return scales;
     }
 
     // The point (x, y, z, 1) through the projection, divided by w.

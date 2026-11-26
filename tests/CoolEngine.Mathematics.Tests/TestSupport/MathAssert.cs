@@ -9,15 +9,18 @@ namespace CoolEngine.Mathematics.Tests.TestSupport;
 /// Component-wise assertions in the two forms of the plan's tolerance table.
 /// <list type="bullet">
 /// <item><c>Exact</c>: bitwise per component; any NaN equals any NaN, +0 and -0 differ.</item>
-/// <item><c>Near</c>: per component <c>|actual - expected| &lt;= tolerance * scale</c>; the caller passes the scale
-/// (one for every component, or one per component). A NaN or infinite difference always fails.</item>
+/// <item><c>Near</c>: per component, pass when <c>actual == expected</c> (IEEE: equal infinities pass, NaN never does),
+/// otherwise when the difference and the bound <c>tolerance * scale</c> are finite and <c>|actual - expected| &lt;= bound</c>;
+/// the caller passes the scale (one for every component, or one per component).</item>
 /// </list>
-/// Every failure names the caller's context (an oracle test passes <see cref="Inputs.Label"/>, so the failing input
-/// index is in the message) and the component index. The cores take spans of components; each library type adds
-/// its one-line overloads in the stage that adds the type, reading its components from its fields
-/// (<c>Components</c>), so an assertion does not depend on the memory layout it may be testing; <see cref="Floats{T}"/>
-/// and <see cref="Doubles{T}"/> read memory order for the layout tests. Inside <c>Assert.Multiple</c> every failing
-/// component is reported, not only the first.
+/// The rules live in the pure functions <see cref="ExactFailure(float, float)"/> and
+/// <see cref="NearFailure(double, double, double, double)"/> (null or the failure text; MathAssertTests tests them); the
+/// assertions call them per component. Every failure names the caller's context (an oracle test passes
+/// <see cref="Inputs.Label"/>, so the failing input index is in the message) and the component index. Overloads cover
+/// spans, scalars, System.Numerics' Vector2/3/4 and the library's matrices, reading components from fields
+/// (<c>Components</c>, matrices column after column), so an assertion does not depend on the memory layout it may be
+/// testing; <see cref="Floats{T}"/> and <see cref="Doubles{T}"/> read memory order for the layout tests. Inside
+/// <c>Assert.Multiple</c> every failing component is reported, not only the first.
 /// </summary>
 internal static class MathAssert
 {
@@ -58,11 +61,9 @@ internal static class MathAssert
 
         for (var i = 0; i < expected.Length; i++)
         {
-            if (BitwiseEqual(actual[i], expected[i]))
-                continue;
-
-            Assert.Fail($"{Prefix(context, i)}expected {Format(expected[i])} (0x{BitConverter.SingleToUInt32Bits(expected[i]):X8}), " +
-                        $"actual {Format(actual[i])} (0x{BitConverter.SingleToUInt32Bits(actual[i]):X8}), exact comparison");
+            var failure = ExactFailure(actual[i], expected[i]);
+            if (failure is not null)
+                Assert.Fail(Prefix(context, i) + failure);
         }
     }
 
@@ -73,11 +74,9 @@ internal static class MathAssert
 
         for (var i = 0; i < expected.Length; i++)
         {
-            if (BitwiseEqual(actual[i], expected[i]))
-                continue;
-
-            Assert.Fail($"{Prefix(context, i)}expected {Format(expected[i])} (0x{BitConverter.DoubleToUInt64Bits(expected[i]):X16}), " +
-                        $"actual {Format(actual[i])} (0x{BitConverter.DoubleToUInt64Bits(actual[i]):X16}), exact comparison");
+            var failure = ExactFailure(actual[i], expected[i]);
+            if (failure is not null)
+                Assert.Fail(Prefix(context, i) + failure);
         }
     }
 
@@ -467,16 +466,59 @@ internal static class MathAssert
 
     #endregion
 
-    private static void NearComponent(double actual, double expected, double tolerance, double scale, string? context, int index)
+    #region Pure comparison cores
+
+    /// <summary>
+    /// The <c>Exact</c> rule for one component: null when the bits are equal or both values are NaN (any payload),
+    /// otherwise the failure text. +0 and -0 differ.
+    /// </summary>
+    public static string? ExactFailure(float actual, float expected)
     {
-        // Floats arrive widened to double, so the difference and the bound are computed without float rounding.
+        if (BitwiseEqual(actual, expected))
+            return null;
+
+        return $"expected {Format(expected)} (0x{BitConverter.SingleToUInt32Bits(expected):X8}), " +
+               $"actual {Format(actual)} (0x{BitConverter.SingleToUInt32Bits(actual):X8}), exact comparison";
+    }
+
+    /// <inheritdoc cref="ExactFailure(float, float)"/>
+    public static string? ExactFailure(double actual, double expected)
+    {
+        if (BitwiseEqual(actual, expected))
+            return null;
+
+        return $"expected {Format(expected)} (0x{BitConverter.DoubleToUInt64Bits(expected):X16}), " +
+               $"actual {Format(actual)} (0x{BitConverter.DoubleToUInt64Bits(actual):X16}), exact comparison";
+    }
+
+    /// <summary>
+    /// The <c>Near</c> rule for one component: null when <c>actual == expected</c> (IEEE, so equal infinities pass and NaN
+    /// never does); otherwise the failure text when the difference or the bound <c>tolerance * scale</c> is not finite, or
+    /// the difference exceeds the bound. Floats arrive widened to double, so the difference and the bound carry no float
+    /// rounding.
+    /// </summary>
+    public static string? NearFailure(double actual, double expected, double tolerance, double scale)
+    {
+        if (actual == expected)
+            return null;
+
         var difference = Math.Abs(actual - expected);
         var bound = tolerance * scale;
-        if (difference <= bound)
-            return;
+        if (double.IsFinite(difference) && double.IsFinite(bound) && difference <= bound)
+            return null;
 
-        Assert.Fail($"{Prefix(context, index)}expected {Format(expected)}, actual {Format(actual)}, " +
-                    $"|difference| {Format(difference)} > tolerance {Format(tolerance)} * scale {Format(scale)} = {Format(bound)}");
+        return $"expected {Format(expected)}, actual {Format(actual)}, " +
+               $"|difference| {Format(difference)} > tolerance {Format(tolerance)} * scale {Format(scale)} = {Format(bound)}" +
+               (double.IsFinite(difference) && double.IsFinite(bound) ? "" : " (not finite)");
+    }
+
+    #endregion
+
+    private static void NearComponent(double actual, double expected, double tolerance, double scale, string? context, int index)
+    {
+        var failure = NearFailure(actual, expected, tolerance, scale);
+        if (failure is not null)
+            Assert.Fail(Prefix(context, index) + failure);
     }
 
     private static bool SameLength(int actual, int expected, string? context, string what = "component count")

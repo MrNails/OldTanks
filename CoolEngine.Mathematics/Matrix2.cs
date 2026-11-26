@@ -110,7 +110,8 @@ public struct Matrix2 : IEquatable<Matrix2>
         var inverseDeterminant = 1f / determinant;
 
         // Adjugate columns (m11, -m10) and (-m01, m00). The negations are subtractions from zero, so a zero cofactor
-        // stays +0, as the 3 × 3 and 4 × 4 cofactor sums give: the inverse of a diagonal matrix is diagonal bit for bit.
+        // stays +0, as the 3 × 3 and 4 × 4 cofactor sums give: the inverse of a diagonal matrix is diagonal bit for bit
+        // for a positive determinant (a negative 1 / det turns the +0 cofactors into -0).
         result = FromColumns(
             new Vector2(matrix.Column1.Y, 0f - matrix.Column0.Y) * inverseDeterminant,
             new Vector2(0f - matrix.Column1.X, matrix.Column0.X) * inverseDeterminant);

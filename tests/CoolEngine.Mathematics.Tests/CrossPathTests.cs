@@ -18,9 +18,11 @@ public sealed class CrossPathTests
     private const int Steps = 20_000;
 
     // Recorded 2026-11-26 on the default path (x64, i7-14700K, AVX2 and FMA available, .NET 10, Windows 11): the test ran
-    // once with a placeholder and the actual hash from its failure message was copied here. Re-record it only for a
-    // deliberate change of a result, never to make a path agree.
-    private const ulong Golden = 0x3CD765809D9E75E7;
+    // once with the previous value and the actual hash from its failure message was copied here, after the same hash was
+    // seen on all four paths. Re-recorded in OT-5 step 3d for deliberate result changes (ClearRotation keeps the axis
+    // lengths, the perspective constant n·(F/(F-n)), the inverse's determinant as row 0 · its cofactors). Re-record it
+    // only for a deliberate change of a result, never to make a path agree.
+    private const ulong Golden = 0xB1B5EACF1BFBD1DC;
 
     [Test]
     public void HashedLoop_SameBitsOnEveryPath_MatchesGolden()

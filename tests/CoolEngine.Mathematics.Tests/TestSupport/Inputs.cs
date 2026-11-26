@@ -98,15 +98,130 @@ internal static class Inputs
     /// </summary>
     public static Matrix4 NextTrs(this Random random)
     {
+        return random.NextTrs(out _);
+    }
+
+    /// <inheritdoc cref="NextTrs(Random)"/>
+    /// <param name="random">The generator.</param>
+    /// <param name="scaleFactors">The per-axis scale factors of the S part, which are the lengths of the first three columns.</param>
+    public static Matrix4 NextTrs(this Random random, out Vector3 scaleFactors)
+    {
         var (x, y, z, w) = random.NextUnitQuaternion();
-        var scale = Numerics.Matrix4x4.CreateScale(random.NextScaleFactor(), random.NextScaleFactor(), random.NextScaleFactor());
+        scaleFactors = new Vector3(random.NextScaleFactor(), random.NextScaleFactor(), random.NextScaleFactor());
+        var scale = Numerics.Matrix4x4.CreateScale(scaleFactors);
         var rotation = Numerics.Matrix4x4.CreateFromQuaternion(new Quaternion(x, y, z, w));
         var translation = Numerics.Matrix4x4.CreateTranslation(random.NextComponent(), random.NextComponent(), random.NextComponent());
 
         return Oracle.FromNumerics(scale * rotation * translation);
     }
 
-    /// <summary>The upper-left 3 × 3 of <see cref="NextTrs"/>: a random rotation times a per-axis scale.</summary>
+    /// <summary>The largest 1-norm condition number a <c>NextWellConditionedMatrix</c> input may have.</summary>
+    public const double MaxConditionNumber = 1e3;
+
+    /// <summary>
+    /// <see cref="NextMatrix2"/>, drawn again until its 1-norm condition number <c>‖M‖₁ ‖M⁻¹‖₁</c> is at most
+    /// <see cref="MaxConditionNumber"/>: an inverse compared with an oracle's must not depend on how two algorithms round
+    /// an ill-conditioned problem.
+    /// </summary>
+    public static Matrix2 NextWellConditionedMatrix2(this Random random)
+    {
+        while (true)
+        {
+            var matrix = random.NextMatrix2();
+            if (ConditionNumber1(MathAssert.Components(matrix), 2) <= MaxConditionNumber)
+                return matrix;
+        }
+    }
+
+    /// <inheritdoc cref="NextWellConditionedMatrix2"/>
+    public static Matrix3 NextWellConditionedMatrix3(this Random random)
+    {
+        while (true)
+        {
+            var matrix = random.NextMatrix3();
+            if (ConditionNumber1(MathAssert.Components(matrix), 3) <= MaxConditionNumber)
+                return matrix;
+        }
+    }
+
+    /// <inheritdoc cref="NextWellConditionedMatrix2"/>
+    public static Matrix4 NextWellConditionedMatrix4(this Random random)
+    {
+        while (true)
+        {
+            var matrix = random.NextMatrix4();
+            if (ConditionNumber1(MathAssert.Components(matrix), 4) <= MaxConditionNumber)
+                return matrix;
+        }
+    }
+
+    /// <summary>
+    /// <c>κ₁ = ‖M‖₁ ‖M⁻¹‖₁</c> (the 1-norm is the largest column sum of absolute values) of an n × n matrix given
+    /// column-major, in double, with the inverse from Gauss-Jordan elimination with partial pivoting; infinity when the
+    /// matrix is singular in double.
+    /// </summary>
+    public static double ConditionNumber1(ReadOnlySpan<float> columnMajor, int n)
+    {
+        // a is n × 2n row-major: [M | I], reduced to [I | M⁻¹].
+        var a = new double[n, 2 * n];
+        for (var row = 0; row < n; row++)
+        {
+            for (var column = 0; column < n; column++)
+                a[row, column] = columnMajor[column * n + row];
+
+            a[row, n + row] = 1.0;
+        }
+
+        for (var pivotColumn = 0; pivotColumn < n; pivotColumn++)
+        {
+            var pivotRow = pivotColumn;
+            for (var row = pivotColumn + 1; row < n; row++)
+            {
+                if (Math.Abs(a[row, pivotColumn]) > Math.Abs(a[pivotRow, pivotColumn]))
+                    pivotRow = row;
+            }
+
+            if (a[pivotRow, pivotColumn] == 0.0)
+                return double.PositiveInfinity;
+
+            for (var column = 0; column < 2 * n; column++)
+                (a[pivotColumn, column], a[pivotRow, column]) = (a[pivotRow, column], a[pivotColumn, column]);
+
+            var pivot = a[pivotColumn, pivotColumn];
+            for (var column = 0; column < 2 * n; column++)
+                a[pivotColumn, column] /= pivot;
+
+            for (var row = 0; row < n; row++)
+            {
+                if (row == pivotColumn)
+                    continue;
+
+                var factor = a[row, pivotColumn];
+                for (var column = 0; column < 2 * n; column++)
+                    a[row, column] -= factor * a[pivotColumn, column];
+            }
+        }
+
+        var norm = 0.0;
+        var inverseNorm = 0.0;
+        for (var column = 0; column < n; column++)
+        {
+            var sum = 0.0;
+            var inverseSum = 0.0;
+            for (var row = 0; row < n; row++)
+            {
+                sum += Math.Abs(columnMajor[column * n + row]);
+                inverseSum += Math.Abs(a[row, n + column]);
+            }
+
+            norm = Math.Max(norm, sum);
+            inverseNorm = Math.Max(inverseNorm, inverseSum);
+        }
+
+        return norm * inverseNorm;
+    }
+
+    /// <summary>The upper-left 3 × 3 of <see cref="NextTrs(Random)"/>: a random rotation times a per-axis scale.</summary>
     public static Matrix3 NextRotationScale3(this Random random)
     {
         var trs = random.NextTrs();
