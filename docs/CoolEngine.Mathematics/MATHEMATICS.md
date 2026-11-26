@@ -108,6 +108,13 @@ Found by the tests: OpenTK 4.9.4's `Vector4d.Clamp` clamps Z and W wrongly; the 
 
 Other ratios (ours divided by theirs; below 1 is faster): transpose 0.92, `LookAt` 0.99 and `CreateFromQuaternion` 0.99 of System.Numerics; `TransformPosition` 1.11 to 1.13 of System.Numerics (its baseline is bimodal); the double types 0.25 to 1.04 of OpenTK (`Matrix4d.LookAt` 0.25, perspective 0.59, inverse 0.85, `Quaterniond.Slerp` 0.80).
 
+**The rule (Denys, 2026-11-26: "Keep, add the rule"; turned down: "Remove the project").** The figures above and these ratios are the reference figures: pinned runs recorded on 2026-11-26 during OT-5 on the i7-14700K with .NET 10.0.12 (several runs, not one; the commit of each run is not recorded). Nothing runs the benchmarks automatically (no CI). Every change to `CoolEngine.Mathematics`:
+
+- the implementer re-runs the affected categories of the benchmark project (Release, pinned, `--launchCount 3`, medians) and reports them against the reference figures; the reviewer checks them;
+- a median more than 5% slower than its reference is a review finding (5% is Claude's choice, about the run-to-run noise measured on a pinned core);
+- a change that moves a figure on purpose updates this section in the same change;
+- a new or changed hot member without a benchmark gets one.
+
 ## 8. Known limits
 
 | Limit | Detail |

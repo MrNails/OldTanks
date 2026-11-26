@@ -59,7 +59,7 @@ Remove-Item Env:DOTNET_EnableAVX2, Env:DOTNET_EnableAVX, Env:DOTNET_EnableHWIntr
 
 Set one variable at a time and clear them afterwards, so the next run starts from the default; repeat without `-c Release` for Debug. A different golden hash in `CrossPathTests` is a defect, not a reason to re-record ([MATHEMATICS §6](CoolEngine.Mathematics/MATHEMATICS.md#6-how-it-is-tested)).
 
-**The math benchmarks** (BenchmarkDotNet 0.15.8, Release only; not part of `dotnet test`): pin the process to one performance core with `--affinity` (a processor bitmask) and take the median of three launches ([MATHEMATICS §7](CoolEngine.Mathematics/MATHEMATICS.md#7-benchmarks)). The mask depends on the CPU: choose a logical processor that is a performance core (the mask `1` above is logical processor 0; whether that is one is not checked here).
+**The math benchmarks** (BenchmarkDotNet 0.15.8, Release only; not part of `dotnet test`): pin the process to one performance core with `--affinity` (a processor bitmask) and take the median of three launches ([MATHEMATICS §7](CoolEngine.Mathematics/MATHEMATICS.md#7-benchmarks)). The mask depends on the CPU: choose a logical processor that is a performance core (the mask `1` above is logical processor 0; whether that is one is not checked here). Every change to `CoolEngine.Mathematics` must run the affected categories and report them against the reference figures ([rule in MATHEMATICS §7](CoolEngine.Mathematics/MATHEMATICS.md#7-benchmarks)); nothing runs them automatically.
 
 ```powershell
 dotnet run -c Release --project tests\CoolEngine.Mathematics.Benchmarks -- --filter '*' --affinity 1 --launchCount 3
