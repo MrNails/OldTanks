@@ -253,6 +253,42 @@ public sealed class Matrix3dTests
         });
     }
 
+    // det 1e-315 is subnormal and 1 / det overflows to +∞; det 1e315 overflows to +∞; a NaN element makes det NaN.
+    private static (string Name, Matrix3d Matrix)[] NonFiniteReciprocalCases()
+    {
+        var nanElement = Matrix3d.Identity;
+        nanElement[0, 0] = double.NaN;
+        return [("subnormal det", Matrix3d.CreateScale(1e-105)), ("overflowing det", Matrix3d.CreateScale(1e105)), ("NaN element", nanElement)];
+    }
+
+    [Test]
+    public void TryInvert_NonFiniteReciprocal_ReturnsFalse()
+    {
+        var allNaN = Matrix3d.FromColumns(new Vector3d(double.NaN), new Vector3d(double.NaN), new Vector3d(double.NaN));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsSubnormal(Matrix3d.CreateScale(1e-105).Determinant), Is.True, "premise: subnormal det");
+            Assert.That(Matrix3d.CreateScale(1e105).Determinant, Is.EqualTo(double.PositiveInfinity), "premise: overflowing det");
+            foreach (var (name, matrix) in NonFiniteReciprocalCases())
+            {
+                var returned = Matrix3d.TryInvert(matrix, out var result);
+                Assert.That(returned, Is.False, name + " returns");
+                MathAssert.Exact(result, allNaN, name + " result");
+            }
+        });
+    }
+
+    [Test]
+    public void Inverted_NonFiniteReciprocal_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (name, matrix) in NonFiniteReciprocalCases())
+                Assert.Throws<InvalidOperationException>(() => matrix.Inverted(), name);
+        });
+    }
+
     [Test]
     public void ConvertBetweenSizes_UpperLeft_RoundTrips()
     {
@@ -354,6 +390,15 @@ public sealed class Matrix3dTests
     public void CreateFromAxisAngle_ZeroAxis_IsIdentity()
     {
         MathAssert.Exact(Matrix3d.CreateFromAxisAngle(Vector3d.Zero, 1.0), Matrix3d.Identity);
+    }
+
+    // 2e154 squared overflows double to +∞; a NaN or infinite component makes the squared length non-finite too.
+    [TestCase(2e154, 0.0, 0.0)]
+    [TestCase(0.0, double.NaN, 0.0)]
+    [TestCase(0.0, 0.0, double.NegativeInfinity)]
+    public void CreateFromAxisAngle_NonFiniteAxis_Throws(double x, double y, double z)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Matrix3d.CreateFromAxisAngle(new Vector3d(x, y, z), 1.0));
     }
 
     [Test]

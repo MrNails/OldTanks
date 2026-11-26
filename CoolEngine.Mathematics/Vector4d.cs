@@ -8,7 +8,8 @@ namespace CoolEngine.Mathematics;
 /// A double 4D vector: X, Y, Z, W in 32 bytes, with the API shape of <see cref="System.Numerics.Vector4"/> (its float twin)
 /// and the same semantics: <see cref="Min"/> and <see cref="Max"/> propagate NaN and order -0 below +0, unary minus flips
 /// the sign bit, <see cref="Normalize"/> of zero gives NaN. Own code, scalar on the fields, with no fused multiply-add and
-/// every sum left to right, so the bits are the same on every instruction set.
+/// every sum left to right. Bit stability: every member (they use only + − × ÷ and sqrt) gives the same bits on every
+/// x64 CPU and instruction set for finite inputs (a NaN's sign and payload are not covered).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Vector4d : IEquatable<Vector4d>

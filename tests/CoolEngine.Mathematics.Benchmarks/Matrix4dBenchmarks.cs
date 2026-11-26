@@ -30,6 +30,8 @@ public class Matrix4dBenchmarks
     private OpenTKMath.Vector3d[] m_oup = [];
     private Quaterniond[] m_q = [];
     private OpenTKMath.Quaterniond[] m_oq = [];
+    private double[] m_fov = [];
+    private double[] m_aspect = [];
 
     [GlobalSetup]
     public void Setup()
@@ -75,6 +77,15 @@ public class Matrix4dBenchmarks
             m_oup[i] = new OpenTKMath.Vector3d(m_up[i].X, m_up[i].Y, m_up[i].Z);
             m_q[i] = Quaterniond.Normalize(new Quaterniond(Next(), Next(), Next(), Next()));
             m_oq[i] = new OpenTKMath.Quaterniond(m_q[i].X, m_q[i].Y, m_q[i].Z, m_q[i].W);
+        }
+
+        // Drawn after the loop above, so the other categories keep their inputs: fov in (0.5, 2.5), aspect in (1, 3).
+        m_fov = new double[Count];
+        m_aspect = new double[Count];
+        for (var i = 0; i < Count; i++)
+        {
+            m_fov[i] = 0.5 + (Next() + 1.0);
+            m_aspect[i] = 1.0 + (Next() + 1.0);
         }
     }
 
@@ -152,6 +163,27 @@ public class Matrix4dBenchmarks
         return sum;
     }
 
+    // TransformPosition: their row-vector TransformPosition on the same bytes is our column-vector one. The positions are
+    // the LookAt eyes (in [-10, 10]).
+
+    [Benchmark, BenchmarkCategory("TransformPosition")]
+    public double Ours_TransformPosition()
+    {
+        var sum = 0.0;
+        for (var i = 0; i < Count; i++)
+            sum += Sum(m_a[i].TransformPosition(m_eye[i]));
+        return sum;
+    }
+
+    [Benchmark(Baseline = true), BenchmarkCategory("TransformPosition")]
+    public double OpenTK_TransformPosition()
+    {
+        var sum = 0.0;
+        for (var i = 0; i < Count; i++)
+            sum += Sum(OpenTKMath.Vector3d.TransformPosition(m_oeye[i], m_oa[i]));
+        return sum;
+    }
+
     [Benchmark, BenchmarkCategory("CreateFromQuaternion")]
     public double Ours_CreateFromQuaternion()
     {
@@ -188,6 +220,26 @@ public class Matrix4dBenchmarks
         return sum;
     }
 
+    // Ours is reversed Z with depth [0, 1]; theirs is the conventional form: the same amount of work.
+
+    [Benchmark, BenchmarkCategory("CreatePerspectiveFieldOfView")]
+    public double Ours_CreatePerspectiveFieldOfView()
+    {
+        var sum = 0.0;
+        for (var i = 0; i < Count; i++)
+            sum += Sum(Matrix4d.CreatePerspectiveFieldOfView(m_fov[i], m_aspect[i], 0.1, 1000.0));
+        return sum;
+    }
+
+    [Benchmark(Baseline = true), BenchmarkCategory("CreatePerspectiveFieldOfView")]
+    public double OpenTK_CreatePerspectiveFieldOfView()
+    {
+        var sum = 0.0;
+        for (var i = 0; i < Count; i++)
+            sum += Sum(OpenTKMath.Matrix4d.CreatePerspectiveFieldOfView(m_fov[i], m_aspect[i], 0.1, 1000.0));
+        return sum;
+    }
+
     private static double Sum(Matrix4d m) => Sum(m.Column0) + Sum(m.Column1) + Sum(m.Column2) + Sum(m.Column3);
 
     private static double Sum(OpenTKMath.Matrix4d m) => Sum(m.Row0) + Sum(m.Row1) + Sum(m.Row2) + Sum(m.Row3);
@@ -195,4 +247,8 @@ public class Matrix4dBenchmarks
     private static double Sum(Vector4d v) => v.X + v.Y + v.Z + v.W;
 
     private static double Sum(OpenTKMath.Vector4d v) => v.X + v.Y + v.Z + v.W;
+
+    private static double Sum(Vector3d v) => v.X + v.Y + v.Z;
+
+    private static double Sum(OpenTKMath.Vector3d v) => v.X + v.Y + v.Z;
 }

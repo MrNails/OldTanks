@@ -12,7 +12,9 @@ namespace CoolEngine.Mathematics;
 /// <c>A * B</c> applied to a vector applies <c>B</c> first, then <c>A</c>. Right-handed (view space looks down -Z);
 /// projections map depth to [0, 1] with reversed Z (near plane 1, far plane 0); angles in radians. Built with
 /// <see cref="FromColumns"/>, <see cref="FromRows"/>, the factories or <see cref="Matrix4(Matrix3)"/>; there is no
-/// element constructor.
+/// element constructor. Bit stability: every member that uses only + − × ÷ and sqrt gives the same bits on every x64 CPU and
+/// instruction set for finite inputs (no fused multiply-add; a NaN's sign and payload are not covered); members that call
+/// sin, cos, tan or acos follow the OS math library and say so.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Matrix4 : IEquatable<Matrix4>
@@ -109,7 +111,8 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// <summary>
     /// The determinant: row 0 dotted with the cofactors of row 0, the products summed as <c>(t0 + t1) + (t2 + t3)</c>. The
     /// same own computation (no fused multiply-add, the same order on every instruction set) that <see cref="TryInvert"/>
-    /// uses, so both agree exactly on which matrices are singular (<c>Determinant == 0</c>).
+    /// uses, so <see cref="TryInvert"/> refuses exactly the matrices whose <see cref="Determinant"/> or its reciprocal is
+    /// not finite.
     /// </summary>
     public readonly float Determinant
     {
@@ -129,22 +132,27 @@ public struct Matrix4 : IEquatable<Matrix4>
         return FromNumerics(Matrix4x4.Transpose(ToNumerics(this)));
     }
 
-    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> reports a singular matrix.</summary>
+    /// <summary>
+    /// The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> returns false (the
+    /// determinant or its reciprocal is not finite).
+    /// </summary>
     public readonly Matrix4 Inverted()
     {
         if (!TryInvert(this, out var result))
-            throw new InvalidOperationException("The matrix is singular (its determinant is 0) and has no inverse.");
+            throw new InvalidOperationException("The matrix has no finite inverse (its determinant or 1 / determinant is not finite).");
 
         return result;
     }
 
     /// <summary>
-    /// The inverse, the adjugate divided by the determinant. Own code on <see cref="Vector128{T}"/> without fused
-    /// multiply-add and with every sum in a fixed order, so the bits are the same on every instruction set (System.Numerics'
+    /// The inverse, the adjugate times <c>1 / det</c>. Own code on <see cref="Vector128{T}"/> without fused multiply-add and
+    /// with every sum in a fixed order, so the bits are the same on every instruction set (System.Numerics'
     /// <c>Matrix4x4.Invert</c> differs between FMA, SSE and software). Each column of the adjugate is the cofactors of one
-    /// row, built from the 2 × 2 minors of the other two row pairs with the signs applied to the minors before the
-    /// products, so a zero cofactor is +0 (the inverse of a diagonal matrix is diagonal bit for bit). When
-    /// <see cref="Determinant"/> is exactly 0, returns false and sets every element of <paramref name="result"/> to NaN.
+    /// row, built from the 2 × 2 minors of the other two row pairs. Applying the signs to the minors before the products
+    /// changes no non-NaN value, only the sign of a zero cofactor, which comes out +0: so only a diagonal matrix with a
+    /// positive determinant inverts to a diagonal one bit for bit (a negative <c>1 / det</c> turns the zeros into -0). When
+    /// the determinant or its reciprocal is not finite (a zero, tiny subnormal or overflowing determinant, or a NaN
+    /// element), returns false and sets every element of <paramref name="result"/> to NaN.
     /// </summary>
     public static bool TryInvert(Matrix4 matrix, out Matrix4 result)
     {
@@ -163,16 +171,16 @@ public struct Matrix4 : IEquatable<Matrix4>
         var column2 = Cofactors(row3, top, SignsPlusMinus, SignsMinusPlus);
         var column3 = Cofactors(row2, top, SignsMinusPlus, SignsPlusMinus);
 
-        // Every lane holds the determinant (see Dot).
+        // Every lane holds the determinant (see Dot), so every lane of the reciprocal holds 1 / det.
         var determinant = Dot(row0, column0);
-        if (determinant.ToScalar() == 0f)
+        var inverseDeterminant = Vector128<float>.One / determinant;
+        if (!float.IsFinite(determinant.ToScalar()) || !float.IsFinite(inverseDeterminant.ToScalar()))
         {
             var nan = new Vector4(float.NaN);
             result = FromColumns(nan, nan, nan, nan);
             return false;
         }
 
-        var inverseDeterminant = Vector128<float>.One / determinant;
         result.Column0 = (column0 * inverseDeterminant).AsVector4();
         result.Column1 = (column1 * inverseDeterminant).AsVector4();
         result.Column2 = (column2 * inverseDeterminant).AsVector4();
@@ -205,13 +213,18 @@ public struct Matrix4 : IEquatable<Matrix4>
 
     /// <summary>
     /// The point <paramref name="position"/> transformed by this matrix: <c>this * (position, 1)</c> without its W, so the
-    /// translation applies. No divide by w (use it with affine matrices, not projections). The same own code as
-    /// <c>Matrix4 * Vector4</c> on <c>(position, 1)</c>.
+    /// translation applies. No divide by w (use it with affine matrices, not projections). Own code, no fused multiply-add:
+    /// <c>((Column0 · x + Column1 · y) + Column2 · z) + Column3</c>, the same bits as <c>Matrix4 * Vector4</c> on
+    /// <c>(position, 1)</c> without its multiply by 1.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Vector3 TransformPosition(Vector3 position)
     {
-        return Transform(this, new Vector4(position, 1f).AsVector128()).AsVector3();
+        var x = Vector128.Create(position.X);
+        var y = Vector128.Create(position.Y);
+        var z = Vector128.Create(position.Z);
+        var result = Column0.AsVector128() * x + Column1.AsVector128() * y + Column2.AsVector128() * z + Column3.AsVector128();
+        return result.AsVector3();
     }
 
     /// <summary>
@@ -266,7 +279,8 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// <summary>
     /// The rotation about +X by <paramref name="angle"/> radians, rows <c>(1,0,0,0) (0,c,-s,0) (0,s,c,0) (0,0,0,1)</c>,
     /// turning +Y toward +Z. Delegates to <c>System.Numerics.Matrix4x4.CreateRotationX</c>: their row-vector matrix of
-    /// the same rotation has the same bytes.
+    /// the same rotation has the same bytes. Calls sin and cos, so the result follows the OS math library and is not
+    /// promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreateRotationX(float angle)
     {
@@ -275,7 +289,8 @@ public struct Matrix4 : IEquatable<Matrix4>
 
     /// <summary>
     /// The rotation about +Y, rows <c>(c,0,s,0) (0,1,0,0) (-s,0,c,0) (0,0,0,1)</c>, turning +Z toward +X. Delegates to
-    /// <c>Matrix4x4.CreateRotationY</c> on the same bytes.
+    /// <c>Matrix4x4.CreateRotationY</c> on the same bytes. Calls sin and cos, so the result follows the OS math library and
+    /// is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreateRotationY(float angle)
     {
@@ -284,7 +299,8 @@ public struct Matrix4 : IEquatable<Matrix4>
 
     /// <summary>
     /// The rotation about +Z, rows <c>(c,-s,0,0) (s,c,0,0) (0,0,1,0) (0,0,0,1)</c>, turning +X toward +Y. Delegates to
-    /// <c>Matrix4x4.CreateRotationZ</c> on the same bytes.
+    /// <c>Matrix4x4.CreateRotationZ</c> on the same bytes. Calls sin and cos, so the result follows the OS math library and
+    /// is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreateRotationZ(float angle)
     {
@@ -293,14 +309,19 @@ public struct Matrix4 : IEquatable<Matrix4>
 
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/>, counterclockwise when looking from
-    /// the axis' tip toward the origin. The axis is normalized here (<c>axis / sqrt(LengthSquared())</c>; a zero axis gives
-    /// <see cref="Identity"/>), then the work is delegated to <c>System.Numerics.Matrix4x4.CreateFromAxisAngle</c>, which
-    /// itself expects a unit axis.
+    /// the axis' tip toward the origin. The axis is normalized here (<c>axis / sqrt(LengthSquared())</c>; an exactly zero
+    /// axis gives <see cref="Identity"/>, an axis whose squared length is not finite, a component above about 1.8e19 or a
+    /// NaN, throws <see cref="ArgumentOutOfRangeException"/>, and a nonzero axis whose squared length underflows to 0
+    /// gives NaN, all as <see cref="Matrix3.CreateFromAxisAngle"/> does), then the work is delegated to
+    /// <c>System.Numerics.Matrix4x4.CreateFromAxisAngle</c>, which itself expects a unit axis. Calls sin and cos, so the
+    /// result follows the OS math library and is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreateFromAxisAngle(Vector3 axis, float angle)
     {
         var lengthSquared = axis.LengthSquared();
-        if (lengthSquared == 0f)
+        if (!float.IsFinite(lengthSquared))
+            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's squared length must be finite.");
+        if (axis == Vector3.Zero)
             return Identity;
 
         return FromNumerics(Matrix4x4.CreateFromAxisAngle(axis / MathF.Sqrt(lengthSquared), angle));
@@ -333,9 +354,10 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// plane. With <c>f = 1 / tan(fovY / 2)</c>, <c>n</c> = <paramref name="depthNear"/> and <c>F</c> =
     /// <paramref name="depthFar"/>, rows <c>(f/aspect,0,0,0) (0,f,0,0) (0,0,n/(F-n),n·F/(F-n)) (0,0,-1,0)</c>.
     /// Throws <see cref="ArgumentOutOfRangeException"/> unless <c>0 &lt; fovY &lt; π</c>, <c>aspectRatio &gt; 0</c>,
-    /// <c>depthNear &gt; 0</c>, <c>depthFar &gt; depthNear</c> and <c>depthFar</c> is finite (NaN fails every check; for a
+    /// <c>depthNear &gt; 0</c>, <c>depthFar &gt; depthNear</c> and every argument is finite (NaN fails every check; for a
     /// far plane at infinity use <see cref="CreatePerspectiveFieldOfViewInfinite"/>). The constant <c>n·F/(F-n)</c> is
-    /// computed as <c>n · (F / (F - n))</c>, so <c>n·F</c> cannot overflow.
+    /// computed as <c>n · (F / (F - n))</c>, so <c>n·F</c> cannot overflow. Calls tan, so the result follows the OS math
+    /// library and is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreatePerspectiveFieldOfView(float fovY, float aspectRatio, float depthNear, float depthFar)
     {
@@ -361,8 +383,9 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// <summary>
     /// <see cref="CreatePerspectiveFieldOfView"/> with the far plane at infinity: the third row is <c>(0, 0, 0, n)</c>,
     /// so depth = <c>n / distance</c>, 1 on the near plane and toward 0 far away. Throws
-    /// <see cref="ArgumentOutOfRangeException"/> unless <c>0 &lt; fovY &lt; π</c>, <c>aspectRatio &gt; 0</c> and
-    /// <c>depthNear &gt; 0</c>.
+    /// <see cref="ArgumentOutOfRangeException"/> unless <c>0 &lt; fovY &lt; π</c>, <c>aspectRatio &gt; 0</c>,
+    /// <c>depthNear &gt; 0</c> and every argument is finite. Calls tan, so the result follows the OS math library and is
+    /// not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreatePerspectiveFieldOfViewInfinite(float fovY, float aspectRatio, float depthNear)
     {
@@ -382,11 +405,18 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// onto x, y in [-1, 1] and depth in [0, 1] with reversed Z: depth 1 at <c>z = -depthNear</c>, 0 at
     /// <c>z = -depthFar</c> (a negative <paramref name="depthNear"/> is allowed). Rows
     /// <c>(2/(r-l),0,0,-(r+l)/(r-l)) (0,2/(t-b),0,-(t+b)/(t-b)) (0,0,1/(F-n),F/(F-n)) (0,0,0,1)</c>. Throws
-    /// <see cref="ArgumentException"/> when <c>left == right</c>, <c>bottom == top</c> or <c>depthNear == depthFar</c>.
+    /// <see cref="ArgumentException"/> when an argument is not finite, or when <c>left == right</c>, <c>bottom == top</c> or
+    /// <c>depthNear == depthFar</c>.
     /// </summary>
     public static Matrix4 CreateOrthographicOffCenter(float left, float right, float bottom, float top, float depthNear,
         float depthFar)
     {
+        CheckFinite(left, nameof(left));
+        CheckFinite(right, nameof(right));
+        CheckFinite(bottom, nameof(bottom));
+        CheckFinite(top, nameof(top));
+        CheckFinite(depthNear, nameof(depthNear));
+        CheckFinite(depthFar, nameof(depthFar));
         if (left == right)
             throw new ArgumentException("left and right must differ.", nameof(right));
         if (bottom == top)
@@ -579,9 +609,15 @@ public struct Matrix4 : IEquatable<Matrix4>
     {
         if (!(fovY > 0f && fovY < MathF.PI))
             throw new ArgumentOutOfRangeException(nameof(fovY), fovY, "The vertical field of view must lie in (0, π) radians.");
-        if (!(aspectRatio > 0f))
-            throw new ArgumentOutOfRangeException(nameof(aspectRatio), aspectRatio, "The aspect ratio must be positive.");
-        if (!(depthNear > 0f))
-            throw new ArgumentOutOfRangeException(nameof(depthNear), depthNear, "The near plane distance must be positive.");
+        if (!(aspectRatio > 0f && float.IsFinite(aspectRatio)))
+            throw new ArgumentOutOfRangeException(nameof(aspectRatio), aspectRatio, "The aspect ratio must be positive and finite.");
+        if (!(depthNear > 0f && float.IsFinite(depthNear)))
+            throw new ArgumentOutOfRangeException(nameof(depthNear), depthNear, "The near plane distance must be positive and finite.");
+    }
+
+    private static void CheckFinite(float value, string name)
+    {
+        if (!float.IsFinite(value))
+            throw new ArgumentException($"{name} must be finite; it is {value}.", name);
     }
 }

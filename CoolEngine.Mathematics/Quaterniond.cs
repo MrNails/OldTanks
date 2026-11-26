@@ -8,8 +8,10 @@ namespace CoolEngine.Mathematics;
 /// A double quaternion: vector part X, Y, Z, then scalar W, in 32 bytes, with the API shape of
 /// <see cref="System.Numerics.Quaternion"/> (its float twin). A unit quaternion is a rotation; <c>a * b</c> is the Hamilton
 /// product, which rotates by <c>b</c> first, then <c>a</c>; <see cref="Vector3d.Transform"/> rotates a vector. Own code,
-/// scalar on the fields, with no fused multiply-add and every sum left to right, so the bits are the same on every
-/// instruction set. Angles in radians, right-handed.
+/// scalar on the fields, with no fused multiply-add and every sum left to right. Bit stability: every member that uses only
+/// + − × ÷ and sqrt gives the same bits on every x64 CPU and instruction set for finite inputs (a NaN's sign and payload
+/// are not covered); <see cref="CreateFromAxisAngle"/> and <see cref="Slerp"/> call sin, cos or acos, follow the OS math
+/// library and say so. Angles in radians, right-handed.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Quaterniond : IEquatable<Quaterniond>
@@ -60,7 +62,8 @@ public struct Quaterniond : IEquatable<Quaterniond>
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about the unit vector <paramref name="axis"/>, counterclockwise when
     /// looking from the axis' tip toward the origin: <c>(axis · sin(angle / 2), cos(angle / 2))</c>. Like System.Numerics,
-    /// the axis is expected to be normalized and is not normalized here.
+    /// the axis is expected to be normalized and is not normalized here. Calls sin and cos, so the result follows the OS
+    /// math library and is not promised bit-identical across CPUs.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Quaterniond CreateFromAxisAngle(Vector3d axis, double angle)
@@ -107,7 +110,8 @@ public struct Quaterniond : IEquatable<Quaterniond>
     /// same rotation). When the two are nearly equal (<c>Dot &gt; 1 - 1e-12</c>) it returns the normalized linear
     /// interpolation <c>normalize(a + (b - a) · amount)</c>; otherwise, with <c>θ = acos(Dot)</c>,
     /// <c>(sin((1 - amount)θ) a + sin(amount·θ) b) / sin θ</c>. Expects unit quaternions; <paramref name="amount"/> is not
-    /// clamped, so values outside [0, 1] extrapolate along the same great circle.
+    /// clamped, so values outside [0, 1] extrapolate along the same great circle. Calls acos and sin (except on the linear
+    /// branch), so the result follows the OS math library and is not promised bit-identical across CPUs.
     /// </summary>
     public static Quaterniond Slerp(Quaterniond quaternion1, Quaterniond quaternion2, double amount)
     {

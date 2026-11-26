@@ -289,6 +289,26 @@ public sealed class QuaterniondTests
     }
 
     [Test]
+    public void Slerp_EqualOrOpposite_ReturnsFirst()
+    {
+        // Dot is 1 (or 1 within an ulp): the linear branch must take it, since acos(1) = 0 would divide 0 by sin 0.
+        var random = Inputs.CreateRandom();
+        Quaterniond[] quaternions = [Quaterniond.Identity, random.NextRotationD()];
+
+        Assert.Multiple(() =>
+        {
+            foreach (var q in quaternions)
+            {
+                foreach (var t in new[] { 0.0, 0.5, 1.0 })
+                {
+                    MathAssert.Near(Quaterniond.Slerp(q, q, t), q, MathAssert.TrigonometricD, 1.0, $"{q} equal, t {t}");
+                    MathAssert.Near(Quaterniond.Slerp(q, -q, t), q, MathAssert.TrigonometricD, 1.0, $"{q} opposite, t {t}");
+                }
+            }
+        });
+    }
+
+    [Test]
     public void Slerp_OppositeHemisphere_TakesShortestArc()
     {
         var random = Inputs.CreateRandom();

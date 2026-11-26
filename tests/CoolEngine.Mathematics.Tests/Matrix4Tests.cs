@@ -275,6 +275,42 @@ public sealed class Matrix4Tests
         });
     }
 
+    // w stays 1: det 1e-42 is subnormal and 1 / det overflows to +∞; det 1e39 overflows to +∞; a NaN element makes det NaN.
+    private static (string Name, Matrix4 Matrix)[] NonFiniteReciprocalCases()
+    {
+        var nanElement = Matrix4.Identity;
+        nanElement[0, 0] = float.NaN;
+        return [("subnormal det", Matrix4.CreateScale(1e-14f)), ("overflowing det", Matrix4.CreateScale(1e13f)), ("NaN element", nanElement)];
+    }
+
+    [Test]
+    public void TryInvert_NonFiniteReciprocal_ReturnsFalse()
+    {
+        var allNaN = Matrix4.FromColumns(new Vector4(float.NaN), new Vector4(float.NaN), new Vector4(float.NaN), new Vector4(float.NaN));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(float.IsSubnormal(Matrix4.CreateScale(1e-14f).Determinant), Is.True, "premise: subnormal det");
+            Assert.That(Matrix4.CreateScale(1e13f).Determinant, Is.EqualTo(float.PositiveInfinity), "premise: overflowing det");
+            foreach (var (name, matrix) in NonFiniteReciprocalCases())
+            {
+                var returned = Matrix4.TryInvert(matrix, out var result);
+                Assert.That(returned, Is.False, name + " returns");
+                MathAssert.Exact(result, allNaN, name + " result");
+            }
+        });
+    }
+
+    [Test]
+    public void Inverted_NonFiniteReciprocal_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (name, matrix) in NonFiniteReciprocalCases())
+                Assert.Throws<InvalidOperationException>(() => matrix.Inverted(), name);
+        });
+    }
+
     [Test]
     public void Translation_GetAndSet_MapToColumn3()
     {
@@ -497,6 +533,15 @@ public sealed class Matrix4Tests
         MathAssert.Exact(Matrix4.CreateFromAxisAngle(Vector3.Zero, 1f), Matrix4.Identity);
     }
 
+    // 2e19 squared overflows float to +∞; a NaN or infinite component makes the squared length non-finite too.
+    [TestCase(2e19f, 0f, 0f)]
+    [TestCase(0f, float.NaN, 0f)]
+    [TestCase(0f, 0f, float.NegativeInfinity)]
+    public void CreateFromAxisAngle_NonFiniteAxis_Throws(float x, float y, float z)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4.CreateFromAxisAngle(new Vector3(x, y, z), 1f));
+    }
+
     [Test]
     public void CreateFromAxisAngle_UnnormalizedAxis_EqualsNormalized()
     {
@@ -626,6 +671,8 @@ public sealed class Matrix4Tests
     [TestCase(MathHelper.PiOver4, 16f / 9f, 0f, 1000f)]
     [TestCase(MathHelper.PiOver4, 16f / 9f, 0.1f, 0.1f)]
     [TestCase(MathHelper.PiOver4, 16f / 9f, 0.1f, float.PositiveInfinity)]
+    [TestCase(MathHelper.PiOver4, float.PositiveInfinity, 0.1f, 1000f)]
+    [TestCase(MathHelper.PiOver4, 16f / 9f, float.PositiveInfinity, float.PositiveInfinity)]
     public void CreatePerspectiveFieldOfView_InvalidArguments_Throw(float fovY, float aspectRatio, float depthNear, float depthFar)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4.CreatePerspectiveFieldOfView(fovY, aspectRatio, depthNear, depthFar));
@@ -678,6 +725,8 @@ public sealed class Matrix4Tests
     [TestCase(0f, 16f / 9f, 0.1f)]
     [TestCase(MathHelper.PiOver4, 0f, 0.1f)]
     [TestCase(MathHelper.PiOver4, 16f / 9f, 0f)]
+    [TestCase(MathHelper.PiOver4, float.PositiveInfinity, 0.1f)]
+    [TestCase(MathHelper.PiOver4, 16f / 9f, float.PositiveInfinity)]
     public void CreatePerspectiveFieldOfViewInfinite_InvalidArguments_Throw(float fovY, float aspectRatio, float depthNear)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4.CreatePerspectiveFieldOfViewInfinite(fovY, aspectRatio, depthNear));
@@ -712,6 +761,18 @@ public sealed class Matrix4Tests
             Assert.Throws<ArgumentException>(() => Matrix4.CreateOrthographicOffCenter(0f, 1f, 2f, 2f, 0f, 1f), "bottom == top");
             Assert.Throws<ArgumentException>(() => Matrix4.CreateOrthographicOffCenter(0f, 1f, 0f, 1f, 3f, 3f), "near == far");
         });
+    }
+
+    [Test]
+    public void CreateOrthographicOffCenter_NonFiniteArgument_Throws(
+        [Range(0, 5)] int index, [Values(float.PositiveInfinity, float.NegativeInfinity, float.NaN)] float value)
+    {
+        // A valid box (left, right, bottom, top, near, far) with one argument replaced.
+        float[] arguments = [-2f, 6f, -1f, 3f, 0.5f, 10f];
+        arguments[index] = value;
+
+        Assert.Throws<ArgumentException>(() => Matrix4.CreateOrthographicOffCenter(arguments[0], arguments[1], arguments[2], arguments[3],
+            arguments[4], arguments[5]));
     }
 
     [Test]

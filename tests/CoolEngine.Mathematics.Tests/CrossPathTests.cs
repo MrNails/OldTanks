@@ -5,29 +5,38 @@ using CoolEngine.Mathematics.Tests.TestSupport;
 namespace CoolEngine.Mathematics.Tests;
 
 /// <summary>
-/// One result for every instruction set on one machine (Denys, D6: "Same bits on x64"). A fixed loop runs every computing
-/// member of the float matrices on seeded inputs and hashes the bits of every result. The expected hash is a constant
-/// recorded on the default path; the acceptance runs this test under the default, <c>DOTNET_EnableAVX2=0</c> (no FMA),
-/// <c>DOTNET_EnableAVX=0</c> and <c>DOTNET_EnableHWIntrinsic=0</c> (software), so a pass on all four proves the same bits
-/// on every path. Trigonometry comes from .NET (<c>MathF.Sin</c> …), so the constant holds per machine and OS, not
-/// across them.
+/// One result for every instruction set (Denys, D6: "Same bits on x64", scoped by review B: "Exclude trig"). A fixed loop
+/// runs every trig-free computing member on seeded trig-free inputs and hashes the bits of every result. The expected hash
+/// is a constant recorded on the default path; the acceptance runs this test under the default, <c>DOTNET_EnableAVX2=0</c>
+/// (no FMA), <c>DOTNET_EnableAVX=0</c> and <c>DOTNET_EnableHWIntrinsic=0</c> (software), so a pass on all four proves the
+/// same bits on every path.
+/// <para>
+/// Scope: only members that use + − × ÷ and sqrt, on finite inputs, which IEEE 754 rounds correctly and so the library
+/// promises to give the same bits on every x64 CPU. Members that call sin, cos, tan or acos (the rotation, axis-angle and
+/// perspective factories, <c>Quaterniond.CreateFromAxisAngle</c>, <c>Quaterniond.Slerp</c>) follow the OS math library,
+/// which differs between CPUs with and without FMA3, so they stay out of the loops; their own tests compare them with
+/// tolerances. Rotations come from four random components normalized with sqrt, not from Shoemake's trig formula.
+/// </para>
+/// <para>
+/// Re-record rule: re-record a golden only when the environment changes (CPU, OS, .NET), only after the same hash is seen
+/// on all four paths, and never to make a code change pass (a deliberate change of a result is a plan decision first).
+/// </para>
 /// </summary>
 [TestFixture]
 public sealed class CrossPathTests
 {
     private const int Steps = 20_000;
 
-    // Recorded 2026-11-26 on the default path (x64, i7-14700K, AVX2 and FMA available, .NET 10, Windows 11): the test ran
-    // once with the previous value and the actual hash from its failure message was copied here, after the same hash was
-    // seen on all four paths. Re-recorded in OT-5 step 3d for deliberate result changes (ClearRotation keeps the axis
-    // lengths, the perspective constant n·(F/(F-n)), the inverse's determinant as row 0 · its cofactors). Re-record it
-    // only for a deliberate change of a result, never to make a path agree.
-    private const ulong Golden = 0xB1B5EACF1BFBD1DC;
+    // Recorded 2026-11-26 on the default path (x64, i7-14700K, AVX2 and FMA available, .NET 10, Windows 11), after the
+    // same hash was seen on all four paths: the test ran once with the previous value and the actual hash from its failure
+    // message was copied here. Re-recorded in OT-5 review B (B1) when the loop dropped the trig members and trig inputs.
+    private const ulong Golden = 0xEDEDE1FB97659790;
 
     [Test]
     public void HashedLoop_SameBitsOnEveryPath_MatchesGolden()
     {
-        // Inputs come only from Random and casts (no System.Numerics or library arithmetic), so they are the same on every path.
+        // Inputs come only from Random, casts and the trig-free rotation below (no System.Numerics or library arithmetic),
+        // so they are the same on every path.
         var random = new Random(Inputs.Seed);
         var hash = new Fnv1a64();
 
@@ -41,11 +50,10 @@ public sealed class CrossPathTests
         Assert.That(hash.Value, Is.EqualTo(Golden), $"hash 0x{hash.Value:X16}");
     }
 
-    // Recorded 2026-11-26 on the default path (same machine) with OT-5 stage 4: the test ran once with a placeholder and the
-    // actual hash from its failure message was copied here, after the same hash was seen on all four paths. Re-recorded the
-    // same way for the reciprocal Normalize of the double vectors and Quaterniond (one 1 / Length, then multiplies). Re-record
-    // it only for a deliberate change of a result, never to make a path agree.
-    private const ulong DoubleGolden = 0xADE032B4A613B567;
+    // Recorded 2026-11-26 on the default path (same machine) with OT-5 stage 4, after the same hash was seen on all four
+    // paths: the test ran once with a placeholder and the actual hash from its failure message was copied here. Re-recorded
+    // in OT-5 review B (B1) when the loop dropped the trig members and trig inputs.
+    private const ulong DoubleGolden = 0xFAB69D982403FC0E;
 
     [Test]
     public void DoubleHashedLoop_SameBitsOnEveryPath_MatchesGolden()
@@ -86,7 +94,7 @@ public sealed class CrossPathTests
         hash.Add(a3 / s); hash.Add(a3.Length()); hash.Add(a3.LengthSquared()); hash.Add(Vector3d.Dot(a3, b3)); hash.Add(Vector3d.Cross(a3, b3));
         hash.Add(Vector3d.Normalize(a3)); hash.Add(Vector3d.Distance(a3, b3)); hash.Add(Vector3d.DistanceSquared(a3, b3));
         hash.Add(Vector3d.Min(a3, b3)); hash.Add(Vector3d.Max(a3, b3)); hash.Add(Vector3d.Abs(a3)); hash.Add(Vector3d.Clamp(a3, b3, a3 + b3));
-        hash.Add(Vector3d.Lerp(a3, b3, t)); hash.Add(Vector3d.Transform(a3, random.NextRotationD()));
+        hash.Add(Vector3d.Lerp(a3, b3, t)); hash.Add(Vector3d.Transform(a3, NextTrigFreeRotationD(random)));
 
         hash.Add(a4 + b4); hash.Add(a4 - b4); hash.Add(-a4); hash.Add(a4 * b4); hash.Add(a4 / b4); hash.Add(a4 * s); hash.Add(s * a4);
         hash.Add(a4 / s); hash.Add(a4.Length()); hash.Add(a4.LengthSquared()); hash.Add(Vector4d.Dot(a4, b4));
@@ -99,14 +107,11 @@ public sealed class CrossPathTests
     {
         var a = random.NextQuaterniond();
         var b = random.NextQuaterniond();
-        var ra = random.NextRotationD();
-        var rb = random.NextRotationD();
         var s = random.NextComponentD();
 
+        // CreateFromAxisAngle and Slerp call sin, cos or acos: out of scope.
         hash.Add(a + b); hash.Add(a - b); hash.Add(-a); hash.Add(a * b); hash.Add(a * s); hash.Add(a.Length()); hash.Add(a.LengthSquared());
         hash.Add(Quaterniond.Conjugate(a)); hash.Add(Quaterniond.Inverse(a)); hash.Add(Quaterniond.Normalize(a)); hash.Add(Quaterniond.Dot(a, b));
-        hash.Add(Quaterniond.CreateFromAxisAngle(Vector3d.Normalize(random.NextVector3d()), random.NextAngleD()));
-        hash.Add(Quaterniond.Slerp(ra, rb, random.NextDouble()));
     }
 
     private static void HashMatrix2d(Random random, ref Fnv1a64 hash)
@@ -123,7 +128,6 @@ public sealed class CrossPathTests
         hash.Add(a.Inverted());
         hash.Add(Matrix2d.TryInvert(b, out var inverse));
         hash.Add(inverse);
-        hash.Add(Matrix2d.CreateRotation(random.NextAngleD()));
         hash.Add(Matrix2d.CreateScale(random.NextComponentD()));
         hash.Add(Matrix2d.CreateScale(v));
         hash.Add(Matrix2d.CreateScale(v.X, v.Y));
@@ -148,11 +152,7 @@ public sealed class CrossPathTests
         hash.Add(Matrix3d.CreateScale(random.NextComponentD()));
         hash.Add(Matrix3d.CreateScale(v));
         hash.Add(Matrix3d.CreateScale(v.X, v.Y, v.Z));
-        hash.Add(Matrix3d.CreateRotationX(random.NextAngleD()));
-        hash.Add(Matrix3d.CreateRotationY(random.NextAngleD()));
-        hash.Add(Matrix3d.CreateRotationZ(random.NextAngleD()));
-        hash.Add(Matrix3d.CreateFromAxisAngle(random.NextVector3d(), random.NextAngleD()));
-        hash.Add(Matrix3d.CreateFromQuaternion(random.NextRotationD()));
+        hash.Add(Matrix3d.CreateFromQuaternion(NextTrigFreeRotationD(random)));
         hash.Add((Matrix3)a);
     }
 
@@ -181,21 +181,13 @@ public sealed class CrossPathTests
         hash.Add(Matrix4d.CreateScale(p.X, p.Y, p.Z));
         hash.Add(Matrix4d.CreateTranslation(p));
         hash.Add(Matrix4d.CreateTranslation(p.X, p.Y, p.Z));
-        hash.Add(Matrix4d.CreateRotationX(random.NextAngleD()));
-        hash.Add(Matrix4d.CreateRotationY(random.NextAngleD()));
-        hash.Add(Matrix4d.CreateRotationZ(random.NextAngleD()));
-        hash.Add(Matrix4d.CreateFromAxisAngle(random.NextVector3d(), random.NextAngleD()));
-        hash.Add(Matrix4d.CreateFromQuaternion(random.NextRotationD()));
+        hash.Add(Matrix4d.CreateFromQuaternion(NextTrigFreeRotationD(random)));
         hash.Add(Matrix4d.LookAt(p, random.NextVector3d(), random.NextVector3d()));
         hash.Add((Matrix4)a);
 
-        var fovY = 0.1 + 2.9 * random.NextDouble();
-        var aspectRatio = 0.5 + 2.5 * random.NextDouble();
+        // The perspective factories call tan: out of scope. Valid orthographic arguments: near in (0.01, 1), far beyond it.
         var depthNear = 0.01 + random.NextDouble();
         var depthFar = depthNear + 1.0 + 999.0 * random.NextDouble();
-        hash.Add(Matrix4d.CreatePerspectiveFieldOfView(fovY, aspectRatio, depthNear, depthFar));
-        hash.Add(Matrix4d.CreatePerspectiveFieldOfViewInfinite(fovY, aspectRatio, depthNear));
-
         var left = random.NextComponentD();
         var bottom = random.NextComponentD();
         hash.Add(Matrix4d.CreateOrthographicOffCenter(left, left + 1.0 + random.NextDouble() * 100.0, bottom,
@@ -216,7 +208,6 @@ public sealed class CrossPathTests
         hash.Add(a.Inverted());
         hash.Add(Matrix2.TryInvert(b, out var inverse));
         hash.Add(inverse);
-        hash.Add(Matrix2.CreateRotation(random.NextAngle()));
         hash.Add(Matrix2.CreateScale(random.NextComponent()));
         hash.Add(Matrix2.CreateScale(v));
         hash.Add(Matrix2.CreateScale(v.X, v.Y));
@@ -240,11 +231,7 @@ public sealed class CrossPathTests
         hash.Add(Matrix3.CreateScale(random.NextComponent()));
         hash.Add(Matrix3.CreateScale(v));
         hash.Add(Matrix3.CreateScale(v.X, v.Y, v.Z));
-        hash.Add(Matrix3.CreateRotationX(random.NextAngle()));
-        hash.Add(Matrix3.CreateRotationY(random.NextAngle()));
-        hash.Add(Matrix3.CreateRotationZ(random.NextAngle()));
-        hash.Add(Matrix3.CreateFromAxisAngle(random.NextVector3(), random.NextAngle()));
-        hash.Add(Matrix3.CreateFromQuaternion(random.NextRotation()));
+        hash.Add(Matrix3.CreateFromQuaternion(NextTrigFreeRotation(random)));
     }
 
     private static void HashMatrix4(Random random, ref Fnv1a64 hash)
@@ -272,25 +259,38 @@ public sealed class CrossPathTests
         hash.Add(Matrix4.CreateScale(p.X, p.Y, p.Z));
         hash.Add(Matrix4.CreateTranslation(p));
         hash.Add(Matrix4.CreateTranslation(p.X, p.Y, p.Z));
-        hash.Add(Matrix4.CreateRotationX(random.NextAngle()));
-        hash.Add(Matrix4.CreateRotationY(random.NextAngle()));
-        hash.Add(Matrix4.CreateRotationZ(random.NextAngle()));
-        hash.Add(Matrix4.CreateFromAxisAngle(random.NextVector3(), random.NextAngle()));
-        hash.Add(Matrix4.CreateFromQuaternion(random.NextRotation()));
+        hash.Add(Matrix4.CreateFromQuaternion(NextTrigFreeRotation(random)));
         hash.Add(Matrix4.LookAt(p, random.NextVector3(), random.NextVector3()));
 
-        // Valid projection arguments: fov in (0.1, 3), aspect in (0.5, 3), near in (0.01, 1), far beyond near.
-        var fovY = 0.1f + 2.9f * random.NextSingle();
-        var aspectRatio = 0.5f + 2.5f * random.NextSingle();
+        // The perspective factories call tan: out of scope. Valid orthographic arguments: near in (0.01, 1), far beyond it.
         var depthNear = 0.01f + random.NextSingle();
         var depthFar = depthNear + 1f + 999f * random.NextSingle();
-        hash.Add(Matrix4.CreatePerspectiveFieldOfView(fovY, aspectRatio, depthNear, depthFar));
-        hash.Add(Matrix4.CreatePerspectiveFieldOfViewInfinite(fovY, aspectRatio, depthNear));
-
         var left = random.NextComponent();
         var bottom = random.NextComponent();
         hash.Add(Matrix4.CreateOrthographicOffCenter(left, left + 1f + random.NextSingle() * 100f, bottom,
             bottom + 1f + random.NextSingle() * 100f, -depthNear, depthFar));
+    }
+
+    /// <summary>
+    /// A unit quaternion without trig: four components uniform in [-1, 1), divided by their length (<c>Math.Sqrt</c> of
+    /// the sum of squares, left to right, in double). Every step is + − × ÷ or sqrt, correctly rounded, so the input is the
+    /// same on every path. Not uniform over rotations, which a bit hash does not need.
+    /// </summary>
+    private static Quaterniond NextTrigFreeRotationD(Random random)
+    {
+        var x = 2.0 * random.NextDouble() - 1.0;
+        var y = 2.0 * random.NextDouble() - 1.0;
+        var z = 2.0 * random.NextDouble() - 1.0;
+        var w = 2.0 * random.NextDouble() - 1.0;
+        var length = Math.Sqrt(x * x + y * y + z * z + w * w);
+        return new Quaterniond(x / length, y / length, z / length, w / length);
+    }
+
+    /// <summary><see cref="NextTrigFreeRotationD"/> rounded to float.</summary>
+    private static Quaternion NextTrigFreeRotation(Random random)
+    {
+        var q = NextTrigFreeRotationD(random);
+        return new Quaternion((float)q.X, (float)q.Y, (float)q.Z, (float)q.W);
     }
 
     /// <summary>FNV-1a, 64 bit, over the bytes of every value added.</summary>

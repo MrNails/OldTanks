@@ -10,6 +10,9 @@ namespace CoolEngine.Mathematics;
 /// A float 2 × 2 matrix for column vectors (<c>M * v</c>), stored column-major: <see cref="Column0"/> then
 /// <see cref="Column1"/>, 16 bytes. <c>A * B</c> applied to a vector applies <c>B</c> first, then <c>A</c>.
 /// Built with <see cref="FromColumns"/>, <see cref="FromRows"/> or the factories; there is no element constructor.
+/// Bit stability: every member that uses only + − × ÷ and sqrt gives the same bits on every x64 CPU and instruction set
+/// for finite inputs (no fused multiply-add; a NaN's sign and payload are not covered); members that call sin, cos, tan or
+/// acos follow the OS math library and say so.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Matrix2 : IEquatable<Matrix2>
@@ -85,29 +88,32 @@ public struct Matrix2 : IEquatable<Matrix2>
         return FromRows(Column0, Column1);
     }
 
-    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="Determinant"/> is exactly 0.</summary>
+    /// <summary>
+    /// The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> returns false (the
+    /// determinant or its reciprocal is not finite).
+    /// </summary>
     public readonly Matrix2 Inverted()
     {
         if (!TryInvert(this, out var result))
-            throw new InvalidOperationException("The matrix is singular (its determinant is 0) and has no inverse.");
+            throw new InvalidOperationException("The matrix has no finite inverse (its determinant or 1 / determinant is not finite).");
 
         return result;
     }
 
     /// <summary>
-    /// The inverse, the adjugate divided by the determinant. When <see cref="Determinant"/> is exactly 0, returns false
-    /// and sets every element of <paramref name="result"/> to NaN.
+    /// The inverse, the adjugate times <c>1 / det</c>. When the determinant or its reciprocal is not finite (a zero, tiny
+    /// subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
+    /// <paramref name="result"/> to NaN.
     /// </summary>
     public static bool TryInvert(Matrix2 matrix, out Matrix2 result)
     {
         var determinant = matrix.Determinant;
-        if (determinant == 0f)
+        var inverseDeterminant = 1f / determinant;
+        if (!float.IsFinite(determinant) || !float.IsFinite(inverseDeterminant))
         {
             result = FromColumns(new Vector2(float.NaN), new Vector2(float.NaN));
             return false;
         }
-
-        var inverseDeterminant = 1f / determinant;
 
         // Adjugate columns (m11, -m10) and (-m01, m00). The negations are subtractions from zero, so a zero cofactor
         // stays +0, as the 3 × 3 and 4 × 4 cofactor sums give: the inverse of a diagonal matrix is diagonal bit for bit
@@ -118,7 +124,10 @@ public struct Matrix2 : IEquatable<Matrix2>
         return true;
     }
 
-    /// <summary>The rotation by <paramref name="angle"/> radians: rows <c>(c, -s) (s, c)</c>, turning +X toward +Y.</summary>
+    /// <summary>
+    /// The rotation by <paramref name="angle"/> radians: rows <c>(c, -s) (s, c)</c>, turning +X toward +Y. Calls sin and
+    /// cos, so the result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix2 CreateRotation(float angle)
     {
         var (sin, cos) = MathF.SinCos(angle);

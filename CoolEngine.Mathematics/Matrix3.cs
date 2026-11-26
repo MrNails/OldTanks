@@ -11,6 +11,9 @@ namespace CoolEngine.Mathematics;
 /// <see cref="Column1"/>, <see cref="Column2"/>, 36 bytes. <c>A * B</c> applied to a vector applies <c>B</c> first,
 /// then <c>A</c>. Right-handed; angles in radians. Built with <see cref="FromColumns"/>, <see cref="FromRows"/>, the
 /// factories or <see cref="Matrix3(Matrix4)"/>; there is no element constructor.
+/// Bit stability: every member that uses only + − × ÷ and sqrt gives the same bits on every x64 CPU and instruction set
+/// for finite inputs (no fused multiply-add; a NaN's sign and payload are not covered); members that call sin, cos, tan or
+/// acos follow the OS math library and say so.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Matrix3 : IEquatable<Matrix3>
@@ -101,31 +104,35 @@ public struct Matrix3 : IEquatable<Matrix3>
         return FromRows(Column0, Column1, Column2);
     }
 
-    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="Determinant"/> is exactly 0.</summary>
+    /// <summary>
+    /// The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> returns false (the
+    /// determinant or its reciprocal is not finite).
+    /// </summary>
     public readonly Matrix3 Inverted()
     {
         if (!TryInvert(this, out var result))
-            throw new InvalidOperationException("The matrix is singular (its determinant is 0) and has no inverse.");
+            throw new InvalidOperationException("The matrix has no finite inverse (its determinant or 1 / determinant is not finite).");
 
         return result;
     }
 
     /// <summary>
     /// The inverse: its rows are <c>Cross(Column1, Column2)</c>, <c>Cross(Column2, Column0)</c> and
-    /// <c>Cross(Column0, Column1)</c> divided by the determinant (the adjugate). When <see cref="Determinant"/> is
-    /// exactly 0, returns false and sets every element of <paramref name="result"/> to NaN.
+    /// <c>Cross(Column0, Column1)</c> times <c>1 / det</c> (the adjugate). When the determinant or its reciprocal is not
+    /// finite (a zero, tiny subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
+    /// <paramref name="result"/> to NaN.
     /// </summary>
     public static bool TryInvert(Matrix3 matrix, out Matrix3 result)
     {
         var row0 = Vector3.Cross(matrix.Column1, matrix.Column2);
         var determinant = Vector3.Dot(matrix.Column0, row0);
-        if (determinant == 0f)
+        var inverseDeterminant = 1f / determinant;
+        if (!float.IsFinite(determinant) || !float.IsFinite(inverseDeterminant))
         {
             result = FromColumns(new Vector3(float.NaN), new Vector3(float.NaN), new Vector3(float.NaN));
             return false;
         }
 
-        var inverseDeterminant = 1f / determinant;
         result = FromRows(
             row0 * inverseDeterminant,
             Vector3.Cross(matrix.Column2, matrix.Column0) * inverseDeterminant,
@@ -151,21 +158,30 @@ public struct Matrix3 : IEquatable<Matrix3>
         return FromColumns(new Vector3(x, 0f, 0f), new Vector3(0f, y, 0f), new Vector3(0f, 0f, z));
     }
 
-    /// <summary>The rotation about +X by <paramref name="angle"/> radians: rows <c>(1,0,0) (0,c,-s) (0,s,c)</c>, turning +Y toward +Z.</summary>
+    /// <summary>
+    /// The rotation about +X by <paramref name="angle"/> radians: rows <c>(1,0,0) (0,c,-s) (0,s,c)</c>, turning +Y toward +Z.
+    /// Calls sin and cos, so the result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix3 CreateRotationX(float angle)
     {
         var (sin, cos) = MathF.SinCos(angle);
         return FromColumns(new Vector3(1f, 0f, 0f), new Vector3(0f, cos, sin), new Vector3(0f, -sin, cos));
     }
 
-    /// <summary>The rotation about +Y by <paramref name="angle"/> radians: rows <c>(c,0,s) (0,1,0) (-s,0,c)</c>, turning +Z toward +X.</summary>
+    /// <summary>
+    /// The rotation about +Y by <paramref name="angle"/> radians: rows <c>(c,0,s) (0,1,0) (-s,0,c)</c>, turning +Z toward +X.
+    /// Calls sin and cos, so the result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix3 CreateRotationY(float angle)
     {
         var (sin, cos) = MathF.SinCos(angle);
         return FromColumns(new Vector3(cos, 0f, -sin), new Vector3(0f, 1f, 0f), new Vector3(sin, 0f, cos));
     }
 
-    /// <summary>The rotation about +Z by <paramref name="angle"/> radians: rows <c>(c,-s,0) (s,c,0) (0,0,1)</c>, turning +X toward +Y.</summary>
+    /// <summary>
+    /// The rotation about +Z by <paramref name="angle"/> radians: rows <c>(c,-s,0) (s,c,0) (0,0,1)</c>, turning +X toward +Y.
+    /// Calls sin and cos, so the result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix3 CreateRotationZ(float angle)
     {
         var (sin, cos) = MathF.SinCos(angle);
@@ -174,15 +190,20 @@ public struct Matrix3 : IEquatable<Matrix3>
 
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/> (Rodrigues: <c>c I + (1 - c) a aᵀ + s [a]×</c>),
-    /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here; a zero axis
-    /// (<c>LengthSquared() == 0</c>) gives <see cref="Identity"/>. System.Numerics' own axis-angle factories
+    /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here; an exactly zero axis
+    /// gives <see cref="Identity"/>, and an axis whose squared length is not finite (a component above about 1.8e19, or a
+    /// NaN) throws <see cref="ArgumentOutOfRangeException"/>, as <see cref="Matrix4.CreateFromAxisAngle"/> does; a nonzero
+    /// axis whose squared length underflows to 0 gives NaN. System.Numerics' own axis-angle factories
     /// (<see cref="Quaternion.CreateFromAxisAngle"/>, <c>Matrix4x4.CreateFromAxisAngle</c>) do not normalize: they
-    /// expect a unit axis.
+    /// expect a unit axis. Calls sin and cos, so the result follows the OS math library and is not promised bit-identical
+    /// across CPUs.
     /// </summary>
     public static Matrix3 CreateFromAxisAngle(Vector3 axis, float angle)
     {
         var lengthSquared = axis.LengthSquared();
-        if (lengthSquared == 0f)
+        if (!float.IsFinite(lengthSquared))
+            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's squared length must be finite.");
+        if (axis == Vector3.Zero)
             return Identity;
 
         var a = axis / MathF.Sqrt(lengthSquared);

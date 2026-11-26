@@ -251,6 +251,42 @@ public sealed class Matrix2dTests
         });
     }
 
+    // det 1e-320 is subnormal and 1 / det overflows to +∞; det 1e320 overflows to +∞; a NaN element makes det NaN.
+    private static (string Name, Matrix2d Matrix)[] NonFiniteReciprocalCases()
+    {
+        var nanElement = Matrix2d.Identity;
+        nanElement[0, 0] = double.NaN;
+        return [("subnormal det", Matrix2d.CreateScale(1e-160)), ("overflowing det", Matrix2d.CreateScale(1e160)), ("NaN element", nanElement)];
+    }
+
+    [Test]
+    public void TryInvert_NonFiniteReciprocal_ReturnsFalse()
+    {
+        var allNaN = Matrix2d.FromColumns(new Vector2d(double.NaN), new Vector2d(double.NaN));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(double.IsSubnormal(Matrix2d.CreateScale(1e-160).Determinant), Is.True, "premise: subnormal det");
+            Assert.That(Matrix2d.CreateScale(1e160).Determinant, Is.EqualTo(double.PositiveInfinity), "premise: overflowing det");
+            foreach (var (name, matrix) in NonFiniteReciprocalCases())
+            {
+                var returned = Matrix2d.TryInvert(matrix, out var result);
+                Assert.That(returned, Is.False, name + " returns");
+                MathAssert.Exact(result, allNaN, name + " result");
+            }
+        });
+    }
+
+    [Test]
+    public void Inverted_NonFiniteReciprocal_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var (name, matrix) in NonFiniteReciprocalCases())
+                Assert.Throws<InvalidOperationException>(() => matrix.Inverted(), name);
+        });
+    }
+
     [Test]
     public void CreateScale_Overloads_GiveDiagonal()
     {

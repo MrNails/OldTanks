@@ -9,8 +9,9 @@ namespace CoolEngine.Mathematics;
 /// 128 bytes. <c>A * B</c> applied to a vector applies <c>B</c> first, then <c>A</c>. Right-handed (view space looks down
 /// -Z); projections map depth to [0, 1] with reversed Z (near plane 1, far plane 0); angles in radians. Own code, scalar
 /// (System.Numerics has no double matrix), with the float matrix's algorithms and operation order where the float matrix
-/// has its own code and the plan's formulas where it delegates; no fused multiply-add, so the bits are the same on every
-/// instruction set.
+/// has its own code and the plan's formulas where it delegates; no fused multiply-add. Bit stability: every member that
+/// uses only + − × ÷ and sqrt gives the same bits on every x64 CPU and instruction set for finite inputs (a NaN's sign and
+/// payload are not covered); members that call sin, cos, tan or acos follow the OS math library and say so.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Matrix4d : IEquatable<Matrix4d>
@@ -105,8 +106,8 @@ public struct Matrix4d : IEquatable<Matrix4d>
 
     /// <summary>
     /// The determinant: row 0 dotted with the cofactors of row 0, the products summed as <c>(t0 + t1) + (t2 + t3)</c> (the
-    /// float matrix's order). The same computation <see cref="TryInvert"/> uses, so both agree exactly on which matrices
-    /// are singular (<c>Determinant == 0</c>).
+    /// float matrix's order). The same computation <see cref="TryInvert"/> uses, so <see cref="TryInvert"/> refuses exactly
+    /// the matrices whose <see cref="Determinant"/> or its reciprocal is not finite.
     /// </summary>
     public readonly double Determinant
     {
@@ -123,21 +124,25 @@ public struct Matrix4d : IEquatable<Matrix4d>
         return FromRows(Column0, Column1, Column2, Column3);
     }
 
-    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="Determinant"/> is exactly 0.</summary>
+    /// <summary>
+    /// The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> returns false (the
+    /// determinant or its reciprocal is not finite).
+    /// </summary>
     public readonly Matrix4d Inverted()
     {
         if (!TryInvert(this, out var result))
-            throw new InvalidOperationException("The matrix is singular (its determinant is 0) and has no inverse.");
+            throw new InvalidOperationException("The matrix has no finite inverse (its determinant or 1 / determinant is not finite).");
 
         return result;
     }
 
     /// <summary>
     /// The inverse, the adjugate times <c>1 / det</c>: the float matrix's cofactor algorithm in scalar form. Each column of
-    /// the adjugate is the cofactors of one row, built from the 2 × 2 minors of the other two row pairs with the signs
-    /// applied to the minors before the products, so a zero cofactor is +0 (the inverse of a diagonal matrix with a
-    /// positive determinant is diagonal bit for bit). When <see cref="Determinant"/> is exactly 0, returns false and sets
-    /// every element of <paramref name="result"/> to NaN.
+    /// the adjugate is the cofactors of one row, built from the 2 × 2 minors of the other two row pairs. Applying the signs
+    /// to the minors before the products changes no non-NaN value, only the sign of a zero cofactor, which comes out +0: so
+    /// only a diagonal matrix with a positive determinant inverts to a diagonal one bit for bit (a negative <c>1 / det</c>
+    /// turns the zeros into -0). When the determinant or its reciprocal is not finite (a zero, tiny subnormal or overflowing
+    /// determinant, or a NaN element), returns false and sets every element of <paramref name="result"/> to NaN.
     /// </summary>
     public static bool TryInvert(Matrix4d matrix, out Matrix4d result)
     {
@@ -156,14 +161,14 @@ public struct Matrix4d : IEquatable<Matrix4d>
         var column3 = Cofactors(row2, top, negate: true);
 
         var determinant = Dot(row0, column0);
-        if (determinant == 0.0)
+        var inverseDeterminant = 1.0 / determinant;
+        if (!double.IsFinite(determinant) || !double.IsFinite(inverseDeterminant))
         {
             var nan = new Vector4d(double.NaN);
             result = FromColumns(nan, nan, nan, nan);
             return false;
         }
 
-        var inverseDeterminant = 1.0 / determinant;
         result = FromColumns(column0 * inverseDeterminant, column1 * inverseDeterminant, column2 * inverseDeterminant,
             column3 * inverseDeterminant);
         return true;
@@ -186,13 +191,17 @@ public struct Matrix4d : IEquatable<Matrix4d>
 
     /// <summary>
     /// The point <paramref name="position"/> transformed by this matrix: <c>this * (position, 1)</c> without its W, so the
-    /// translation applies. No divide by w (use it with affine matrices, not projections).
+    /// translation applies. No divide by w (use it with affine matrices, not projections). <c>((Column0 · x + Column1 · y)
+    /// + Column2 · z) + Column3</c> per component: the same bits as <c>this * (position, 1)</c> without its multiply by 1.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Vector3d TransformPosition(Vector3d position)
     {
-        var result = this * new Vector4d(position, 1.0);
-        return new Vector3d(result.X, result.Y, result.Z);
+        var (x, y, z) = (position.X, position.Y, position.Z);
+        return new Vector3d(
+            Column0.X * x + Column1.X * y + Column2.X * z + Column3.X,
+            Column0.Y * x + Column1.Y * y + Column2.Y * z + Column3.Y,
+            Column0.Z * x + Column1.Z * y + Column2.Z * z + Column3.Z);
     }
 
     /// <summary>
@@ -236,25 +245,39 @@ public struct Matrix4d : IEquatable<Matrix4d>
         return FromColumns(Vector4d.UnitX, Vector4d.UnitY, Vector4d.UnitZ, new Vector4d(x, y, z, 1.0));
     }
 
-    /// <summary><see cref="Matrix3d.CreateRotationX"/> in the upper-left 3 × 3: turns +Y toward +Z.</summary>
+    /// <summary>
+    /// <see cref="Matrix3d.CreateRotationX"/> in the upper-left 3 × 3: turns +Y toward +Z. Calls sin and cos, so the
+    /// result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix4d CreateRotationX(double angle)
     {
         return new Matrix4d(Matrix3d.CreateRotationX(angle));
     }
 
-    /// <summary><see cref="Matrix3d.CreateRotationY"/> in the upper-left 3 × 3: turns +Z toward +X.</summary>
+    /// <summary>
+    /// <see cref="Matrix3d.CreateRotationY"/> in the upper-left 3 × 3: turns +Z toward +X. Calls sin and cos, so the
+    /// result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix4d CreateRotationY(double angle)
     {
         return new Matrix4d(Matrix3d.CreateRotationY(angle));
     }
 
-    /// <summary><see cref="Matrix3d.CreateRotationZ"/> in the upper-left 3 × 3: turns +X toward +Y.</summary>
+    /// <summary>
+    /// <see cref="Matrix3d.CreateRotationZ"/> in the upper-left 3 × 3: turns +X toward +Y. Calls sin and cos, so the
+    /// result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix4d CreateRotationZ(double angle)
     {
         return new Matrix4d(Matrix3d.CreateRotationZ(angle));
     }
 
-    /// <summary><see cref="Matrix3d.CreateFromAxisAngle"/> in the upper-left 3 × 3: the axis is normalized here; a zero axis gives <see cref="Identity"/>.</summary>
+    /// <summary>
+    /// <see cref="Matrix3d.CreateFromAxisAngle"/> in the upper-left 3 × 3: the axis is normalized there; an exactly zero
+    /// axis gives <see cref="Identity"/>, and an axis whose squared length is not finite (a component above about 1.3e154,
+    /// or a NaN) throws <see cref="ArgumentOutOfRangeException"/>. Calls sin and cos, so the result follows the OS math
+    /// library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix4d CreateFromAxisAngle(Vector3d axis, double angle)
     {
         return new Matrix4d(Matrix3d.CreateFromAxisAngle(axis, angle));
@@ -291,9 +314,10 @@ public struct Matrix4d : IEquatable<Matrix4d>
     /// With <c>f = 1 / tan(fovY / 2)</c>, <c>n</c> = <paramref name="depthNear"/> and <c>F</c> = <paramref name="depthFar"/>,
     /// rows <c>(f/aspect,0,0,0) (0,f,0,0) (0,0,n/(F-n),n·F/(F-n)) (0,0,-1,0)</c>. Throws
     /// <see cref="ArgumentOutOfRangeException"/> unless <c>0 &lt; fovY &lt; π</c>, <c>aspectRatio &gt; 0</c>,
-    /// <c>depthNear &gt; 0</c>, <c>depthFar &gt; depthNear</c> and <c>depthFar</c> is finite (NaN fails every check; for a
+    /// <c>depthNear &gt; 0</c>, <c>depthFar &gt; depthNear</c> and every argument is finite (NaN fails every check; for a
     /// far plane at infinity use <see cref="CreatePerspectiveFieldOfViewInfinite"/>). The constant <c>n·F/(F-n)</c> is
-    /// computed as <c>n · (F / (F - n))</c>, so <c>n·F</c> cannot overflow.
+    /// computed as <c>n · (F / (F - n))</c>, so <c>n·F</c> cannot overflow. Calls tan, so the result follows the OS math
+    /// library and is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4d CreatePerspectiveFieldOfView(double fovY, double aspectRatio, double depthNear, double depthFar)
     {
@@ -319,7 +343,8 @@ public struct Matrix4d : IEquatable<Matrix4d>
     /// <summary>
     /// <see cref="CreatePerspectiveFieldOfView"/> with the far plane at infinity: the third row is <c>(0, 0, 0, n)</c>, so
     /// depth = <c>n / distance</c>. Throws <see cref="ArgumentOutOfRangeException"/> unless <c>0 &lt; fovY &lt; π</c>,
-    /// <c>aspectRatio &gt; 0</c> and <c>depthNear &gt; 0</c>.
+    /// <c>aspectRatio &gt; 0</c>, <c>depthNear &gt; 0</c> and every argument is finite. Calls tan, so the result follows
+    /// the OS math library and is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4d CreatePerspectiveFieldOfViewInfinite(double fovY, double aspectRatio, double depthNear)
     {
@@ -339,11 +364,18 @@ public struct Matrix4d : IEquatable<Matrix4d>
     /// x, y in [-1, 1] and depth in [0, 1] with reversed Z: depth 1 at <c>z = -depthNear</c>, 0 at <c>z = -depthFar</c>
     /// (a negative <paramref name="depthNear"/> is allowed). Rows
     /// <c>(2/(r-l),0,0,-(r+l)/(r-l)) (0,2/(t-b),0,-(t+b)/(t-b)) (0,0,1/(F-n),F/(F-n)) (0,0,0,1)</c>. Throws
-    /// <see cref="ArgumentException"/> when <c>left == right</c>, <c>bottom == top</c> or <c>depthNear == depthFar</c>.
+    /// <see cref="ArgumentException"/> when an argument is not finite, or when <c>left == right</c>, <c>bottom == top</c> or
+    /// <c>depthNear == depthFar</c>.
     /// </summary>
     public static Matrix4d CreateOrthographicOffCenter(double left, double right, double bottom, double top, double depthNear,
         double depthFar)
     {
+        CheckFinite(left, nameof(left));
+        CheckFinite(right, nameof(right));
+        CheckFinite(bottom, nameof(bottom));
+        CheckFinite(top, nameof(top));
+        CheckFinite(depthNear, nameof(depthNear));
+        CheckFinite(depthFar, nameof(depthFar));
         if (left == right)
             throw new ArgumentException("left and right must differ.", nameof(right));
         if (bottom == top)
@@ -509,10 +541,16 @@ public struct Matrix4d : IEquatable<Matrix4d>
     {
         if (!(fovY > 0.0 && fovY < Math.PI))
             throw new ArgumentOutOfRangeException(nameof(fovY), fovY, "The vertical field of view must lie in (0, π) radians.");
-        if (!(aspectRatio > 0.0))
-            throw new ArgumentOutOfRangeException(nameof(aspectRatio), aspectRatio, "The aspect ratio must be positive.");
-        if (!(depthNear > 0.0))
-            throw new ArgumentOutOfRangeException(nameof(depthNear), depthNear, "The near plane distance must be positive.");
+        if (!(aspectRatio > 0.0 && double.IsFinite(aspectRatio)))
+            throw new ArgumentOutOfRangeException(nameof(aspectRatio), aspectRatio, "The aspect ratio must be positive and finite.");
+        if (!(depthNear > 0.0 && double.IsFinite(depthNear)))
+            throw new ArgumentOutOfRangeException(nameof(depthNear), depthNear, "The near plane distance must be positive and finite.");
+    }
+
+    private static void CheckFinite(double value, string name)
+    {
+        if (!double.IsFinite(value))
+            throw new ArgumentException($"{name} must be finite; it is {value}.", name);
     }
 
     /// <summary>The six 2 × 2 minors of two rows <c>a</c> and <c>b</c>: <c>Mij = a_i b_j - b_i a_j</c> for column pair (i, j).</summary>

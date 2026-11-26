@@ -7,7 +7,9 @@ namespace CoolEngine.Mathematics;
 /// <summary>
 /// The double twin of <see cref="Matrix2"/>: a 2 × 2 matrix for column vectors (<c>M * v</c>), stored column-major,
 /// 32 bytes. <c>A * B</c> applied to a vector applies <c>B</c> first, then <c>A</c>. Own code, scalar, with the float
-/// matrix's algorithms and operation order and no fused multiply-add, so the bits are the same on every instruction set.
+/// matrix's algorithms and operation order and no fused multiply-add. Bit stability: every member that uses only + − × ÷
+/// and sqrt gives the same bits on every x64 CPU and instruction set for finite inputs (a NaN's sign and payload are not
+/// covered); members that call sin, cos, tan or acos follow the OS math library and say so.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Matrix2d : IEquatable<Matrix2d>
@@ -83,29 +85,32 @@ public struct Matrix2d : IEquatable<Matrix2d>
         return FromRows(Column0, Column1);
     }
 
-    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="Determinant"/> is exactly 0.</summary>
+    /// <summary>
+    /// The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> returns false (the
+    /// determinant or its reciprocal is not finite).
+    /// </summary>
     public readonly Matrix2d Inverted()
     {
         if (!TryInvert(this, out var result))
-            throw new InvalidOperationException("The matrix is singular (its determinant is 0) and has no inverse.");
+            throw new InvalidOperationException("The matrix has no finite inverse (its determinant or 1 / determinant is not finite).");
 
         return result;
     }
 
     /// <summary>
-    /// The inverse, the adjugate times <c>1 / det</c>. When <see cref="Determinant"/> is exactly 0, returns false and sets
-    /// every element of <paramref name="result"/> to NaN.
+    /// The inverse, the adjugate times <c>1 / det</c>. When the determinant or its reciprocal is not finite (a zero, tiny
+    /// subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
+    /// <paramref name="result"/> to NaN.
     /// </summary>
     public static bool TryInvert(Matrix2d matrix, out Matrix2d result)
     {
         var determinant = matrix.Determinant;
-        if (determinant == 0.0)
+        var inverseDeterminant = 1.0 / determinant;
+        if (!double.IsFinite(determinant) || !double.IsFinite(inverseDeterminant))
         {
             result = FromColumns(new Vector2d(double.NaN), new Vector2d(double.NaN));
             return false;
         }
-
-        var inverseDeterminant = 1.0 / determinant;
 
         // Adjugate columns (m11, -m10) and (-m01, m00). The negations are subtractions from zero, so a zero cofactor
         // stays +0: the inverse of a diagonal matrix is diagonal bit for bit for a positive determinant (a negative
@@ -116,7 +121,10 @@ public struct Matrix2d : IEquatable<Matrix2d>
         return true;
     }
 
-    /// <summary>The rotation by <paramref name="angle"/> radians: rows <c>(c, -s) (s, c)</c>, turning +X toward +Y.</summary>
+    /// <summary>
+    /// The rotation by <paramref name="angle"/> radians: rows <c>(c, -s) (s, c)</c>, turning +X toward +Y. Calls sin and
+    /// cos, so the result follows the OS math library and is not promised bit-identical across CPUs.
+    /// </summary>
     public static Matrix2d CreateRotation(double angle)
     {
         var (sin, cos) = Math.SinCos(angle);
