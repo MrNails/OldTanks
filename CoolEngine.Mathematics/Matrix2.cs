@@ -101,9 +101,10 @@ public struct Matrix2 : IEquatable<Matrix2>
     }
 
     /// <summary>
-    /// The inverse, the adjugate times <c>1 / det</c>. When the determinant or its reciprocal is not finite (a zero, tiny
-    /// subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
-    /// <paramref name="result"/> to NaN.
+    /// The inverse, the adjugate times <c>1 / det</c>. A diagonal matrix with a positive determinant inverts to a diagonal
+    /// one bit for bit. When the determinant or its reciprocal is not finite (a zero, tiny subnormal or overflowing
+    /// determinant, or a NaN element), returns false and sets every element of <paramref name="result"/> to NaN. With both
+    /// finite it returns true, and an element of a very large inverse can still overflow to infinity.
     /// </summary>
     public static bool TryInvert(Matrix2 matrix, out Matrix2 result)
     {
@@ -115,9 +116,7 @@ public struct Matrix2 : IEquatable<Matrix2>
             return false;
         }
 
-        // Adjugate columns (m11, -m10) and (-m01, m00). The negations are subtractions from zero, so a zero cofactor
-        // stays +0, as the 3 × 3 and 4 × 4 cofactor sums give: the inverse of a diagonal matrix is diagonal bit for bit
-        // for a positive determinant (a negative 1 / det turns the +0 cofactors into -0).
+        // Adjugate columns (m11, -m10) and (-m01, m00), the negations as subtractions from zero.
         result = FromColumns(
             new Vector2(matrix.Column1.Y, 0f - matrix.Column0.Y) * inverseDeterminant,
             new Vector2(0f - matrix.Column1.X, matrix.Column0.X) * inverseDeterminant);

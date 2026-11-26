@@ -116,7 +116,8 @@ public struct Matrix3d : IEquatable<Matrix3d>
     /// The inverse: its rows are <c>Cross(Column1, Column2)</c>, <c>Cross(Column2, Column0)</c> and
     /// <c>Cross(Column0, Column1)</c> times <c>1 / det</c> (the adjugate). When the determinant or its reciprocal is not
     /// finite (a zero, tiny subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
-    /// <paramref name="result"/> to NaN.
+    /// <paramref name="result"/> to NaN. With both finite it returns true, and an element of a very large inverse can still
+    /// overflow to infinity.
     /// </summary>
     public static bool TryInvert(Matrix3d matrix, out Matrix3d result)
     {
@@ -186,21 +187,29 @@ public struct Matrix3d : IEquatable<Matrix3d>
 
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/> (Rodrigues: <c>c I + (1 - c) a aᵀ + s [a]×</c>),
-    /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here; an exactly zero axis
-    /// gives <see cref="Identity"/>, an axis whose squared length is not finite (a component above about 1.3e154, or a NaN)
-    /// throws <see cref="ArgumentOutOfRangeException"/>, and a nonzero axis whose squared length underflows to 0 gives NaN.
-    /// (<see cref="Quaterniond.CreateFromAxisAngle"/> expects a unit axis instead, like System.Numerics.) Calls sin and cos,
-    /// so the result follows the OS math library and is not promised bit-identical across CPUs.
+    /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here, scaled by its largest
+    /// component magnitude first (as <see cref="Matrix3.CreateFromAxisAngle"/> does), so every finite nonzero axis, however
+    /// tiny or huge, gives the rotation about its direction; an exactly zero axis gives <see cref="Identity"/>, and a NaN
+    /// or infinite component throws <see cref="ArgumentOutOfRangeException"/>. (<see cref="Quaterniond.CreateFromAxisAngle"/>
+    /// expects a unit axis instead, like System.Numerics.) Calls sin and cos, so the result follows the OS math library and
+    /// is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix3d CreateFromAxisAngle(Vector3d axis, double angle)
     {
-        var lengthSquared = axis.LengthSquared();
-        if (!double.IsFinite(lengthSquared))
-            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's squared length must be finite.");
-        if (axis == Vector3d.Zero)
+        if (!double.IsFinite(axis.X) || !double.IsFinite(axis.Y) || !double.IsFinite(axis.Z))
+            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's components must be finite.");
+
+        // Divided by the largest component magnitude first: that component becomes ±1 and the squared length lies in
+        // [1, 3], so nothing overflows or underflows; then divided by the length, left to right, without fused multiply-add.
+        var largest = Math.Max(Math.Abs(axis.X), Math.Max(Math.Abs(axis.Y), Math.Abs(axis.Z)));
+        if (largest == 0.0)
             return Identity;
 
-        var a = axis / Math.Sqrt(lengthSquared);
+        var x = axis.X / largest;
+        var y = axis.Y / largest;
+        var z = axis.Z / largest;
+        var length = Math.Sqrt(x * x + y * y + z * z);
+        var a = new Vector3d(x / length, y / length, z / length);
         var (s, c) = Math.SinCos(angle);
         var t = 1.0 - c;
 

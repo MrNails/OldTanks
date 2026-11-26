@@ -148,11 +148,10 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// The inverse, the adjugate times <c>1 / det</c>. Own code on <see cref="Vector128{T}"/> without fused multiply-add and
     /// with every sum in a fixed order, so the bits are the same on every instruction set (System.Numerics'
     /// <c>Matrix4x4.Invert</c> differs between FMA, SSE and software). Each column of the adjugate is the cofactors of one
-    /// row, built from the 2 × 2 minors of the other two row pairs. Applying the signs to the minors before the products
-    /// changes no non-NaN value, only the sign of a zero cofactor, which comes out +0: so only a diagonal matrix with a
-    /// positive determinant inverts to a diagonal one bit for bit (a negative <c>1 / det</c> turns the zeros into -0). When
-    /// the determinant or its reciprocal is not finite (a zero, tiny subnormal or overflowing determinant, or a NaN
-    /// element), returns false and sets every element of <paramref name="result"/> to NaN.
+    /// row, built from the 2 × 2 minors of the other two row pairs. A diagonal matrix with a positive determinant inverts to
+    /// a diagonal one bit for bit. When the determinant or its reciprocal is not finite (a zero, tiny subnormal or
+    /// overflowing determinant, or a NaN element), returns false and sets every element of <paramref name="result"/> to
+    /// NaN. With both finite it returns true, and an element of a very large inverse can still overflow to infinity.
     /// </summary>
     public static bool TryInvert(Matrix4 matrix, out Matrix4 result)
     {
@@ -309,22 +308,19 @@ public struct Matrix4 : IEquatable<Matrix4>
 
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/>, counterclockwise when looking from
-    /// the axis' tip toward the origin. The axis is normalized here (<c>axis / sqrt(LengthSquared())</c>; an exactly zero
-    /// axis gives <see cref="Identity"/>, an axis whose squared length is not finite, a component above about 1.8e19 or a
-    /// NaN, throws <see cref="ArgumentOutOfRangeException"/>, and a nonzero axis whose squared length underflows to 0
-    /// gives NaN, all as <see cref="Matrix3.CreateFromAxisAngle"/> does), then the work is delegated to
+    /// the axis' tip toward the origin. The axis is normalized here, scaled by its largest component magnitude first, as
+    /// <see cref="Matrix3.CreateFromAxisAngle"/> does: every finite nonzero axis, however tiny or huge, gives the rotation
+    /// about its direction; an exactly zero axis gives <see cref="Identity"/>, and a NaN or infinite component throws
+    /// <see cref="ArgumentOutOfRangeException"/>. The unit axis then goes to
     /// <c>System.Numerics.Matrix4x4.CreateFromAxisAngle</c>, which itself expects a unit axis. Calls sin and cos, so the
     /// result follows the OS math library and is not promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4 CreateFromAxisAngle(Vector3 axis, float angle)
     {
-        var lengthSquared = axis.LengthSquared();
-        if (!float.IsFinite(lengthSquared))
-            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's squared length must be finite.");
-        if (axis == Vector3.Zero)
+        if (!Matrix3.TryNormalizeAxis(axis, out var unit))
             return Identity;
 
-        return FromNumerics(Matrix4x4.CreateFromAxisAngle(axis / MathF.Sqrt(lengthSquared), angle));
+        return FromNumerics(Matrix4x4.CreateFromAxisAngle(unit, angle));
     }
 
     /// <summary>
@@ -533,8 +529,7 @@ public struct Matrix4 : IEquatable<Matrix4>
     // along a second row, `elements`, using the 2 × 2 minors of the remaining two rows. Lane c combines the three entries
     // of `elements` outside column c:
     //   e_X = (e1, e0, e0, e0), e_Y = (e2, e2, e1, e1), e_Z = (e3, e3, e3, e2)
-    // with the minors P, Q, R of the matching column pairs, each sign-flipped before the product (so a zero product is
-    // +0 unless its minor's sign is flipped, and the sum of a +0 term with anything zero stays +0), then summed left to right.
+    // with the minors P, Q, R of the matching column pairs, each sign-flipped before the product, then summed left to right.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Vector128<float> Cofactors(Vector128<float> elements, in Minors minors, Vector128<float> signsOfPAndR,
         Vector128<float> signsOfQ)

@@ -528,13 +528,45 @@ public sealed class Matrix4dTests
         MathAssert.Exact(Matrix4d.CreateFromAxisAngle(Vector3d.Zero, 1.0), Matrix4d.Identity);
     }
 
-    // 2e154 squared overflows double to +∞; a NaN or infinite component makes the squared length non-finite too.
-    [TestCase(2e154, 0.0, 0.0)]
+    // A NaN or infinite component has no direction.
     [TestCase(0.0, double.NaN, 0.0)]
     [TestCase(0.0, 0.0, double.NegativeInfinity)]
     public void CreateFromAxisAngle_NonFiniteAxis_Throws(double x, double y, double z)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4d.CreateFromAxisAngle(new Vector3d(x, y, z), 1.0));
+    }
+
+    // (1e-170 · d) squared underflows to 0: the axis is scaled by its largest component first, so it still rotates about d.
+    [TestCase(1e-170)]
+    public void CreateFromAxisAngle_TinyAxis_RotatesLikeUnitAxis(double scale)
+    {
+        AssertRotatesLikeUnitAxis(scale);
+    }
+
+    // (2e154 · d) squared overflows to +∞.
+    [TestCase(2e154)]
+    public void CreateFromAxisAngle_HugeAxis_RotatesLikeUnitAxis(double scale)
+    {
+        AssertRotatesLikeUnitAxis(scale);
+    }
+
+    // The axis d · scale against OpenTK's rotation about the unit axis normalize(d).
+    private static void AssertRotatesLikeUnitAxis(double scale)
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var direction in new[] { Vector3d.UnitX, new Vector3d(0.25, -0.5, 1.0) })
+            {
+                var unit = Vector3d.Normalize(direction);
+                foreach (var angle in new[] { 0.7, -2.1 })
+                {
+                    var expected = Oracle.FromOpenTK(OpenTKMath.Matrix4d.CreateFromAxisAngle(Oracle.ToOpenTK(unit), angle));
+
+                    MathAssert.Near(Matrix4d.CreateFromAxisAngle(direction * scale, angle), expected, MathAssert.TrigonometricD, 1.0,
+                        $"direction {direction}, angle {angle}");
+                }
+            }
+        });
     }
 
     [Test]

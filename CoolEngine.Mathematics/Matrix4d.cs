@@ -138,11 +138,11 @@ public struct Matrix4d : IEquatable<Matrix4d>
 
     /// <summary>
     /// The inverse, the adjugate times <c>1 / det</c>: the float matrix's cofactor algorithm in scalar form. Each column of
-    /// the adjugate is the cofactors of one row, built from the 2 × 2 minors of the other two row pairs. Applying the signs
-    /// to the minors before the products changes no non-NaN value, only the sign of a zero cofactor, which comes out +0: so
-    /// only a diagonal matrix with a positive determinant inverts to a diagonal one bit for bit (a negative <c>1 / det</c>
-    /// turns the zeros into -0). When the determinant or its reciprocal is not finite (a zero, tiny subnormal or overflowing
-    /// determinant, or a NaN element), returns false and sets every element of <paramref name="result"/> to NaN.
+    /// the adjugate is the cofactors of one row, built from the 2 × 2 minors of the other two row pairs. A diagonal matrix
+    /// with a positive determinant inverts to a diagonal one bit for bit. When the determinant or its reciprocal is not
+    /// finite (a zero, tiny subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
+    /// <paramref name="result"/> to NaN. With both finite it returns true, and an element of a very large inverse can still
+    /// overflow to infinity.
     /// </summary>
     public static bool TryInvert(Matrix4d matrix, out Matrix4d result)
     {
@@ -273,10 +273,11 @@ public struct Matrix4d : IEquatable<Matrix4d>
     }
 
     /// <summary>
-    /// <see cref="Matrix3d.CreateFromAxisAngle"/> in the upper-left 3 × 3: the axis is normalized there; an exactly zero
-    /// axis gives <see cref="Identity"/>, and an axis whose squared length is not finite (a component above about 1.3e154,
-    /// or a NaN) throws <see cref="ArgumentOutOfRangeException"/>. Calls sin and cos, so the result follows the OS math
-    /// library and is not promised bit-identical across CPUs.
+    /// <see cref="Matrix3d.CreateFromAxisAngle"/> in the upper-left 3 × 3: the axis is normalized there, scaled by its
+    /// largest component magnitude first, so every finite nonzero axis, however tiny or huge, gives the rotation about its
+    /// direction; an exactly zero axis gives <see cref="Identity"/>, and a NaN or infinite component throws
+    /// <see cref="ArgumentOutOfRangeException"/>. Calls sin and cos, so the result follows the OS math library and is not
+    /// promised bit-identical across CPUs.
     /// </summary>
     public static Matrix4d CreateFromAxisAngle(Vector3d axis, double angle)
     {

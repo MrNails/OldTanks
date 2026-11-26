@@ -9,8 +9,8 @@ namespace CoolEngine.Mathematics;
 /// and the same semantics: <see cref="Min"/> and <see cref="Max"/> propagate NaN and order -0 below +0, unary minus flips
 /// the sign bit, <see cref="Normalize"/> of zero gives NaN. Own code, scalar on the fields (review A: no SIMD round trip
 /// for 24 bytes), with no fused multiply-add and every sum left to right. Bit stability: every member (they use only
-/// + − × ÷ and sqrt) gives the same bits on every x64 CPU and instruction set for finite inputs (a NaN's sign and payload
-/// are not covered).
+/// + − × ÷, sqrt and exact operations: negation, Abs, Min, Max, conversions) gives the same bits on every x64 CPU and
+/// instruction set for finite inputs (a NaN's sign and payload are not covered).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public struct Vector3d : IEquatable<Vector3d>

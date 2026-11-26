@@ -533,13 +533,47 @@ public sealed class Matrix4Tests
         MathAssert.Exact(Matrix4.CreateFromAxisAngle(Vector3.Zero, 1f), Matrix4.Identity);
     }
 
-    // 2e19 squared overflows float to +∞; a NaN or infinite component makes the squared length non-finite too.
-    [TestCase(2e19f, 0f, 0f)]
+    // A NaN or infinite component has no direction.
     [TestCase(0f, float.NaN, 0f)]
     [TestCase(0f, 0f, float.NegativeInfinity)]
     public void CreateFromAxisAngle_NonFiniteAxis_Throws(float x, float y, float z)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Matrix4.CreateFromAxisAngle(new Vector3(x, y, z), 1f));
+    }
+
+    // (1e-25 · d) squared underflows to 0 and (3e-23 · d) squared is subnormal: the axis is scaled by its largest
+    // component first, so both still rotate about d.
+    [TestCase(1e-25f)]
+    [TestCase(3e-23f)]
+    public void CreateFromAxisAngle_TinyAxis_RotatesLikeUnitAxis(float scale)
+    {
+        AssertRotatesLikeUnitAxis(scale);
+    }
+
+    // (2e19 · d) squared overflows to +∞.
+    [TestCase(2e19f)]
+    public void CreateFromAxisAngle_HugeAxis_RotatesLikeUnitAxis(float scale)
+    {
+        AssertRotatesLikeUnitAxis(scale);
+    }
+
+    // The axis d · scale against OpenTK's rotation about the unit axis normalize(d).
+    private static void AssertRotatesLikeUnitAxis(float scale)
+    {
+        Assert.Multiple(() =>
+        {
+            foreach (var direction in new[] { Vector3.UnitX, new Vector3(0.25f, -0.5f, 1f) })
+            {
+                var unit = Vector3.Normalize(direction);
+                foreach (var angle in new[] { 0.7f, -2.1f })
+                {
+                    var expected = Oracle.FromOpenTK(OpenTKMath.Matrix4.CreateFromAxisAngle(Oracle.ToOpenTK(unit), angle));
+
+                    MathAssert.Near(Matrix4.CreateFromAxisAngle(direction * scale, angle), expected, MathAssert.Trigonometric, 1f,
+                        $"direction {direction}, angle {angle}");
+                }
+            }
+        });
     }
 
     [Test]

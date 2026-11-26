@@ -18,8 +18,9 @@ namespace CoolEngine.Mathematics.Tests;
 /// tolerances. Rotations come from four random components normalized with sqrt, not from Shoemake's trig formula.
 /// </para>
 /// <para>
-/// Re-record rule: re-record a golden only when the environment changes (CPU, OS, .NET), only after the same hash is seen
-/// on all four paths, and never to make a code change pass (a deliberate change of a result is a plan decision first).
+/// Re-record rule: re-record a golden only after a .NET update (the members delegated to System.Numerics can move), and
+/// only once the four paths agree on the new hash. A different hash on another CPU or OS is a defect to investigate, never
+/// a reason to re-record.
 /// </para>
 /// </summary>
 [TestFixture]

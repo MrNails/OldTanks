@@ -120,7 +120,8 @@ public struct Matrix3 : IEquatable<Matrix3>
     /// The inverse: its rows are <c>Cross(Column1, Column2)</c>, <c>Cross(Column2, Column0)</c> and
     /// <c>Cross(Column0, Column1)</c> times <c>1 / det</c> (the adjugate). When the determinant or its reciprocal is not
     /// finite (a zero, tiny subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
-    /// <paramref name="result"/> to NaN.
+    /// <paramref name="result"/> to NaN. With both finite it returns true, and an element of a very large inverse can still
+    /// overflow to infinity.
     /// </summary>
     public static bool TryInvert(Matrix3 matrix, out Matrix3 result)
     {
@@ -190,23 +191,19 @@ public struct Matrix3 : IEquatable<Matrix3>
 
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/> (Rodrigues: <c>c I + (1 - c) a aᵀ + s [a]×</c>),
-    /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here; an exactly zero axis
-    /// gives <see cref="Identity"/>, and an axis whose squared length is not finite (a component above about 1.8e19, or a
-    /// NaN) throws <see cref="ArgumentOutOfRangeException"/>, as <see cref="Matrix4.CreateFromAxisAngle"/> does; a nonzero
-    /// axis whose squared length underflows to 0 gives NaN. System.Numerics' own axis-angle factories
-    /// (<see cref="Quaternion.CreateFromAxisAngle"/>, <c>Matrix4x4.CreateFromAxisAngle</c>) do not normalize: they
-    /// expect a unit axis. Calls sin and cos, so the result follows the OS math library and is not promised bit-identical
-    /// across CPUs.
+    /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here, scaled by its largest
+    /// component magnitude first, so every finite nonzero axis, however tiny or huge, gives the rotation about its
+    /// direction; an exactly zero axis gives <see cref="Identity"/>, and a NaN or infinite component throws
+    /// <see cref="ArgumentOutOfRangeException"/>, as <see cref="Matrix4.CreateFromAxisAngle"/> does. System.Numerics' own
+    /// axis-angle factories (<see cref="Quaternion.CreateFromAxisAngle"/>, <c>Matrix4x4.CreateFromAxisAngle</c>) do not
+    /// normalize: they expect a unit axis. Calls sin and cos, so the result follows the OS math library and is not promised
+    /// bit-identical across CPUs.
     /// </summary>
     public static Matrix3 CreateFromAxisAngle(Vector3 axis, float angle)
     {
-        var lengthSquared = axis.LengthSquared();
-        if (!float.IsFinite(lengthSquared))
-            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's squared length must be finite.");
-        if (axis == Vector3.Zero)
+        if (!TryNormalizeAxis(axis, out var a))
             return Identity;
 
-        var a = axis / MathF.Sqrt(lengthSquared);
         var (s, c) = MathF.SinCos(angle);
         var t = 1f - c;
 
@@ -222,6 +219,33 @@ public struct Matrix3 : IEquatable<Matrix3>
             new Vector3(c + t * a.X * a.X, txy + sz, txz - sy),
             new Vector3(txy - sz, c + t * a.Y * a.Y, tyz + sx),
             new Vector3(txz + sy, tyz - sx, c + t * a.Z * a.Z));
+    }
+
+    /// <summary>
+    /// The unit vector along <paramref name="axis"/> for the axis-angle factories (this one and
+    /// <see cref="Matrix4.CreateFromAxisAngle"/>): the axis divided by its largest component magnitude (that component
+    /// becomes ±1 and the squared length lies in [1, 3], so nothing overflows or underflows), then by the square root of
+    /// its sum of squares, left to right, without fused multiply-add. False for an exactly zero axis; a NaN or infinite
+    /// component throws <see cref="ArgumentOutOfRangeException"/>.
+    /// </summary>
+    internal static bool TryNormalizeAxis(Vector3 axis, out Vector3 unit)
+    {
+        if (!float.IsFinite(axis.X) || !float.IsFinite(axis.Y) || !float.IsFinite(axis.Z))
+            throw new ArgumentOutOfRangeException(nameof(axis), axis, "The axis's components must be finite.");
+
+        var largest = MathF.Max(MathF.Abs(axis.X), MathF.Max(MathF.Abs(axis.Y), MathF.Abs(axis.Z)));
+        if (largest == 0f)
+        {
+            unit = default;
+            return false;
+        }
+
+        var x = axis.X / largest;
+        var y = axis.Y / largest;
+        var z = axis.Z / largest;
+        var length = MathF.Sqrt(x * x + y * y + z * z);
+        unit = new Vector3(x / length, y / length, z / length);
+        return true;
     }
 
     /// <summary>
