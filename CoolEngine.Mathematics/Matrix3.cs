@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -23,9 +24,9 @@ public struct Matrix3 : IEquatable<Matrix3>
     /// <summary>The upper-left 3 × 3 of <paramref name="matrix"/>.</summary>
     public Matrix3(Matrix4 matrix)
     {
-        Column0 = matrix.Column0.Xyz;
-        Column1 = matrix.Column1.Xyz;
-        Column2 = matrix.Column2.Xyz;
+        Column0 = matrix.Column0.AsVector128().AsVector3();
+        Column1 = matrix.Column1.AsVector128().AsVector3();
+        Column2 = matrix.Column2.AsVector128().AsVector3();
     }
 
     public static Matrix3 Identity => FromColumns(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
@@ -174,11 +175,13 @@ public struct Matrix3 : IEquatable<Matrix3>
     /// <summary>
     /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/> (Rodrigues: <c>c I + (1 - c) a aᵀ + s [a]×</c>),
     /// counterclockwise when looking from the axis' tip toward the origin. The axis is normalized here; a zero axis
-    /// (<c>LengthSquared == 0</c>) gives <see cref="Identity"/>.
+    /// (<c>LengthSquared() == 0</c>) gives <see cref="Identity"/>. System.Numerics' own axis-angle factories
+    /// (<see cref="Quaternion.CreateFromAxisAngle"/>, <c>Matrix4x4.CreateFromAxisAngle</c>) do not normalize: they
+    /// expect a unit axis.
     /// </summary>
     public static Matrix3 CreateFromAxisAngle(Vector3 axis, float angle)
     {
-        var lengthSquared = axis.LengthSquared;
+        var lengthSquared = axis.LengthSquared();
         if (lengthSquared == 0f)
             return Identity;
 
@@ -238,10 +241,11 @@ public struct Matrix3 : IEquatable<Matrix3>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector3 operator *(Matrix3 matrix, Vector3 vector)
     {
-        var result = Simd.Load(matrix.Column0) * vector.X;
-        result = Vector128.MultiplyAddEstimate(Simd.Load(matrix.Column1), Vector128.Create(vector.Y), result);
-        result = Vector128.MultiplyAddEstimate(Simd.Load(matrix.Column2), Vector128.Create(vector.Z), result);
-        return Simd.ToVector3(result);
+        // AsVector128 zeroes the unused fourth lane; AsVector3 reads back the first three.
+        var result = matrix.Column0.AsVector128() * vector.X;
+        result = Vector128.MultiplyAddEstimate(matrix.Column1.AsVector128(), Vector128.Create(vector.Y), result);
+        result = Vector128.MultiplyAddEstimate(matrix.Column2.AsVector128(), Vector128.Create(vector.Z), result);
+        return result.AsVector3();
     }
 
     /// <summary>IEEE comparison per element: NaN differs from everything, +0 equals -0.</summary>

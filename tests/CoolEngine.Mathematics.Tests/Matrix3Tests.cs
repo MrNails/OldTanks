@@ -1,4 +1,6 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using CoolEngine.Mathematics.Tests.TestSupport;
 using OpenTKMath = OpenTK.Mathematics;
 
@@ -255,7 +257,8 @@ public sealed class Matrix3Tests
                 var upperLeft = new Matrix3(m4);
                 var widened = new Matrix4(m3);
 
-                MathAssert.Exact(upperLeft, Matrix3.FromColumns(m4.Column0.Xyz, m4.Column1.Xyz, m4.Column2.Xyz), label + " Matrix3(Matrix4)");
+                MathAssert.Exact(upperLeft, Matrix3.FromColumns(m4.Column0.AsVector128().AsVector3(), m4.Column1.AsVector128().AsVector3(),
+                    m4.Column2.AsVector128().AsVector3()), label + " Matrix3(Matrix4)");
                 MathAssert.Exact(widened, Matrix4.FromColumns(new Vector4(m3.Column0, 0f), new Vector4(m3.Column1, 0f),
                     new Vector4(m3.Column2, 0f), Vector4.UnitW), label + " Matrix4(Matrix3)");
                 MathAssert.Exact(new Matrix3(widened), m3, label + " round trip");
@@ -351,7 +354,7 @@ public sealed class Matrix3Tests
         {
             for (var i = 0; i < Inputs.Count; i++)
             {
-                var axis = random.NextVector3().Normalized();
+                var axis = Vector3.Normalize(random.NextVector3());
                 var angle = random.NextAngle();
 
                 MathAssert.Near(Matrix3.CreateFromAxisAngle(axis * 5f, angle), Matrix3.CreateFromAxisAngle(axis, angle),
@@ -372,7 +375,7 @@ public sealed class Matrix3Tests
                 var rotation = random.NextRotation();
                 var vector = random.NextVector3();
 
-                MathAssert.Near(Matrix3.CreateFromQuaternion(rotation) * vector, rotation * vector, MathAssert.SumsOfProducts,
+                MathAssert.Near(Matrix3.CreateFromQuaternion(rotation) * vector, Vector3.Transform(vector, rotation), MathAssert.SumsOfProducts,
                     MathAssert.RotationScales(rotation, vector), Inputs.Label(i));
             }
         });

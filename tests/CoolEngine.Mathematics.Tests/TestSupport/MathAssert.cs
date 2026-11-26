@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -110,11 +111,6 @@ internal static class MathAssert
         Exact(Components(actual), Components(expected), context);
     }
 
-    public static void Exact(Quaternion actual, Quaternion expected, string? context = null)
-    {
-        Exact(Components(actual), Components(expected), context);
-    }
-
     #endregion
 
     #region Near
@@ -149,15 +145,6 @@ internal static class MathAssert
         Near(Components(actual), Components(expected), tolerance, scales, context);
     }
 
-    public static void Near(Quaternion actual, Quaternion expected, float tolerance, float scale = 1f, string? context = null)
-    {
-        Near(Components(actual), Components(expected), tolerance, scale, context);
-    }
-
-    public static void Near(Quaternion actual, Quaternion expected, float tolerance, ReadOnlySpan<float> scales, string? context = null)
-    {
-        Near(Components(actual), Components(expected), tolerance, scales, context);
-    }
 
     public static void Near(Vector2 actual, Vector2 expected, float tolerance, float scale = 1f, string? context = null)
     {
@@ -354,18 +341,6 @@ internal static class MathAssert
         return (float)AbsPermanent(Components(matrix), 4, 0, 0);
     }
 
-    /// <summary>The sums-of-products scale of the Hamilton product <c>a * b</c>, per component X, Y, Z, W.</summary>
-    public static float[] ProductScales(Quaternion a, Quaternion b)
-    {
-        return
-        [
-            SumOfAbs(a.W * b.X, a.X * b.W, a.Y * b.Z, a.Z * b.Y),
-            SumOfAbs(a.W * b.Y, a.X * b.Z, a.Y * b.W, a.Z * b.X),
-            SumOfAbs(a.W * b.Z, a.X * b.Y, a.Y * b.X, a.Z * b.W),
-            SumOfAbs(a.W * b.W, a.X * b.X, a.Y * b.Y, a.Z * b.Z),
-        ];
-    }
-
     /// <summary>
     /// The sums-of-products scale of rotating <paramref name="vector"/> by the unit quaternion <paramref name="rotation"/>,
     /// per component. The expanded terms of <c>v + 2w(u × v) + 2u × (u × v)</c> are the same products as the terms of
@@ -448,13 +423,7 @@ internal static class MathAssert
         return [.. Components(value.Column0), .. Components(value.Column1), .. Components(value.Column2), .. Components(value.Column3)];
     }
 
-    /// <summary>The components of a quaternion read from its fields: X, Y, Z, W.</summary>
-    public static float[] Components(Quaternion value)
-    {
-        return [value.X, value.Y, value.Z, value.W];
-    }
-
-    /// <summary>The components of a vector read from its fields, X, Y, Z, W, independent of the memory layout.</summary>
+    /// <summary>The components of a System.Numerics vector read from its fields: X, Y, Z, W.</summary>
     public static float[] Components(Vector2 value)
     {
         return [value.X, value.Y];

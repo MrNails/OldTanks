@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Numerics = System.Numerics;
@@ -14,8 +15,8 @@ namespace CoolEngine.Mathematics.Tests.TestSupport;
 /// <see cref="Reinterpret{TFrom, TTo}"/> moves a value between the two worlds byte for byte and
 /// <see cref="SameBytes{TOurs, TTheirs}"/> asserts two values have the same memory.
 /// </para>
-/// The named conversions of each library type (to and from System.Numerics and OpenTK) are added in the stage that adds
-/// the type, built on <see cref="Reinterpret{TFrom, TTo}"/> where the layouts match.
+/// The library's float vectors and quaternion are System.Numerics' own types; the named conversions here cover the
+/// matrices (to and from <c>Matrix4x4</c> and OpenTK's matrices, byte for byte) and the vectors to OpenTK.
 /// </summary>
 internal static class Oracle
 {
@@ -33,48 +34,8 @@ internal static class Oracle
         return Unsafe.BitCast<TFrom, TTo>(value);
     }
 
-    // Vectors convert field by field, independent of the layout and of the library's own conversion operators,
-    // which are under test themselves.
-
-    public static Numerics.Vector2 ToNumerics(Vector2 value)
-    {
-        return new Numerics.Vector2(value.X, value.Y);
-    }
-
-    public static Numerics.Vector3 ToNumerics(Vector3 value)
-    {
-        return new Numerics.Vector3(value.X, value.Y, value.Z);
-    }
-
-    public static Numerics.Vector4 ToNumerics(Vector4 value)
-    {
-        return new Numerics.Vector4(value.X, value.Y, value.Z, value.W);
-    }
-
-    public static Vector2 FromNumerics(Numerics.Vector2 value)
-    {
-        return new Vector2(value.X, value.Y);
-    }
-
-    public static Vector3 FromNumerics(Numerics.Vector3 value)
-    {
-        return new Vector3(value.X, value.Y, value.Z);
-    }
-
-    public static Vector4 FromNumerics(Numerics.Vector4 value)
-    {
-        return new Vector4(value.X, value.Y, value.Z, value.W);
-    }
-
-    public static Numerics.Quaternion ToNumerics(Quaternion value)
-    {
-        return new Numerics.Quaternion(value.X, value.Y, value.Z, value.W);
-    }
-
-    public static Quaternion FromNumerics(Numerics.Quaternion value)
-    {
-        return new Quaternion(value.X, value.Y, value.Z, value.W);
-    }
+    // Vectors convert to OpenTK field by field. The float vectors and the quaternion are System.Numerics' own types, so
+    // they need no conversion to that oracle.
 
     public static OpenTKMath.Vector2 ToOpenTK(Vector2 value)
     {

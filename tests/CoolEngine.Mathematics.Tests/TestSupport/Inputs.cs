@@ -1,3 +1,5 @@
+using System.Numerics;
+using System.Runtime.Intrinsics;
 using Numerics = System.Numerics;
 
 namespace CoolEngine.Mathematics.Tests.TestSupport;
@@ -7,8 +9,8 @@ namespace CoolEngine.Mathematics.Tests.TestSupport;
 /// A test takes its own generator from <see cref="CreateRandom"/>, so every run and every test sees the same sequence
 /// (a seeded <see cref="Random"/> is stable across runs and .NET versions). The ranges are the plan's: components and
 /// translations in [-100, 100], angles in [-2π, 2π], scale factors in [0.5, 2], uniformly distributed unit quaternions.
-/// The generators of the library types (vectors, quaternions, TRS matrices) are added in the stage that adds the
-/// type, built from these.
+/// The vector and quaternion generators return System.Numerics' types, which the library uses as its float vectors and
+/// quaternion; the matrix generators return the library's matrices.
 /// </summary>
 internal static class Inputs
 {
@@ -64,12 +66,6 @@ internal static class Inputs
         return new Vector4(random.NextComponent(), random.NextComponent(), random.NextComponent(), random.NextComponent());
     }
 
-    /// <summary>A quaternion with every component in [-100, 100] (not a rotation; for the algebra tests).</summary>
-    public static Quaternion NextQuaternion(this Random random)
-    {
-        return new Quaternion(random.NextComponent(), random.NextComponent(), random.NextComponent(), random.NextComponent());
-    }
-
     /// <summary>A unit quaternion, uniform over all rotations (<see cref="NextUnitQuaternion"/>).</summary>
     public static Quaternion NextRotation(this Random random)
     {
@@ -104,7 +100,7 @@ internal static class Inputs
     {
         var (x, y, z, w) = random.NextUnitQuaternion();
         var scale = Numerics.Matrix4x4.CreateScale(random.NextScaleFactor(), random.NextScaleFactor(), random.NextScaleFactor());
-        var rotation = Numerics.Matrix4x4.CreateFromQuaternion(new Numerics.Quaternion(x, y, z, w));
+        var rotation = Numerics.Matrix4x4.CreateFromQuaternion(new Quaternion(x, y, z, w));
         var translation = Numerics.Matrix4x4.CreateTranslation(random.NextComponent(), random.NextComponent(), random.NextComponent());
 
         return Oracle.FromNumerics(scale * rotation * translation);
@@ -114,7 +110,8 @@ internal static class Inputs
     public static Matrix3 NextRotationScale3(this Random random)
     {
         var trs = random.NextTrs();
-        return Matrix3.FromColumns(trs.Column0.Xyz, trs.Column1.Xyz, trs.Column2.Xyz);
+        return Matrix3.FromColumns(trs.Column0.AsVector128().AsVector3(), trs.Column1.AsVector128().AsVector3(),
+            trs.Column2.AsVector128().AsVector3());
     }
 
     /// <summary>A 2D rotation by a random angle times a per-axis scale in [0.5, 2]: <c>R * S</c>.</summary>

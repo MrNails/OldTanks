@@ -1,4 +1,6 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using CoolEngine.Mathematics.Tests.TestSupport;
 using Numerics = System.Numerics;
 using OpenTKMath = OpenTK.Mathematics;
@@ -137,7 +139,7 @@ public sealed class Matrix4Tests
                 var matrix = random.NextMatrix4();
                 var vector = random.NextVector4();
 
-                var expected = Oracle.FromNumerics(Numerics.Vector4.Transform(Oracle.ToNumerics(vector), Oracle.ToNumerics(matrix)));
+                var expected = Vector4.Transform(vector, Oracle.ToNumerics(matrix));
 
                 MathAssert.Near(matrix * vector, expected, MathAssert.SumsOfProducts, MathAssert.ProductScales(matrix, vector),
                     Inputs.Label(i));
@@ -302,6 +304,39 @@ public sealed class Matrix4Tests
     }
 
     [Test]
+    public void TransformPosition_Translation_AddsOffset()
+    {
+        MathAssert.Exact(Matrix4.CreateTranslation(1f, 2f, 3f).TransformPosition(new Vector3(1f, 1f, 1f)), new Vector3(2f, 3f, 4f));
+    }
+
+    [Test]
+    public void TransformPosition_RandomTrs_MatchesSystemNumerics()
+    {
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                var trs = random.NextTrs();
+                var position = random.NextVector3();
+
+                var expected = Vector3.Transform(position, Oracle.ToNumerics(trs));
+                var scales = MathAssert.ProductScales(trs, new Vector4(position, 1f));
+
+                MathAssert.Near(trs.TransformPosition(position), expected, MathAssert.SumsOfProducts, scales.AsSpan(0, 3),
+                    Inputs.Label(i));
+            }
+        });
+    }
+
+    [Test]
+    public void TransformDirection_Translation_IgnoresOffset()
+    {
+        MathAssert.Exact(Matrix4.CreateTranslation(1f, 2f, 3f).TransformDirection(new Vector3(1f, 1f, 1f)), new Vector3(1f, 1f, 1f));
+    }
+
+    [Test]
     public void ConvertBetweenSizes_UpperLeft_RoundTrips()
     {
         var random = Inputs.CreateRandom();
@@ -317,7 +352,8 @@ public sealed class Matrix4Tests
                 var upperLeft = new Matrix3(m4);
                 var widened = new Matrix4(m3);
 
-                MathAssert.Exact(upperLeft, Matrix3.FromColumns(m4.Column0.Xyz, m4.Column1.Xyz, m4.Column2.Xyz), label + " Matrix3(Matrix4)");
+                MathAssert.Exact(upperLeft, Matrix3.FromColumns(m4.Column0.AsVector128().AsVector3(), m4.Column1.AsVector128().AsVector3(),
+                    m4.Column2.AsVector128().AsVector3()), label + " Matrix3(Matrix4)");
                 MathAssert.Exact(widened, Matrix4.FromColumns(new Vector4(m3.Column0, 0f), new Vector4(m3.Column1, 0f),
                     new Vector4(m3.Column2, 0f), Vector4.UnitW), label + " Matrix4(Matrix3)");
                 MathAssert.Exact(new Matrix3(widened), m3, label + " round trip");
@@ -433,7 +469,7 @@ public sealed class Matrix4Tests
         {
             for (var i = 0; i < Inputs.Count; i++)
             {
-                var axis = random.NextVector3().Normalized();
+                var axis = Vector3.Normalize(random.NextVector3());
                 var angle = random.NextAngle();
 
                 MathAssert.Near(Matrix4.CreateFromAxisAngle(axis * 5f, angle), Matrix4.CreateFromAxisAngle(axis, angle),
@@ -454,9 +490,9 @@ public sealed class Matrix4Tests
                 var rotation = random.NextRotation();
                 var vector = random.NextVector3();
 
-                var rotated = (Matrix4.CreateFromQuaternion(rotation) * new Vector4(vector, 0f)).Xyz;
+                var rotated = (Matrix4.CreateFromQuaternion(rotation) * new Vector4(vector, 0f)).AsVector128().AsVector3();
 
-                MathAssert.Near(rotated, rotation * vector, MathAssert.SumsOfProducts, MathAssert.RotationScales(rotation, vector),
+                MathAssert.Near(rotated, Vector3.Transform(vector, rotation), MathAssert.SumsOfProducts, MathAssert.RotationScales(rotation, vector),
                     Inputs.Label(i));
             }
         });
@@ -473,7 +509,7 @@ public sealed class Matrix4Tests
             {
                 var rotation = random.NextRotation();
 
-                var expected = Oracle.FromNumerics(Numerics.Matrix4x4.CreateFromQuaternion(Oracle.ToNumerics(rotation)));
+                var expected = Oracle.FromNumerics(Numerics.Matrix4x4.CreateFromQuaternion(rotation));
 
                 MathAssert.Near(Matrix4.CreateFromQuaternion(rotation), expected, MathAssert.Trigonometric, 1f, Inputs.Label(i));
             }
@@ -540,7 +576,8 @@ public sealed class Matrix4Tests
                 var clip = Numerics.Vector4.Transform(new Numerics.Vector4(point.X, point.Y, point.Z, 1f), oracle);
                 var expected = new Vector2(clip.X / clip.W, clip.Y / clip.W);
 
-                MathAssert.Near(Project(projection, point).Xy, expected, MathAssert.Projection,
+                var projected = Project(projection, point);
+                MathAssert.Near(new Vector2(projected.X, projected.Y), expected, MathAssert.Projection,
                     MathAssert.AtLeastOne(MathAssert.Components(expected)), Inputs.Label(i));
             }
         });
@@ -687,6 +724,6 @@ public sealed class Matrix4Tests
     private static Vector3 Project(Matrix4 projection, Vector3 point)
     {
         var clip = projection * new Vector4(point, 1f);
-        return clip.Xyz / clip.W;
+        return clip.AsVector128().AsVector3() / clip.W;
     }
 }

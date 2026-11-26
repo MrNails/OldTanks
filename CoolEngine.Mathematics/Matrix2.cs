@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -152,9 +153,10 @@ public struct Matrix2 : IEquatable<Matrix2>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector2 operator *(Matrix2 matrix, Vector2 vector)
     {
-        var result = Simd.Load(matrix.Column0) * vector.X;
-        result = Vector128.MultiplyAddEstimate(Simd.Load(matrix.Column1), Vector128.Create(vector.Y), result);
-        return Simd.ToVector2(result);
+        // AsVector128 zeroes the two unused lanes; AsVector2 reads back the first two.
+        var result = matrix.Column0.AsVector128() * vector.X;
+        result = Vector128.MultiplyAddEstimate(matrix.Column1.AsVector128(), Vector128.Create(vector.Y), result);
+        return result.AsVector2();
     }
 
     /// <summary>IEEE comparison per element: NaN differs from everything, +0 equals -0.</summary>

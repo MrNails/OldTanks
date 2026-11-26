@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using CoolEngine.Mathematics.Tests.TestSupport;
 using OpenTKMath = OpenTK.Mathematics;

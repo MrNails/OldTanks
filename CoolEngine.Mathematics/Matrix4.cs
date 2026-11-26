@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -98,11 +99,11 @@ public struct Matrix4 : IEquatable<Matrix4>
         }
     }
 
-    /// <summary>The translation part, <c>Column3.Xyz</c>; setting it keeps <c>Column3.W</c>.</summary>
+    /// <summary>The translation part, the X, Y, Z of <see cref="Column3"/>; setting it keeps <c>Column3.W</c>.</summary>
     public Vector3 Translation
     {
-        readonly get => Column3.Xyz;
-        set => Column3.Xyz = value;
+        readonly get => Xyz(Column3);
+        set => Column3 = new Vector4(value, Column3.W);
     }
 
     /// <summary>
@@ -182,16 +183,36 @@ public struct Matrix4 : IEquatable<Matrix4>
     }
 
     /// <summary>
-    /// This matrix with the upper-left 3 × 3 replaced by identity: <c>Column0.Xyz</c>, <c>Column1.Xyz</c>,
-    /// <c>Column2.Xyz</c> become the unit axes; every <c>W</c> and <see cref="Column3"/> are kept.
+    /// This matrix with the upper-left 3 × 3 replaced by identity: the X, Y, Z of <see cref="Column0"/>,
+    /// <see cref="Column1"/> and <see cref="Column2"/> become the unit axes; every <c>W</c> and <see cref="Column3"/> are kept.
     /// </summary>
     public readonly Matrix4 ClearRotation()
     {
-        var result = this;
-        result.Column0.Xyz = Vector3.UnitX;
-        result.Column1.Xyz = Vector3.UnitY;
-        result.Column2.Xyz = Vector3.UnitZ;
-        return result;
+        return FromColumns(
+            new Vector4(1f, 0f, 0f, Column0.W),
+            new Vector4(0f, 1f, 0f, Column1.W),
+            new Vector4(0f, 0f, 1f, Column2.W),
+            Column3);
+    }
+
+    /// <summary>
+    /// The point <paramref name="position"/> transformed by this matrix: <c>this * (position, 1)</c> without its W, so the
+    /// translation applies. No divide by w (use it with affine matrices, not projections).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly Vector3 TransformPosition(Vector3 position)
+    {
+        return Xyz(Transform(this, new Vector4(position, 1f)));
+    }
+
+    /// <summary>
+    /// The direction <paramref name="direction"/> transformed by this matrix: <c>this * (direction, 0)</c> without its W,
+    /// so the translation does not apply.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly Vector3 TransformDirection(Vector3 direction)
+    {
+        return Xyz(Transform(this, new Vector4(direction, 0f)));
     }
 
     /// <summary>The uniform scale: <paramref name="scale"/> on the first three diagonal elements, 1 in the corner.</summary>
@@ -407,11 +428,18 @@ public struct Matrix4 : IEquatable<Matrix4>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Vector4 Transform(in Matrix4 matrix, Vector4 vector)
     {
-        var result = Simd.Load(matrix.Column0) * vector.X;
-        result = Vector128.MultiplyAddEstimate(Simd.Load(matrix.Column1), Vector128.Create(vector.Y), result);
-        result = Vector128.MultiplyAddEstimate(Simd.Load(matrix.Column2), Vector128.Create(vector.Z), result);
-        result = Vector128.MultiplyAddEstimate(Simd.Load(matrix.Column3), Vector128.Create(vector.W), result);
-        return Simd.ToVector4(result);
+        var result = matrix.Column0.AsVector128() * vector.X;
+        result = Vector128.MultiplyAddEstimate(matrix.Column1.AsVector128(), Vector128.Create(vector.Y), result);
+        result = Vector128.MultiplyAddEstimate(matrix.Column2.AsVector128(), Vector128.Create(vector.Z), result);
+        result = Vector128.MultiplyAddEstimate(matrix.Column3.AsVector128(), Vector128.Create(vector.W), result);
+        return result.AsVector4();
+    }
+
+    // The first three components of a Vector4 (System.Numerics has no Xyz).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector3 Xyz(Vector4 vector)
+    {
+        return vector.AsVector128().AsVector3();
     }
 
     private static void CheckPerspective(float fovY, float aspectRatio, float depthNear)
