@@ -58,6 +58,9 @@ public partial class MainWindow : GameWindow
 
     private Shader? m_primitivesShader;
 
+    // GL thread only: the 3D scene's offscreen target (float depth); created in OnLoad, disposed in OnUnload.
+    private RenderTarget? m_renderTarget;
+
     private bool m_exit;
     private volatile bool m_readyToHandle;
 
@@ -187,6 +190,9 @@ public partial class MainWindow : GameWindow
         Title += $". OpenGL: {GL.GetString(StringName.Version)}";
 
         ApplyGLSettings();
+
+        // The same size as the viewport OnResize sets.
+        m_renderTarget = new RenderTarget(Size.X, Size.Y);
 
         m_gameManager.FontsLoaded += OnFontsLoaded;
         m_gameManager.ShadersLoaded += OnShadersLoaded;
@@ -391,6 +397,10 @@ public partial class MainWindow : GameWindow
         {
             m_fps = 1.0 / args.Time;
 
+            // Everything that uses depth goes into the float-depth target; the rest is drawn on the window after the blit.
+            var renderTarget = m_renderTarget!;
+            renderTarget.Bind();
+
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit |
                      ClearBufferMask.StencilBufferBit);
 
@@ -413,6 +423,8 @@ public partial class MainWindow : GameWindow
 
             GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.DepthTest);
+
+            renderTarget.BlitColorToWindow();
 
             foreach (var control in m_controls)
                 control.Draw();
@@ -498,6 +510,9 @@ public partial class MainWindow : GameWindow
         if (Size.X == 0 || Size.Y == 0)
             return;
 
+        // Follows the viewport above; a zero size (minimised) keeps the last one.
+        m_renderTarget?.Resize(Size.X, Size.Y);
+
         var aspect = (float)Size.X / Size.Y;
 
         EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
@@ -507,6 +522,15 @@ public partial class MainWindow : GameWindow
         m_imGuiController.WindowResized(Size.X, Size.Y);
 
         VSync = VSyncMode.On;
+    }
+
+    protected override void OnUnload()
+    {
+        // The context still exists here (OpenTK deletes it after OnUnload).
+        m_renderTarget?.Dispose();
+        m_renderTarget = null;
+
+        base.OnUnload();
     }
 
     protected override void Dispose(bool disposing)
