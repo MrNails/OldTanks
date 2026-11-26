@@ -1,4 +1,4 @@
-﻿using OpenTK.Mathematics;
+﻿using CoolEngine.Mathematics;
 
 namespace CoolEngine.Services.Interfaces;
 

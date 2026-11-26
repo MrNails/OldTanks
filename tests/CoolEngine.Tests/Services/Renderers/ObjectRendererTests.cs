@@ -1,14 +1,15 @@
 using System.Collections.ObjectModel;
+using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Mathematics;
 using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Renderers;
 using CoolEngine.Tests.TestSupport;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.Tests.Services.Renderers;
 
@@ -144,11 +145,12 @@ public sealed class ObjectRendererTests
     public void ModelData_TextureTransform_MatchesGolden()
     {
         var scene = CreateScene();
-        var transformation = Matrix4.CreateScale(2f, 3f, 4f) *
-                             Matrix4.CreateRotationX(0.5f) *
-                             Matrix4.CreateRotationY(-0.3f) *
-                             Matrix4.CreateRotationZ(1.1f) *
-                             Matrix4.CreateTranslation(5f, -6f, 7f);
+        var transformation = Matrix4.Compose(
+            Matrix4.Compose(
+                Matrix4.Compose(Matrix4.Compose(Matrix4.CreateScale(2f, 3f, 4f), Matrix4.CreateRotationX(0.5f)),
+                    Matrix4.CreateRotationY(-0.3f)),
+                Matrix4.CreateRotationZ(1.1f)),
+            Matrix4.CreateTranslation(5f, -6f, 7f));
         var drawables = new List<FakeDrawable> { CreateDrawable(scene, CreateTexture(7), transformation) };
         var textureDatas = CreateTextureDatas(scene, drawables);
         textureDatas[drawables[0]].Scale = new Vector2(2f, 0.5f);

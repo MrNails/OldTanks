@@ -1,6 +1,6 @@
 ﻿using Common.Models;
 using CoolEngine.Services.Interfaces;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
 

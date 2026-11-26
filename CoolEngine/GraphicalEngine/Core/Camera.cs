@@ -1,6 +1,8 @@
 ﻿using Common.Models;
+using System.Numerics;
+using CoolEngine.Mathematics;
 using CoolEngine.Services.Interfaces;
-using OpenTK.Mathematics;
+using CoolEngine.Services.Misc;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace CoolEngine.GraphicalEngine.Core;
@@ -41,7 +43,7 @@ public class Camera : ObservableObject, IMovable
         get => m_rotation;
         set
         {
-            m_rotation = value.Normalized();
+            m_rotation = Vector3.Normalize(value);
             m_isLookAtChanged = true;
             OnPropertyChanged();
         }
@@ -66,7 +68,7 @@ public class Camera : ObservableObject, IMovable
             if (value == m_cameraUp) 
                 return;
             
-            m_cameraUp = value.Normalized();
+            m_cameraUp = Vector3.Normalize(value);
             m_isLookAtChanged = true;
             OnPropertyChanged();
         }
@@ -156,7 +158,7 @@ public class Camera : ObservableObject, IMovable
                 return;
             }
 
-            m_fov = MathHelper.Clamp(value, 20, 90);
+            m_fov = Math.Clamp(value, 20, 90);
             OnPropertyChanged();
         }
     }
@@ -176,10 +178,11 @@ public class Camera : ObservableObject, IMovable
 
         var u = Vector3.Cross(CameraUp, Rotation);
 
-        var q = Quaternion.FromAxisAngle(CameraUp, xRad) * 
-                Quaternion.FromAxisAngle(u, yRad);
-        
-        Rotation = q * m_rotation;
+        // u is not a unit vector (|u| = cos of the pitch): QuaternionHelper normalizes it, as OpenTK did.
+        var q = QuaternionHelper.FromAxisAngle(CameraUp, xRad) *
+                QuaternionHelper.FromAxisAngle(u, yRad);
+
+        Rotation = Vector3.Transform(m_rotation, q);
     }
 
     public virtual void Move(float timeDelta, KeyboardState keyboardState)

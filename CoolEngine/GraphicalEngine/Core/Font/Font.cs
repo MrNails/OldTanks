@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using CoolEngine.Services;
 using FreeTypeSharp;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+using System.Numerics;
 using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core.Font;

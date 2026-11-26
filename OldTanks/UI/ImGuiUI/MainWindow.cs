@@ -9,7 +9,7 @@ using OldTanks.Infrastructure;
 using OldTanks.Models;
 using OldTanks.Services;
 using OldTanks.UI.ImGuiControls;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace OldTanks.UI.ImGuiUI;
 
@@ -79,7 +79,7 @@ public partial class MainWindow : ImGuiWindow
 
         if (e.PropertyName == nameof(Camera.Rotation))
         {
-            m_cameraRotationDragTextBox.Value = cam.Rotation.ToSystemVector3();
+            m_cameraRotationDragTextBox.Value = cam.Rotation;
         }
     }
 

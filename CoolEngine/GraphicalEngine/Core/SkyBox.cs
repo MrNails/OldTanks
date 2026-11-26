@@ -1,5 +1,5 @@
 ﻿using Common.Models;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace CoolEngine.GraphicalEngine.Core;
 

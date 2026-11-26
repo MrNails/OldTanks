@@ -1,6 +1,6 @@
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.Tests.TestSupport;
-using OpenTK.Mathematics;
+using System.Numerics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace CoolEngine.Tests.GraphicalEngine.Core;

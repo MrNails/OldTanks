@@ -1,11 +1,12 @@
 ﻿using System.Buffers;
+using System.Numerics;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Mathematics;
 using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
@@ -104,8 +105,8 @@ public static class TextRenderer
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
-        var mRotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(rotation.X)) *
-                        Matrix3.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y));
+        var mRotation = Matrix3.Compose(Matrix3.CreateRotationX(MathHelper.DegreesToRadians(rotation.X)),
+            Matrix3.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y)));
 
         float x = position.X, y = position.Y;
         var setsAmount = text.Length / s_maxRenderAmount >= 1 ? text.Length / s_maxRenderAmount : 1;
@@ -172,36 +173,45 @@ public static class TextRenderer
         var sizeMultiplier = (font.FontSize / font.FontInformation.OriginalFontSize) * textDrawInformation.Scale;
 
         Shader.Use();
-        Shader.SetMatrix4("projection", camera.LookAt * EngineSettings.Current.Projection);
+        Shader.SetMatrix4("projection", Matrix4.Compose(camera.LookAt, EngineSettings.Current.Projection));
         Shader.SetVector4("color", textDrawInformation.Color);
 
         Matrix4 mTransOrigin;
-        var mRotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)) *
-                        Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y)) *
-                        Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z));
+        var mRotation = Matrix4.Compose(
+            Matrix4.Compose(Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)),
+                Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y))),
+            Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z)));
 
         if (useBillboardView)
         {
             var camLookAt = camera.LookAt;
-            var invertedMat = camLookAt.Inverted();
+            // OpenTK's Inverted() never threw: a zero determinant gave the matrix back, a NaN one gave NaN (as our
+            // TryInvert's failed result does). Inverted() would throw here, in the per-frame path.
+            if (!Matrix4.TryInvert(camLookAt, out var invertedMat) && camLookAt.Determinant == 0)
+                invertedMat = camLookAt;
 
-            var bMatrix = new Matrix4
-            (
-                camLookAt.M11, camLookAt.M21, camLookAt.M31, 0,
-                camLookAt.M12, camLookAt.M22, camLookAt.M32, 0,
-                invertedMat.M41, invertedMat.M42, invertedMat.M43, 0,
-                textDrawInformation.SelfPosition.X, textDrawInformation.SelfPosition.Y, textDrawInformation.SelfPosition.Z, 1
-            );
+            // OpenTK's element Mrc (row r, column c of its row-vector matrix) is component c - 1 of our Column{r - 1}
+            // (the same bytes), and its constructor's four rows are our four columns.
+            var bMatrix = Matrix4.FromColumns(
+                new Vector4(camLookAt.Column0.X, camLookAt.Column1.X, camLookAt.Column2.X, 0),
+                new Vector4(camLookAt.Column0.Y, camLookAt.Column1.Y, camLookAt.Column2.Y, 0),
+                new Vector4(invertedMat.Column3.X, invertedMat.Column3.Y, invertedMat.Column3.Z, 0),
+                new Vector4(textDrawInformation.SelfPosition.X, textDrawInformation.SelfPosition.Y,
+                    textDrawInformation.SelfPosition.Z, 1));
             mTransOrigin = bMatrix;
         }
         else
             mTransOrigin = Matrix4.CreateTranslation(textDrawInformation.SelfPosition);
-        
-        var mOriginTransform = mRotation * mTransOrigin *
-                               Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X)) *
-                               Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y)) *
-                               Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z)) *
-                               Matrix4.CreateTranslation(textDrawInformation.OriginPosition);
+
+        var mOriginTransform = Matrix4.Compose(
+            Matrix4.Compose(
+                Matrix4.Compose(
+                    Matrix4.Compose(
+                        Matrix4.Compose(mRotation, mTransOrigin),
+                        Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X))),
+                    Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y))),
+                Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z))),
+            Matrix4.CreateTranslation(textDrawInformation.OriginPosition));
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
@@ -245,7 +255,8 @@ public static class TextRenderer
                     characterInfo, font.FontInformation.Texture);
             }
 
-            Shader.SetMatrix4("model",  Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0) * mOriginTransform);
+            Shader.SetMatrix4("model",
+                Matrix4.Compose(Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0), mOriginTransform));
             
             GL.BindVertexArray(s_drawObjectInfo.VertexArrayObject);
 

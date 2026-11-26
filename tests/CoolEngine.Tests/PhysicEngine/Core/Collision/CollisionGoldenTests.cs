@@ -2,19 +2,21 @@ namespace CoolEngine.Tests.PhysicEngine.Core.Collision;
 
 // Inside the namespace so that "Collision" names the engine class, not this test namespace's last segment.
 using CoolEngine.PhysicEngine.Core.Collision;
+using System.Numerics;
+using CoolEngine.Mathematics;
 using CoolEngine.Tests.TestSupport;
-using OpenTK.Mathematics;
 
 [TestFixture]
 public sealed class CollisionGoldenTests
 {
-    // Uneven scale, three rotations and a translation, in OpenTK's row-vector order: scale first, translation last.
+    // Uneven scale, three rotations and a translation, applied in that order: scale first, translation last.
     private static readonly Matrix4 s_transformation =
-        Matrix4.CreateScale(1.5f, 0.75f, 2f) *
-        Matrix4.CreateRotationX(0.4f) *
-        Matrix4.CreateRotationY(-0.9f) *
-        Matrix4.CreateRotationZ(0.25f) *
-        Matrix4.CreateTranslation(-2f, 1f, 4f);
+        Matrix4.Compose(
+            Matrix4.Compose(
+                Matrix4.Compose(Matrix4.Compose(Matrix4.CreateScale(1.5f, 0.75f, 2f), Matrix4.CreateRotationX(0.4f)),
+                    Matrix4.CreateRotationY(-0.9f)),
+                Matrix4.CreateRotationZ(0.25f)),
+            Matrix4.CreateTranslation(-2f, 1f, 4f));
 
     private static readonly Vector3 s_position = new Vector3(-2f, 1f, 4f);
     private static readonly Vector3 s_size = new Vector3(3f, 1.5f, 4f);

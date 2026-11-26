@@ -22,13 +22,19 @@ using OldTanks.Models;
 using OldTanks.Services;
 using OldTanks.UI.Services;
 using OldTanks.UI.Services.ImGUI;
+using CoolEngine.GraphicalEngine.Services;
 using OpenTK.Graphics.OpenGL4;
+// Window boundary: OpenTK's window and input types (Vector2i, MousePosition, Size); the math below is the engine's.
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Serilog;
 using EngineSettings = CoolEngine.Services.EngineSettings;
+using MathHelper = CoolEngine.Mathematics.MathHelper;
+using Matrix3 = CoolEngine.Mathematics.Matrix3;
+using Vector2 = System.Numerics.Vector2;
+using Vector3 = System.Numerics.Vector3;
 
 namespace OldTanks.Windows;
 
@@ -85,7 +91,7 @@ public partial class MainWindow : GameWindow
 
     private IMovable m_currentObject;
 
-    private Vector2 m_lastMousePos;
+    private OpenTK.Mathematics.Vector2 m_lastMousePos;
     private bool m_firstMouseMove;
 
     private Vector3 m_rotation;
@@ -231,7 +237,7 @@ public partial class MainWindow : GameWindow
                 }
             });
 
-        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             (float)Size.X / Size.Y, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -262,7 +268,7 @@ public partial class MainWindow : GameWindow
             var aspect = (float)Size.X / Size.Y;
             m_world.CurrentCamera.FOV += -e.OffsetY;
 
-            EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
+            EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
                 aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
         }
@@ -471,9 +477,9 @@ public partial class MainWindow : GameWindow
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
-        m_tbCamRotation.Text = m_currentObject.Rotation.ToString();
-        m_tbPosition.Text = m_currentObject.Position.ToString();
-        m_tbRotation.Text = m_rotation.ToString();
+        m_tbCamRotation.Text = FormatHudVector(m_currentObject.Rotation);
+        m_tbPosition.Text = FormatHudVector(m_currentObject.Position);
+        m_tbRotation.Text = FormatHudVector(m_rotation);
 
         base.OnUpdateFrame(args);
     }
@@ -484,7 +490,7 @@ public partial class MainWindow : GameWindow
 
         GL.Viewport(0, 0, Size.X, Size.Y);
 
-        EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
+        EngineSettings.Current.ScreenProjection = LegacyProjections.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
 
         EngineSettings.Current.WindowWidth = Size.X;
         EngineSettings.Current.WindowHeight = Size.Y;
@@ -494,7 +500,7 @@ public partial class MainWindow : GameWindow
 
         var aspect = (float)Size.X / Size.Y;
 
-        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -570,6 +576,15 @@ public partial class MainWindow : GameWindow
         lines.Add("Details are in the console and log.txt. Press Esc to quit.");
 
         m_startupError = string.Join('\n', lines);
+    }
+
+    // The HUD's text of a vector as OpenTK's Vector3.ToString wrote it before OT-5, "(x, y, z)" with the current
+    // culture's list separator (System.Numerics writes "<x, y, z>").
+    private static string FormatHudVector(Vector3 vector)
+    {
+        var separator = CultureInfo.CurrentCulture.TextInfo.ListSeparator;
+
+        return $"({vector.X}{separator} {vector.Y}{separator} {vector.Z})";
     }
 
     // GL thread only: ImGui computed these in NewFrame, inside ImGuiController.Update.
@@ -805,7 +820,7 @@ public partial class MainWindow : GameWindow
                         
                         var isRayIntersected = worldObject.Collision.IntersectRay(m_ray, out tmpIntersectedPoint);
 
-                        var lengthToRayStart = Math.Abs((tmpIntersectedPoint - m_ray.Start).Length);
+                        var lengthToRayStart = Math.Abs((tmpIntersectedPoint - m_ray.Start).Length());
                         if (isRayIntersected && previousLength > lengthToRayStart)
                         {
                             m_rayIntersected = true;
@@ -860,7 +875,7 @@ public partial class MainWindow : GameWindow
             else
                 deltaY = MousePosition.Y - m_lastMousePos.Y;
             
-            m_lastMousePos = new Vector2(MousePosition.X, MousePosition.Y);
+            m_lastMousePos = new OpenTK.Mathematics.Vector2(MousePosition.X, MousePosition.Y);
 
             if (m_mouseDown)
             {
@@ -910,9 +925,10 @@ public partial class MainWindow : GameWindow
             if (worldObj.Visible)
             {
                 var scale = worldObj.Size / 2;
-                var rotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)) *
-                               Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
-                               Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z));
+                var rotation = Matrix3.Compose(
+                    Matrix3.Compose(Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)),
+                        Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y))),
+                    Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z)));
 
                 for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Length; meshIdx++)
                 {
@@ -922,10 +938,11 @@ public partial class MainWindow : GameWindow
                     {
                         for (int l = 0; l < mesh.Faces[k].NormalsIndices.Length; l++)
                         {
+                            // OpenTK's Vector3 * Matrix3 (a row vector times the matrix) is Apply(matrix, vector).
                             arr[arrIdx] = worldObj.Position +
-                                          mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale * rotation;
+                                          Matrix3.Apply(rotation, mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale);
                             arr[arrIdx + 1] =
-                                arr[arrIdx] + mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * rotation;
+                                arr[arrIdx] + Matrix3.Apply(rotation, mesh.Normals[mesh.Faces[k].NormalsIndices[l]]);
 
                             arrIdx += 2;
                         }

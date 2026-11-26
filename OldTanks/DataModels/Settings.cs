@@ -1,5 +1,4 @@
 ﻿using Common.Models;
-using OpenTK.Mathematics;
 
 namespace OldTanks.DataModels;
 
@@ -73,6 +72,6 @@ public sealed class Settings : ObservableObject
     public float Sensitivity
     {
         get => m_sensitivity;
-        set => SetField(ref m_sensitivity, MathHelper.Clamp(value, 0, 10));
+        set => SetField(ref m_sensitivity, Math.Clamp(value, 0, 10));
     }
 }

@@ -1,7 +1,7 @@
 ﻿using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace CoolEngine.Services.Misc;
 

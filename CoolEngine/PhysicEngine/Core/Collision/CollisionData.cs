@@ -1,6 +1,6 @@
 ﻿using CoolEngine.Models;
 using CoolEngine.Services.Interfaces;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace CoolEngine.PhysicEngine.Core.Collision;
 

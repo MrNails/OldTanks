@@ -1,7 +1,8 @@
+using System.Numerics;
 using CoolEngine.GraphicalEngine.Core;
+using CoolEngine.Mathematics;
 using CoolEngine.Services;
 using OldTanks.Models;
-using OpenTK.Mathematics;
 
 namespace OldTanks.Tests.Models;
 
@@ -165,13 +166,14 @@ public sealed class WorldObjectTests
         }
     }
 
-    // The 16 floats in memory order, the order GL receives them: Row0 to Row3 of OpenTK's matrix.
+    // The 16 floats in memory order, the order GL receives them: Column0 to Column3 (the bytes of Row0 to Row3 of the
+    // OpenTK matrix the goldens were recorded from).
     private static float[] Floats(Matrix4 m) =>
     [
-        m.Row0.X, m.Row0.Y, m.Row0.Z, m.Row0.W,
-        m.Row1.X, m.Row1.Y, m.Row1.Z, m.Row1.W,
-        m.Row2.X, m.Row2.Y, m.Row2.Z, m.Row2.W,
-        m.Row3.X, m.Row3.Y, m.Row3.Z, m.Row3.W
+        m.Column0.X, m.Column0.Y, m.Column0.Z, m.Column0.W,
+        m.Column1.X, m.Column1.Y, m.Column1.Z, m.Column1.W,
+        m.Column2.X, m.Column2.Y, m.Column2.Z, m.Column2.W,
+        m.Column3.X, m.Column3.Y, m.Column3.Z, m.Column3.W
     ];
 
     private static float[] Floats(Vector3 v) => [v.X, v.Y, v.Z];
