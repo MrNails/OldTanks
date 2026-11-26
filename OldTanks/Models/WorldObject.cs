@@ -245,14 +245,11 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         if (!m_haveTransformation)
             return;
         
-        // Scale first, then the rotations about X, Y, Z, then the translation.
-        m_transform = Matrix4.Compose(
-            Matrix4.Compose(
-                Matrix4.Compose(
-                    Matrix4.Compose(Matrix4.CreateScale(Width / 2, Height / 2, Length / 2), Matrix4.CreateRotationX(Yaw)),
-                    Matrix4.CreateRotationY(-Pitch)),
-                Matrix4.CreateRotationZ(Roll)),
-            Matrix4.CreateTranslation(Position));
+        // Column vectors, the rightmost factor first: scale, then the rotations about X, Y, Z, then the translation.
+        m_transform = Matrix4.CreateTranslation(Position) *
+                      (Matrix4.CreateRotationZ(Roll) *
+                       (Matrix4.CreateRotationY(-Pitch) *
+                        (Matrix4.CreateRotationX(Yaw) * Matrix4.CreateScale(Width / 2, Height / 2, Length / 2))));
 
         Collision?.UpdateCollision();
 
@@ -271,7 +268,7 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         EngineSettings.Current.GlobalLock.EnterWriteLock();
         
         // OpenTK's Matrix3 * Vector3 applied the transpose (the inverse rotation): kept exactly (KI-002 is separate).
-        Position += Matrix3.Apply(rotation.Transposed(), RigidBody.Velocity) * timeDelta;
+        Position += rotation.Transposed() * RigidBody.Velocity * timeDelta;
         
         // if (Camera != null)
         // {
@@ -291,12 +288,11 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
         // Ported exactly from OpenTK (KI-002 is separate): its Matrix3 * Vector3 applied the transpose, its
         // Vector3 * Matrix3 the matrix itself.
-        var camOffset = Matrix3.Apply(Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X)),
-            Matrix3.Apply(Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(m_cameraOffsetAngle.Y)).Transposed(),
-                m_cameraOffset));
+        var camOffset = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X)) *
+                        (Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(m_cameraOffsetAngle.Y)).Transposed() *
+                         m_cameraOffset);
 
         Camera.Position = m_position + new Vector3(0, m_size.Y / 2, 0) +
-                          Matrix3.Apply(Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y)).Transposed(),
-                              camOffset);
+                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y)).Transposed() * camOffset;
     }
 }

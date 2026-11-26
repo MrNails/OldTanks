@@ -11,10 +11,17 @@ M:System.Numerics.Vector4.Transform(System.Numerics.Vector2,System.Numerics.Matr
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector4,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Quaternion.CreateFromRotationMatrix(System.Numerics.Matrix4x4);Takes a row-vector matrix: use CoolEngine.Mathematics
-// Temporary, for OT-5's port check: the library's matrix products are written with Compose and Apply during the move; removed when the move is done.
-M:CoolEngine.Mathematics.Matrix2.op_Multiply(CoolEngine.Mathematics.Matrix2,CoolEngine.Mathematics.Matrix2);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
-M:CoolEngine.Mathematics.Matrix2.op_Multiply(CoolEngine.Mathematics.Matrix2,System.Numerics.Vector2);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
-M:CoolEngine.Mathematics.Matrix3.op_Multiply(CoolEngine.Mathematics.Matrix3,CoolEngine.Mathematics.Matrix3);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
-M:CoolEngine.Mathematics.Matrix3.op_Multiply(CoolEngine.Mathematics.Matrix3,System.Numerics.Vector3);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
-M:CoolEngine.Mathematics.Matrix4.op_Multiply(CoolEngine.Mathematics.Matrix4,CoolEngine.Mathematics.Matrix4);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
-M:CoolEngine.Mathematics.Matrix4.op_Multiply(CoolEngine.Mathematics.Matrix4,System.Numerics.Vector4);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
+// OpenTK's math types (OT-5): engine and game math is System.Numerics and CoolEngine.Mathematics. OpenTK.Mathematics.Matrix4 is still used by CoolEngine.GraphicalEngine.Services.LegacyProjections until reversed Z; Vector2 and Vector2i stay for the window boundary.
+T:OpenTK.Mathematics.Matrix2;OpenTK math: use CoolEngine.Mathematics.Matrix2 (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix3;OpenTK math: use CoolEngine.Mathematics.Matrix3 (column vectors, column-major)
+T:OpenTK.Mathematics.Vector3;OpenTK math: use System.Numerics.Vector3
+T:OpenTK.Mathematics.Vector4;OpenTK math: use System.Numerics.Vector4
+T:OpenTK.Mathematics.Quaternion;OpenTK math: use System.Numerics.Quaternion (axis-angle with OpenTK's normalizing behaviour: CoolEngine.Services.Misc.QuaternionHelper.FromAxisAngle)
+T:OpenTK.Mathematics.MathHelper;OpenTK math: use CoolEngine.Mathematics.MathHelper (clamp and lerp: Math.Clamp, float.Lerp)
+T:OpenTK.Mathematics.Matrix2d;OpenTK math: use CoolEngine.Mathematics.Matrix2d
+T:OpenTK.Mathematics.Matrix3d;OpenTK math: use CoolEngine.Mathematics.Matrix3d
+T:OpenTK.Mathematics.Matrix4d;OpenTK math: use CoolEngine.Mathematics.Matrix4d
+T:OpenTK.Mathematics.Vector2d;OpenTK math: use CoolEngine.Mathematics.Vector2d
+T:OpenTK.Mathematics.Vector3d;OpenTK math: use CoolEngine.Mathematics.Vector3d
+T:OpenTK.Mathematics.Vector4d;OpenTK math: use CoolEngine.Mathematics.Vector4d
+T:OpenTK.Mathematics.Quaterniond;OpenTK math: use CoolEngine.Mathematics.Quaterniond

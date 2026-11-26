@@ -129,42 +129,6 @@ public sealed class Matrix2Tests
         });
     }
 
-    // Temporary, for OT-5's port check: removed with Compose and Apply when the move is done.
-    [Test]
-    public void PortCheck_Compose_IsTheReversedProduct()
-    {
-        var random = Inputs.CreateRandom();
-
-        Assert.Multiple(() =>
-        {
-            for (var i = 0; i < Inputs.Count; i++)
-            {
-                var a = random.NextMatrix2();
-                var b = random.NextMatrix2();
-
-                MathAssert.Exact(Matrix2.Compose(a, b), b * a, Inputs.Label(i));
-            }
-        });
-    }
-
-    // Temporary, for OT-5's port check: removed with Compose and Apply when the move is done.
-    [Test]
-    public void PortCheck_Apply_IsTheProduct()
-    {
-        var random = Inputs.CreateRandom();
-
-        Assert.Multiple(() =>
-        {
-            for (var i = 0; i < Inputs.Count; i++)
-            {
-                var matrix = random.NextMatrix2();
-                var vector = random.NextVector2();
-
-                MathAssert.Exact(Matrix2.Apply(matrix, vector), matrix * vector, Inputs.Label(i));
-            }
-        });
-    }
-
     [Test]
     public void Transposed_Random_SwapsElements()
     {

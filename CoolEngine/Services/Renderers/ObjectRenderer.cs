@@ -390,8 +390,8 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             Shader.SetVector4("color", Colors.White);
 
             Shader.SetMatrix2("textureTransform",
-                Matrix2.Compose(Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y),
-                    Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle))));
+                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)) *
+                Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y));
 
             if (textureData.Texture.IsEmpty || !mesh.HasTextureCoords)
             {
@@ -461,8 +461,8 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
 
             var textureData = textureDatas[element];
             var haveTexture = !textureData.Texture.IsEmpty && meshHasTextureCoords;
-            var textTransform = Matrix2.Compose(Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y),
-                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)));
+            var textTransform = Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)) *
+                                Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y);
 
             records[visibleCount] = new ModelData(element.Transformation, 
                 haveTexture ? Colors.White : ObjectRendererConstants.DefaultEmptyTextureColor_, 

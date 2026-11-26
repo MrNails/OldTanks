@@ -925,10 +925,9 @@ public partial class MainWindow : GameWindow
             if (worldObj.Visible)
             {
                 var scale = worldObj.Size / 2;
-                var rotation = Matrix3.Compose(
-                    Matrix3.Compose(Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)),
-                        Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y))),
-                    Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z)));
+                var rotation = Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z)) *
+                               (Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
+                                Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)));
 
                 for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Length; meshIdx++)
                 {
@@ -938,11 +937,10 @@ public partial class MainWindow : GameWindow
                     {
                         for (int l = 0; l < mesh.Faces[k].NormalsIndices.Length; l++)
                         {
-                            // OpenTK's Vector3 * Matrix3 (a row vector times the matrix) is Apply(matrix, vector).
                             arr[arrIdx] = worldObj.Position +
-                                          Matrix3.Apply(rotation, mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale);
+                                          rotation * (mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale);
                             arr[arrIdx + 1] =
-                                arr[arrIdx] + Matrix3.Apply(rotation, mesh.Normals[mesh.Faces[k].NormalsIndices[l]]);
+                                arr[arrIdx] + rotation * mesh.Normals[mesh.Faces[k].NormalsIndices[l]];
 
                             arrIdx += 2;
                         }

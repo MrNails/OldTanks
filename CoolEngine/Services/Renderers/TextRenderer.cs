@@ -105,8 +105,8 @@ public static class TextRenderer
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
-        var mRotation = Matrix3.Compose(Matrix3.CreateRotationX(MathHelper.DegreesToRadians(rotation.X)),
-            Matrix3.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y)));
+        var mRotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y)) *
+                        Matrix3.CreateRotationX(MathHelper.DegreesToRadians(rotation.X));
 
         float x = position.X, y = position.Y;
         var setsAmount = text.Length / s_maxRenderAmount >= 1 ? text.Length / s_maxRenderAmount : 1;
@@ -173,14 +173,14 @@ public static class TextRenderer
         var sizeMultiplier = (font.FontSize / font.FontInformation.OriginalFontSize) * textDrawInformation.Scale;
 
         Shader.Use();
-        Shader.SetMatrix4("projection", Matrix4.Compose(camera.LookAt, EngineSettings.Current.Projection));
+        Shader.SetMatrix4("projection", EngineSettings.Current.Projection * camera.LookAt);
         Shader.SetVector4("color", textDrawInformation.Color);
 
+        // Column vectors: the rightmost factor applies first (X, then Y, then Z).
         Matrix4 mTransOrigin;
-        var mRotation = Matrix4.Compose(
-            Matrix4.Compose(Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)),
-                Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y))),
-            Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z)));
+        var mRotation = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z)) *
+                        (Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y)) *
+                         Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)));
 
         if (useBillboardView)
         {
@@ -203,15 +203,13 @@ public static class TextRenderer
         else
             mTransOrigin = Matrix4.CreateTranslation(textDrawInformation.SelfPosition);
 
-        var mOriginTransform = Matrix4.Compose(
-            Matrix4.Compose(
-                Matrix4.Compose(
-                    Matrix4.Compose(
-                        Matrix4.Compose(mRotation, mTransOrigin),
-                        Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X))),
-                    Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y))),
-                Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z))),
-            Matrix4.CreateTranslation(textDrawInformation.OriginPosition));
+        // The self rotation, the billboard or self translation, the origin rotation (X, Y, Z), then the origin
+        // translation; the parentheses keep the product order (and so the bits) of the port.
+        var mOriginTransform = Matrix4.CreateTranslation(textDrawInformation.OriginPosition) *
+                               (Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z)) *
+                                (Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y)) *
+                                 (Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X)) *
+                                  (mTransOrigin * mRotation))));
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
@@ -256,7 +254,7 @@ public static class TextRenderer
             }
 
             Shader.SetMatrix4("model",
-                Matrix4.Compose(Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0), mOriginTransform));
+                mOriginTransform * Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0));
             
             GL.BindVertexArray(s_drawObjectInfo.VertexArrayObject);
 

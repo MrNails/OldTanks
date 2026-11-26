@@ -293,28 +293,6 @@ public struct Matrix3 : IEquatable<Matrix3>
         return result.AsVector3();
     }
 
-    /// <summary>
-    /// <paramref name="applyFirst"/>, then <paramref name="applyThen"/>: <c>applyThen * applyFirst</c>, the same bits as
-    /// the operator. Temporary, for OT-5's port check (OpenTK's row-vector <c>A * B</c> is <c>Compose(A, B)</c>); removed
-    /// when the move is done.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Matrix3 Compose(Matrix3 applyFirst, Matrix3 applyThen)
-    {
-        return applyThen * applyFirst;
-    }
-
-    /// <summary>
-    /// <paramref name="matrix"/> applied to <paramref name="vector"/>: <c>matrix * vector</c>, the same bits as the
-    /// operator. Temporary, for OT-5's port check (OpenTK's row-vector <c>A * B</c> is <c>Compose(A, B)</c>); removed when
-    /// the move is done.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Vector3 Apply(Matrix3 matrix, Vector3 vector)
-    {
-        return matrix * vector;
-    }
-
     /// <summary>IEEE comparison per element: NaN differs from everything, +0 equals -0.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(Matrix3 left, Matrix3 right)
