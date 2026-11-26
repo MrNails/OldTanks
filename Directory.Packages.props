@@ -24,6 +24,11 @@
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     </ItemGroup>
 
+    <!-- Analyzers: BannedSymbols.txt keeps System.Numerics' row-vector matrix APIs out of engine and game code (OT-5). -->
+    <ItemGroup>
+        <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
+    </ItemGroup>
+
     <!-- Tests -->
     <ItemGroup>
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
