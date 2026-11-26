@@ -2,7 +2,7 @@
 
 > **Project knowledge:** [docs/PROJECT-KNOWLEDGE.md](docs/PROJECT-KNOWLEDGE.md)
 
-Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.slnx`, six projects plus four test projects, `net10.0` (generator `netstandard2.0`), OpenTK 4.9.4, ImGui.NET, Serilog, versions central in `Directory.Packages.props`; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
+Denys's hobby 3D game in C# on its own OpenGL engine, CoolEngine: today an engine sandbox with physics, collisions, a free camera and ImGui debug windows; no tanks or player yet. `OldTanks.slnx`, seven projects plus five test projects and a benchmark project, `net10.0` (generator `netstandard2.0`), OpenTK 4.9.4, ImGui.NET, Serilog, versions central in `Directory.Packages.props`; GitHub `MrNails/OldTanks`; branches `feature/OT-<n>` and `bug/OT-<n>` from `master`, merged back by pull request.
 
 ## Session bootstrap
 
@@ -28,6 +28,7 @@ Exhaustive: every `AGENTS.md` in the repository.
 |------|-------|
 | `CoolEngine` — rendering, loaders, physics, dispatcher | [CoolEngine/AGENTS.md](CoolEngine/AGENTS.md) |
 | `CoolEngine.Imaging` — strict PNG and JPEG decoders, no dependencies | [CoolEngine.Imaging/AGENTS.md](CoolEngine.Imaging/AGENTS.md) |
+| `CoolEngine.Mathematics` — float matrices over System.Numerics vectors, double types, no dependencies | [CoolEngine.Mathematics/AGENTS.md](CoolEngine.Mathematics/AGENTS.md) |
 | `OldTanks` — the game | [OldTanks/AGENTS.md](OldTanks/AGENTS.md) |
 | `OldTanks.UI` — control handler, HUD text, ImGui controls | [OldTanks.UI/AGENTS.md](OldTanks.UI/AGENTS.md) |
 | `OldTanks.UI.SourceGenerators` — binding generator | [OldTanks.UI.SourceGenerators/AGENTS.md](OldTanks.UI.SourceGenerators/AGENTS.md) |
@@ -36,6 +37,7 @@ Exhaustive: every `AGENTS.md` in the repository.
 | `tests/CoolEngine.Tests` — the engine's headless unit tests (today `ObjectRenderer<T>`, the dispatcher, `Scene` and `Collision`) | This root guide and [BUILD §2](docs/BUILD.md#2-build) |
 | `tests/OldTanks.UI.Tests` — control names and item width, headless ImGui | This root guide and [UI-CONTROLS](docs/OldTanks.UI/UI-CONTROLS.md) |
 | `tests/CoolEngine.Imaging.Tests` — the decoders against Windows and ImageSharp | This root guide and [IMAGE-DECODERS §6](docs/CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested) |
+| `tests/CoolEngine.Mathematics.Tests` and `tests/CoolEngine.Mathematics.Benchmarks` — the math library against System.Numerics and OpenTK, and its benchmarks | The [Mathematics guide](CoolEngine.Mathematics/AGENTS.md) and [MATHEMATICS §6](docs/CoolEngine.Mathematics/MATHEMATICS.md#6-how-it-is-tested) |
 
 ## Folder map
 
@@ -43,10 +45,11 @@ Exhaustive for the repository root.
 
 | Path | Purpose |
 |------|---------|
-| `Common/`, `CoolEngine/`, `CoolEngine.Imaging/`, `OldTanks.UI/`, `OldTanks.UI.SourceGenerators/`, `OldTanks/` | The six projects ([architecture](docs/ARCHITECTURE.md#1-solution-layout)) |
+| `Common/`, `CoolEngine/`, `CoolEngine.Imaging/`, `CoolEngine.Mathematics/`, `OldTanks.UI/`, `OldTanks.UI.SourceGenerators/`, `OldTanks/` | The seven projects ([architecture](docs/ARCHITECTURE.md#1-solution-layout)) |
 | `Directory.Packages.props` | Every NuGet version, once (central package management); project files list packages without a `Version` |
+| `BannedSymbols.txt` | The symbols the banned-API analyzer rejects (RS0030) in `Common`, `CoolEngine`, `OldTanks.UI` and `OldTanks`: System.Numerics' row-vector `Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them ([BUILD §2](docs/BUILD.md#2-build)) |
 | `OldTanks/Assets/` | Shaders, textures, skyboxes, models, fonts; copied to the output on build ([asset pipeline](docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md)) |
-| `tests/` | Four NUnit test projects: `OldTanks.Docs.Tests` (`net10.0`), the documentation checks; `CoolEngine.Tests` (`net10.0`), the engine's unit tests, headless (no OpenGL context, so only code that makes no GL call): `ObjectRenderer<T>`, the dispatcher, `Scene` and `Collision`; `OldTanks.UI.Tests` (`net10.0`), the UI layer's control handler and ImGui controls; `CoolEngine.Imaging.Tests` (`net10.0-windows`), the decoder tests |
+| `tests/` | Five NUnit test projects and a benchmark project: `OldTanks.Docs.Tests` (`net10.0`), the documentation checks; `CoolEngine.Tests` (`net10.0`), the engine's unit tests, headless (no OpenGL context, so only code that makes no GL call): `ObjectRenderer<T>`, the dispatcher, `Scene` and `Collision`; `OldTanks.UI.Tests` (`net10.0`), the UI layer's control handler and ImGui controls; `CoolEngine.Imaging.Tests` (`net10.0-windows`), the decoder tests; `CoolEngine.Mathematics.Tests` (`net10.0`), the math library's tests; `CoolEngine.Mathematics.Benchmarks` (`net10.0`, an exe, BenchmarkDotNet), its benchmarks |
 | `docs/` | The knowledge base; index [docs/README.md](docs/README.md) |
 | `.claude/skills/` | Project skills for Claude Code: [mentor-pipeline](.claude/skills/mentor-pipeline/SKILL.md) (agent tiers by risk, plan and brief templates, the review checklist, the calibration table). Personal settings and worktrees under `.claude/` stay git-ignored |
 | `OldTanks.slnx` | The solution |
@@ -54,7 +57,7 @@ Exhaustive for the repository root.
 
 ## Build and run
 
-`dotnet build OldTanks.slnx` (0 errors, 131 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks, the `CoolEngine` tests, the UI tests and the decoder tests (no tests of the game project yet). Details: [docs/BUILD.md](docs/BUILD.md).
+`dotnet build OldTanks.slnx` (0 errors, 131 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks, the `CoolEngine` tests, the UI tests, the decoder tests and the math tests (no tests of the game project yet). Details: [docs/BUILD.md](docs/BUILD.md).
 
 ## Constraints
 

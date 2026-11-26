@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- BenchmarkDotNet benchmarks of CoolEngine.Mathematics against System.Numerics (float) and OpenTK (float and double).
+         Run them in Release (dotnet run -c Release on this project) and pass BenchmarkDotNet's filter argument with the value *. -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" />
+        <PackageReference Include="OpenTK" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\CoolEngine.Mathematics\CoolEngine.Mathematics.csproj" />
+    </ItemGroup>
+
+</Project>

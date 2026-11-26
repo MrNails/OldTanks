@@ -3,21 +3,22 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-13 rebased on master at 8ded8f4 (§2 collision thread notes, reasoned from code); bug/OT-12 rebased on master at 734d8f6 (§1's test projects against the project files); bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
+| Last updated | 2026-11-26 |
+| Verified against | 2026-11-26; feature/OT-5 at fb61096 (§1's solution layout, projects, references and packages against the project files, `Directory.Packages.props`, `OldTanks.slnx` and `BannedSymbols.txt`); 2026-11-25; bug/OT-13 rebased on master at 8ded8f4 (§2 collision thread notes, reasoned from code); bug/OT-12 rebased on master at 734d8f6 (§1's test projects against the project files); bug/OT-10 rebased on master at 483d63f (§1's test projects and §5's `ControlHandler` row against the project files and the code); bug/OT-9 on master at d749ec8 (§2 physics row and §4 startup and frame, checked in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (OT-7); §1 against the project files and Directory.Packages.props, §3 (posted-callback errors) and §4 (logging and crashes) against the OT-8 code, its tests and a smoke run, the other sections as of 2026-11-24 (develop at d32cbbf, reasoned from code) |
 
 ---
 
-How the six projects fit together, which thread does what, and the process-wide state everything leans on. Feature detail lives on the feature pages linked from each section.
+How the seven projects fit together, which thread does what, and the process-wide state everything leans on. Feature detail lives on the feature pages linked from each section.
 
 ## 1. Solution layout
 
-`OldTanks.slnx`, six SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus four test projects under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8, `Scene` tests since OT-12; [BUILD §2](BUILD.md#2-build)), `OldTanks.UI.Tests` (`net10.0`; it references `OldTanks.UI`; it tests the control handler and the ImGui controls on a headless ImGui context, [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md#1-controlhandler); OT-10) and `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)).
+`OldTanks.slnx`, seven SDK-style projects, all `net10.0` with `LangVersion latest` except the generator (`netstandard2.0`), plus five test projects and a benchmark project under `tests/`: `OldTanks.Docs.Tests` (`net10.0`, no project references; it checks the docs, [DOCUMENTATION-GUIDE §9](DOCUMENTATION-GUIDE.md#9-checks)), `CoolEngine.Tests` (`net10.0`, headless; it references `CoolEngine`, which grants it `InternalsVisibleTo`; `ObjectRenderer<T>` tests since OT-7, dispatcher tests with a Serilog sink they swap into `Log.Logger` since OT-8, `Scene` tests since OT-12; [BUILD §2](BUILD.md#2-build)), `OldTanks.UI.Tests` (`net10.0`; it references `OldTanks.UI`; it tests the control handler and the ImGui controls on a headless ImGui context, [UI-CONTROLS](OldTanks.UI/UI-CONTROLS.md#1-controlhandler); OT-10) `CoolEngine.Imaging.Tests` (`net10.0-windows`; it references `CoolEngine.Imaging`; [IMAGE-DECODERS §6](CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested)), `CoolEngine.Mathematics.Tests` (`net10.0`; it references `CoolEngine.Mathematics`; OpenTK as an oracle; [MATHEMATICS §6](CoolEngine.Mathematics/MATHEMATICS.md#6-how-it-is-tested); OT-5) and `CoolEngine.Mathematics.Benchmarks` (`net10.0` exe, BenchmarkDotNet 0.15.8 and OpenTK; [MATHEMATICS §7](CoolEngine.Mathematics/MATHEMATICS.md#7-benchmarks); OT-5).
 
 | Project | Type | Target | Role |
 |---------|------|--------|------|
 | `Common` | Library | `net10.0` | Dependency-free helpers: `Common.Models.ObservableObject`, `Common.Services.SettingsService` (JSON settings), `Common.Infrastructure.EventArgs.ValueChangedEventArgs<T>`, math and collection extensions. Its own typed-sender `EventHandler<TSender, TArg>` was deleted in OT-3 in favour of .NET 10's `System.EventHandler<TSender, TEventArgs>` |
 | `CoolEngine.Imaging` | Library | `net10.0` | Strict PNG and JPEG decoders into RGBA8; no dependencies ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md)) |
+| `CoolEngine.Mathematics` | Library | `net10.0` | The own math library: column-major float matrices over `System.Numerics` vectors and quaternion, double vectors, matrices and quaternion; no dependencies; **referenced by no project yet** (OT-5, library part; [MATHEMATICS](CoolEngine.Mathematics/MATHEMATICS.md)) |
 | `CoolEngine` | Library | `net10.0`, unsafe allowed, C# latest | The engine: OpenGL rendering, asset loaders, physics and collision detection, the dispatcher, global caches |
 | `OldTanks.UI` | Library | `net10.0` | UI layer over the engine: the `ControlHandler`, screen-text controls, ImGui control wrappers, the ImGui renderer |
 | `OldTanks.UI.SourceGenerators` | Roslyn source generator | `netstandard2.0` | Generates two-way bindings for the ImGui debug window from attributes ([BINDING-GENERATOR](OldTanks.UI.SourceGenerators/BINDING-GENERATOR.md)) |
@@ -29,12 +30,15 @@ How the six projects fit together, which thread does what, and the process-wide 
 |---------|-----------|
 | `Common` | none |
 | `CoolEngine.Imaging` | none (no packages either) |
+| `CoolEngine.Mathematics` | none (no packages either) |
 | `CoolEngine` | `Common`, `CoolEngine.Imaging` |
 | `OldTanks.UI` | `Common`, `CoolEngine` |
 | `OldTanks.UI.SourceGenerators` | none (Roslyn packages only) |
 | `OldTanks` | `CoolEngine`, `OldTanks.UI`, and `OldTanks.UI.SourceGenerators` with `OutputItemType="Analyzer"` (it runs as a generator and its attribute types are also referenced) |
 
 **Packages** (versions as of 2026-11-25): `CoolEngine` has OpenTK 4.9.4, FreeTypeSharp 3.1.0, Serilog 4.4.0 and `Serilog.Sinks.File` 7.0.0. `OldTanks.UI` has ImGui.NET 1.91.6.1 and OpenTK 4.9.4. `OldTanks` adds `Serilog.Sinks.Console` 6.1.1. The generator uses `Microsoft.CodeAnalysis.CSharp` and `Microsoft.CodeAnalysis.Analyzers` 5.9.0, held at the Roslyn of SDK 10.0.401 (a generator built against a newer one does not load, CS9057). The test projects use Microsoft.NET.Test.Sdk 18.12.0, NUnit 5.0.0, NUnit.Analyzers 4.15.0 and NUnit3TestAdapter 6.3.1; the imaging tests also SixLabors.ImageSharp 4.1.4 and System.Drawing.Common 11.0.0 (reference decoders, never referenced by a runtime project). **Central package management:** every version is set once in `Directory.Packages.props` at the repository root; project files list `<PackageReference>` without a `Version`. MIConvexHull, `Serilog.Sinks.FastConsole` and SixLabors.ImageSharp (in the engine) were removed in OT-3.
+
+**The banned-API analyzer (OT-5, 2026-11-26):** `Common`, `CoolEngine`, `OldTanks.UI` and `OldTanks` reference `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (`PrivateAssets=all`), read `BannedSymbols.txt` at the repository root as an additional file and treat RS0030 as an error. The file bans `System.Numerics.Matrix4x4`, `Matrix3x2`, `Plane` and the `Vector2`, `Vector3`, `Vector4` Transform and `TransformNormal` overloads and `Quaternion.CreateFromRotationMatrix` that take them: they are row-vector types and would silently disagree with the column-vector library. The analyzer flags uses, not declarations. `CoolEngine.Mathematics` and the test projects do not reference it (the library wraps `Matrix4x4` privately). `tests/CoolEngine.Mathematics.Benchmarks` takes BenchmarkDotNet 0.15.8 and OpenTK, never referenced by a runtime project.
 
 ## 2. Threads
 

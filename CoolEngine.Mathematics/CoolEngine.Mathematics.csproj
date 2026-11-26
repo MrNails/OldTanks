@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- The engine's own math: float matrices (Matrix2, Matrix3, Matrix4) over System.Numerics' vectors and quaternion, and
+         double vectors, matrices and a quaternion (Vector2d to Matrix4d, Quaterniond); no fused multiply-add anywhere. No
+         package, no project reference. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+T:System.Numerics.Matrix4x4;Row-vector matrix: use CoolEngine.Mathematics.Matrix4 (column vectors, column-major)
+T:System.Numerics.Matrix3x2;Row-vector matrix: use CoolEngine.Mathematics.Matrix3 or Matrix2 (column vectors, column-major)
+T:System.Numerics.Plane;Built on row-vector matrices: use CoolEngine.Mathematics
+M:System.Numerics.Vector2.Transform(System.Numerics.Vector2,System.Numerics.Matrix3x2);Row-vector transform: use CoolEngine.Mathematics.Matrix3 times (x, y, 1) (column vectors)
+M:System.Numerics.Vector2.Transform(System.Numerics.Vector2,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
+M:System.Numerics.Vector2.TransformNormal(System.Numerics.Vector2,System.Numerics.Matrix3x2);Row-vector transform: use CoolEngine.Mathematics.Matrix2 times the vector (column vectors)
+M:System.Numerics.Vector2.TransformNormal(System.Numerics.Vector2,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4.TransformDirection (column vectors)
+M:System.Numerics.Vector3.Transform(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4.TransformPosition (column vectors)
+M:System.Numerics.Vector3.TransformNormal(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4.TransformDirection (column vectors)
+M:System.Numerics.Vector4.Transform(System.Numerics.Vector2,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
+M:System.Numerics.Vector4.Transform(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
+M:System.Numerics.Vector4.Transform(System.Numerics.Vector4,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
+M:System.Numerics.Quaternion.CreateFromRotationMatrix(System.Numerics.Matrix4x4);Takes a row-vector matrix: use CoolEngine.Mathematics

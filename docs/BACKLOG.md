@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living - open work, unwired features, debt |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (the code-tests item); bug/OT-9 on master at d749ec8 (the warning count and the ImGui.NET item), bug/OT-7 (the new render-exception item against the code) and bug/OT-6 for the shader items; the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Last updated | 2026-11-26 |
+| Verified against | 2026-11-26; feature/OT-5 at fb61096 (the OT-5 bullets and the three new math items against the library, its tests and benchmarks); 2026-11-25; bug/OT-12 rebased on master at 734d8f6 (the code-tests item); bug/OT-9 on master at d749ec8 (the warning count and the ImGui.NET item), bug/OT-7 (the new render-exception item against the code) and bug/OT-6 for the shader items; the Platform and build section and the OT-3 items against the code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -15,11 +15,12 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 - ~~**OT-1 Documentation start**~~ (`feature/OT-1`, 2026-11-24): this knowledge base, the `AGENTS.md` guides, the README and the docs test project. Merged into `master` by PR #8.
 - ~~**OT-2 Mentor pipeline**~~ (`feature/OT-2`, 2026-11-24): the project's `.claude/skills/mentor-pipeline/`, and `master` as the working branch in the docs. Merged into `master` by PR #9.
 - **OT-3 .NET 10, central packages, `CoolEngine.Imaging`** (`feature/OT-3`, 2026-11-24 to 2026-11-25): the retarget, the package upgrade, the unused packages, the incremental generator and the own image decoders ([session log](sessions/SESSION-LOG.md)). Open until merged into `master`.
-- **OT-4 Own fonts** (`CoolEngine.Fonts`) and **OT-5 own math** (`CoolEngine.Mathematics`): fixed by Denys, see below.
+- **OT-4 Own fonts** (`CoolEngine.Fonts`): fixed by Denys, see below.
+- **OT-5 Own math** (`CoolEngine.Mathematics`, `feature/OT-5`, 2026-11-25 to 2026-11-26): the library part is done and committed (18 commits from `b325ae7`, pushed to GitHub as `feature/OT-5`, no pull request yet), with `tests/CoolEngine.Mathematics.Tests`, `tests/CoolEngine.Mathematics.Benchmarks` and the banned-API analyzer; unmerged. Still open in OT-5, planned and not waiting for OT-4: move the 54 files from `OpenTK.Mathematics` (first with Denys's temporary port-check API, then as planned), then the reversed-Z switch ([MATHEMATICS §9](CoolEngine.Mathematics/MATHEMATICS.md#9-what-remains)). Open until merged into `master`.
 
 ## Planned
 
-- **Engines and the tank game** ([plan](plans/ENGINES-AND-TANK-GAME.md), draft): separate physics, render and UI engines, a shared core, and the online game on them. Not ticketed as a whole; D1-D4 and D7-D13 decided, D5 and D6 (names, determinism) open.
+- **Engines and the tank game** ([plan](plans/ENGINES-AND-TANK-GAME.md), draft): separate physics, render and UI engines, a shared core, and the online game on them. Not ticketed as a whole; D1-D4 and D6-D13 decided, D5 (names) open.
 - **Shader tests** (the OT-6 reviewer's suggestion, 2026-11-25): a headless GLSL lint test that fails when a declaration reuses a built-in name such as `texture` (the cause of [KI-020](KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway)), and an opt-in GL-backed shader test (compile and link every folder in `OldTanks/Assets/Shaders/`, check every name the C# side sets) in `tests/CoolEngine.Tests` (added by OT-7). The font and skybox shader fix itself is done on `bug/OT-6`.
 
 ## Platform and build
@@ -71,7 +72,10 @@ Controls and settings that exist but do nothing yet:
 Decided by Denys on 2026-11-24 ([plan §6](plans/ENGINES-AND-TANK-GAME.md#6-decisions-of-ot-3-and-the-planned-tasks) has scope, settled answers and open questions). Each task gets its `OT-<n>` when its branch is created; the order is planned, only OT-4 and OT-5 are fixed.
 
 - **OT-4 `CoolEngine.Fonts`:** replaces FreeTypeSharp. Every font format except legacy and language-specific ones, full TrueType hinting, tests against FreeType and Windows (DirectWrite). Plan questions: colour fonts, variable-font axes, CFF stem hints. It also lets the FreeTypeSharp 3 port in `CoolEngine.GraphicalEngine.Core.Font.Font` go.
-- **OT-5 `CoolEngine.Mathematics`:** replaces `OpenTK.Mathematics`. Column vectors, column-major storage, clip depth [0, 1], reversed Z, `float` and `double`, 128-bit SIMD; every math change reviewed at effort `max` by `opus` or `fable`.
+- **OT-5 `CoolEngine.Mathematics`:** replaces `OpenTK.Mathematics`. Column vectors, column-major storage, clip depth [0, 1], reversed Z, `float` and `double`, 128-bit SIMD; every math change reviewed at effort `max` by `opus` or `fable`. The library is built ([MATHEMATICS](CoolEngine.Mathematics/MATHEMATICS.md)); the move and reversed Z are open (see Ticketed). Items it left (found 2026-11-26):
+  - **A faster same-bits `Matrix4` inverse.** `Matrix4.Inverted` is about 1.9× OpenTK's SSE inverse when that is inlined. If a profile shows inversion, port OpenTK's lane-wise algorithm to `Vector128` without fused multiply-add, keeping the same-bits promise and the four-path test ([MATHEMATICS §8](CoolEngine.Mathematics/MATHEMATICS.md#8-known-limits)). Not worth doing without a profile: inversions are rare per frame.
+  - **A self-relative cross-path test.** `CrossPathTests` compares against golden constants recorded on one machine, so the four-path proof is a manual run ([BUILD §2](BUILD.md#2-build)). A test that runs the hashed loop in child processes under the four settings and compares the hashes with each other would need no golden and would run in `dotnet test`.
+  - **Pinning built into the benchmark project.** The acceptance runs pass `--affinity` and `--launchCount 3` by hand ([MATHEMATICS §7](CoolEngine.Mathematics/MATHEMATICS.md#7-benchmarks)); a config in `tests/CoolEngine.Mathematics.Benchmarks` could set both so that an unpinned run cannot be mistaken for a result.
 - **`CoolEngine.OpenGL`:** a Roslyn source generator over `gl.xml` replaces `OpenTK.Graphics` (62 distinct `GL.*` functions in 18 files).
 - **`CoolEngine.Platform`:** a Win32 window, WGL context and input replace `OpenTK.Windowing` and GLFW; one window; gamepads in a later task.
 - **An own deflate decoder** for the PNG decoder, with full stream-end and Adler-32 checks (Denys: "Document, backlog it"; [KI-023](KNOWN-ISSUES.md#ki-023-png-decoding-cannot-see-a-zlib-streams-missing-end)).
