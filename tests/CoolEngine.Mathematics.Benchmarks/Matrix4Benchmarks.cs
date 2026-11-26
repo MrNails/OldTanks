@@ -395,20 +395,24 @@ public class Matrix4Benchmarks
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static OpenTKMath.Matrix4 InvertNoInline(OpenTKMath.Matrix4 matrix) => OpenTKMath.Matrix4.Invert(matrix);
 
-    // Every component of a result, so the whole result is consumed. The same 16 (or 3, 4) additions for every library.
+    // Every component of a result, so the whole result is consumed. All three matrix types go through one consumer, the 16
+    // floats in memory order (the three layouts have the same bytes), so the checksum compiles to the same code for every
+    // library and only the operation differs. (Per-library sums of the same source shape compiled differently: our four
+    // Vector4 columns were summed lane by lane in registers, Matrix4x4's sixteen fields through the stack, which by itself
+    // made the identical inlined transpose look 1.32× slower.)
 
-    private static float Sum(Matrix4 m) => Sum(m.Column0) + Sum(m.Column1) + Sum(m.Column2) + Sum(m.Column3);
+    private static float Sum(Matrix4 m) => Sum(Unsafe.BitCast<Matrix4, Numerics.Matrix4x4>(m));
 
     private static float Sum(Numerics.Matrix4x4 m) =>
         m.M11 + m.M12 + m.M13 + m.M14 + m.M21 + m.M22 + m.M23 + m.M24 + m.M31 + m.M32 + m.M33 + m.M34 + m.M41 + m.M42 + m.M43 + m.M44;
 
-    private static float Sum(OpenTKMath.Matrix4 m) => Sum(m.Row0) + Sum(m.Row1) + Sum(m.Row2) + Sum(m.Row3);
+    private static float Sum(OpenTKMath.Matrix4 m) => Sum(Unsafe.BitCast<OpenTKMath.Matrix4, Numerics.Matrix4x4>(m));
 
     private static float Sum(Numerics.Vector4 v) => v.X + v.Y + v.Z + v.W;
 
-    private static float Sum(OpenTKMath.Vector4 v) => v.X + v.Y + v.Z + v.W;
+    private static float Sum(OpenTKMath.Vector4 v) => Sum(Unsafe.BitCast<OpenTKMath.Vector4, Numerics.Vector4>(v));
 
     private static float Sum(Numerics.Vector3 v) => v.X + v.Y + v.Z;
 
-    private static float Sum(OpenTKMath.Vector3 v) => v.X + v.Y + v.Z;
+    private static float Sum(OpenTKMath.Vector3 v) => Sum(Unsafe.BitCast<OpenTKMath.Vector3, Numerics.Vector3>(v));
 }
