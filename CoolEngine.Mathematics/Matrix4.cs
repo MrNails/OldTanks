@@ -148,9 +148,9 @@ public struct Matrix4 : IEquatable<Matrix4>
     /// The inverse, the adjugate times <c>1 / det</c>. Own code on <see cref="Vector128{T}"/> without fused multiply-add and
     /// with every sum in a fixed order, so the bits are the same on every instruction set (System.Numerics'
     /// <c>Matrix4x4.Invert</c> differs between FMA, SSE and software). Each column of the adjugate is the cofactors of one
-    /// row, built from the 2 × 2 minors of the other two row pairs. A diagonal matrix with a positive determinant inverts to
-    /// a diagonal one bit for bit. When the determinant or its reciprocal is not finite (a zero, tiny subnormal or
-    /// overflowing determinant, or a NaN element), returns false and sets every element of <paramref name="result"/> to
+    /// row, built from the 2 × 2 minors of the other two row pairs. A diagonal matrix with positive diagonal entries
+    /// inverts to a diagonal one bit for bit. When the determinant or its reciprocal is not finite (a zero, tiny subnormal
+    /// or overflowing determinant, or a NaN element), returns false and sets every element of <paramref name="result"/> to
     /// NaN. With both finite it returns true, and an element of a very large inverse can still overflow to infinity.
     /// </summary>
     public static bool TryInvert(Matrix4 matrix, out Matrix4 result)

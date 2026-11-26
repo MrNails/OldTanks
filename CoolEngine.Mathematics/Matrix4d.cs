@@ -139,7 +139,7 @@ public struct Matrix4d : IEquatable<Matrix4d>
     /// <summary>
     /// The inverse, the adjugate times <c>1 / det</c>: the float matrix's cofactor algorithm in scalar form. Each column of
     /// the adjugate is the cofactors of one row, built from the 2 × 2 minors of the other two row pairs. A diagonal matrix
-    /// with a positive determinant inverts to a diagonal one bit for bit. When the determinant or its reciprocal is not
+    /// with positive diagonal entries inverts to a diagonal one bit for bit. When the determinant or its reciprocal is not
     /// finite (a zero, tiny subnormal or overflowing determinant, or a NaN element), returns false and sets every element of
     /// <paramref name="result"/> to NaN. With both finite it returns true, and an element of a very large inverse can still
     /// overflow to infinity.
