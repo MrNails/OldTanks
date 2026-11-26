@@ -99,7 +99,7 @@ void main()
         m_windowWidth = width;
         m_windowHeight = height - 39;
         
-        m_imGuiProjection = LegacyProjections.CreateOrthographicOffCenter(
+        m_imGuiProjection = Matrix4.CreateOrthographicOffCenter(
             0.0f,
             width,
             height - 39,

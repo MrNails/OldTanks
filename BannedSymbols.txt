@@ -11,9 +11,10 @@ M:System.Numerics.Vector4.Transform(System.Numerics.Vector2,System.Numerics.Matr
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector4,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Quaternion.CreateFromRotationMatrix(System.Numerics.Matrix4x4);Takes a row-vector matrix: use CoolEngine.Mathematics
-// OpenTK's math types (OT-5): engine and game math is System.Numerics and CoolEngine.Mathematics. OpenTK.Mathematics.Matrix4 is still used by CoolEngine.GraphicalEngine.Services.LegacyProjections until reversed Z; Vector2 and Vector2i stay for the window boundary.
+// OpenTK's math types (OT-5): engine and game math is System.Numerics and CoolEngine.Mathematics. Vector2 and Vector2i stay for the window boundary.
 T:OpenTK.Mathematics.Matrix2;OpenTK math: use CoolEngine.Mathematics.Matrix2 (column vectors, column-major)
 T:OpenTK.Mathematics.Matrix3;OpenTK math: use CoolEngine.Mathematics.Matrix3 (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix4;OpenTK math: use CoolEngine.Mathematics.Matrix4 (column vectors, column-major)
 T:OpenTK.Mathematics.Vector3;OpenTK math: use System.Numerics.Vector3
 T:OpenTK.Mathematics.Vector4;OpenTK math: use System.Numerics.Vector4
 T:OpenTK.Mathematics.Quaternion;OpenTK math: use System.Numerics.Quaternion (axis-angle with OpenTK's normalizing behaviour: CoolEngine.Services.Misc.QuaternionHelper.FromAxisAngle)

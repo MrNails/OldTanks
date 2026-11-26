@@ -22,7 +22,6 @@ using OldTanks.Models;
 using OldTanks.Services;
 using OldTanks.UI.Services;
 using OldTanks.UI.Services.ImGUI;
-using CoolEngine.GraphicalEngine.Services;
 using OpenTK.Graphics.OpenGL4;
 // Window boundary: OpenTK's window and input types (Vector2i, MousePosition, Size); the math below is the engine's.
 using OpenTK.Mathematics;
@@ -33,6 +32,7 @@ using Serilog;
 using EngineSettings = CoolEngine.Services.EngineSettings;
 using MathHelper = CoolEngine.Mathematics.MathHelper;
 using Matrix3 = CoolEngine.Mathematics.Matrix3;
+using Matrix4 = CoolEngine.Mathematics.Matrix4;
 using Vector2 = System.Numerics.Vector2;
 using Vector3 = System.Numerics.Vector3;
 
@@ -243,7 +243,7 @@ public partial class MainWindow : GameWindow
                 }
             });
 
-        EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             (float)Size.X / Size.Y, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -274,7 +274,7 @@ public partial class MainWindow : GameWindow
             var aspect = (float)Size.X / Size.Y;
             m_world.CurrentCamera.FOV += -e.OffsetY;
 
-            EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
+            EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
                 aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
         }
@@ -407,10 +407,12 @@ public partial class MainWindow : GameWindow
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.CullFace);
 
-            GL.DepthFunc(DepthFunction.Lequal);
+            // Reversed Z: the target clears to depth 0 (far) and nearer is greater. The skybox writes depth 0, so it
+            // passes Gequal against the clear and stays behind everything drawn with Greater.
+            GL.DepthFunc(DepthFunction.Gequal);
             if (m_world.SkyBox.Texture != null)
                 ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
-            GL.DepthFunc(DepthFunction.Less);
+            GL.DepthFunc(DepthFunction.Greater);
 
             var projection = EngineSettings.Current.Projection;
             if (!m_debugView)
@@ -502,20 +504,21 @@ public partial class MainWindow : GameWindow
 
         GL.Viewport(0, 0, Size.X, Size.Y);
 
-        EngineSettings.Current.ScreenProjection = LegacyProjections.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
-
         EngineSettings.Current.WindowWidth = Size.X;
         EngineSettings.Current.WindowHeight = Size.Y;
 
         if (Size.X == 0 || Size.Y == 0)
             return;
 
+        // After the zero-size check: the factory throws on an empty box (minimised), so the last one is kept.
+        EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
+
         // Follows the viewport above; a zero size (minimised) keeps the last one.
         m_renderTarget?.Resize(Size.X, Size.Y);
 
         var aspect = (float)Size.X / Size.Y;
 
-        EngineSettings.Current.Projection = LegacyProjections.CreatePerspectiveFieldOfView(
+        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
             MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
             aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
 
@@ -581,6 +584,11 @@ public partial class MainWindow : GameWindow
     private void ApplyGLSettings()
     {
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+
+        // Reversed Z: clip depth [0, 1] (the projections map near to 1 and far to 0) and every depth clear to 0.
+        GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne);
+        GL.ClearDepth(0.0);
+
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
     }
