@@ -11,3 +11,10 @@ M:System.Numerics.Vector4.Transform(System.Numerics.Vector2,System.Numerics.Matr
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector4,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Quaternion.CreateFromRotationMatrix(System.Numerics.Matrix4x4);Takes a row-vector matrix: use CoolEngine.Mathematics
+// Temporary, for OT-5's port check: the library's matrix products are written with Compose and Apply during the move; removed when the move is done.
+M:CoolEngine.Mathematics.Matrix2.op_Multiply(CoolEngine.Mathematics.Matrix2,CoolEngine.Mathematics.Matrix2);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
+M:CoolEngine.Mathematics.Matrix2.op_Multiply(CoolEngine.Mathematics.Matrix2,System.Numerics.Vector2);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
+M:CoolEngine.Mathematics.Matrix3.op_Multiply(CoolEngine.Mathematics.Matrix3,CoolEngine.Mathematics.Matrix3);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
+M:CoolEngine.Mathematics.Matrix3.op_Multiply(CoolEngine.Mathematics.Matrix3,System.Numerics.Vector3);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
+M:CoolEngine.Mathematics.Matrix4.op_Multiply(CoolEngine.Mathematics.Matrix4,CoolEngine.Mathematics.Matrix4);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)
+M:CoolEngine.Mathematics.Matrix4.op_Multiply(CoolEngine.Mathematics.Matrix4,System.Numerics.Vector4);OT-5 port check: write Compose(applyFirst, applyThen) or Apply(matrix, vector)

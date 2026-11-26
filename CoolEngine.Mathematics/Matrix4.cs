@@ -458,6 +458,28 @@ public struct Matrix4 : IEquatable<Matrix4>
         return Transform(matrix, vector.AsVector128()).AsVector4();
     }
 
+    /// <summary>
+    /// <paramref name="applyFirst"/>, then <paramref name="applyThen"/>: <c>applyThen * applyFirst</c>, the same bits as
+    /// the operator. Temporary, for OT-5's port check (OpenTK's row-vector <c>A * B</c> is <c>Compose(A, B)</c>); removed
+    /// when the move is done.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Matrix4 Compose(Matrix4 applyFirst, Matrix4 applyThen)
+    {
+        return applyThen * applyFirst;
+    }
+
+    /// <summary>
+    /// <paramref name="matrix"/> applied to <paramref name="vector"/>: <c>matrix * vector</c>, the same bits as the
+    /// operator. Temporary, for OT-5's port check (OpenTK's row-vector <c>A * B</c> is <c>Compose(A, B)</c>); removed when
+    /// the move is done.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Vector4 Apply(Matrix4 matrix, Vector4 vector)
+    {
+        return matrix * vector;
+    }
+
     /// <summary>IEEE comparison per element: NaN differs from everything, +0 equals -0.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool operator ==(Matrix4 left, Matrix4 right)

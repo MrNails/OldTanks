@@ -132,6 +132,42 @@ public sealed class Matrix3Tests
         });
     }
 
+    // Temporary, for OT-5's port check: removed with Compose and Apply when the move is done.
+    [Test]
+    public void PortCheck_Compose_IsTheReversedProduct()
+    {
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                var a = random.NextMatrix3();
+                var b = random.NextMatrix3();
+
+                MathAssert.Exact(Matrix3.Compose(a, b), b * a, Inputs.Label(i));
+            }
+        });
+    }
+
+    // Temporary, for OT-5's port check: removed with Compose and Apply when the move is done.
+    [Test]
+    public void PortCheck_Apply_IsTheProduct()
+    {
+        var random = Inputs.CreateRandom();
+
+        Assert.Multiple(() =>
+        {
+            for (var i = 0; i < Inputs.Count; i++)
+            {
+                var matrix = random.NextMatrix3();
+                var vector = random.NextVector3();
+
+                MathAssert.Exact(Matrix3.Apply(matrix, vector), matrix * vector, Inputs.Label(i));
+            }
+        });
+    }
+
     [Test]
     public void Transposed_Random_SwapsElements()
     {
