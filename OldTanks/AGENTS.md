@@ -43,6 +43,7 @@ The game executable: entry point, the OpenTK game window, the world and its obje
 | `CoolEngine`, `OldTanks.UI` (projects) | Engine and UI |
 | `OldTanks.UI.SourceGenerators` (project, `OutputItemType="Analyzer"`) | Generates `OldTanks.UI.ImGuiUI.MainWindow`'s bindings; also supplies the attribute types |
 | `Serilog.Sinks.Console` 6.1.1 | Console log (version in `Directory.Packages.props`) |
+| `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (analyzer) | RS0030 error for the System.Numerics row-vector matrix APIs in `BannedSymbols.txt` ([BUILD §2](../docs/BUILD.md#2-build)) |
 
 ## Constraints
 

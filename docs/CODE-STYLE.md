@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-8 rebased on master at 826e560 (OT-7); the renderer exception rule as Denys decided it on 2026-11-25; the language, events and package rules against the project files and `Directory.Packages.props`, Logging against the OT-8 code; the rest as of 2026-11-24 (develop at d32cbbf) |
+| Last updated | 2026-11-26 |
+| Verified against | 2026-11-26; feature/OT-5 at fb61096 ("Math types", "Math changes" and the engine-library line against the project files, `BannedSymbols.txt` and the library); 2026-11-25; bug/OT-8 rebased on master at 826e560 (OT-7); the renderer exception rule as Denys decided it on 2026-11-25; the language, events and package rules against the project files and `Directory.Packages.props`, Logging against the OT-8 code; the rest as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -14,7 +14,7 @@ The conventions the code already follows, written down so new code matches. Wher
 
 - **C# latest (`LangVersion latest`) on `net10.0`** with `ImplicitUsings` and `Nullable` enabled in every runtime project; the generator is `netstandard2.0` with `LangVersion latest`.
 - **Package versions live only in `Directory.Packages.props`.** A `<PackageReference>` in a project file has no `Version`; a new package is added there first. Roslyn packages follow the SDK's compiler (BUILD, ARCHITECTURE §1).
-- **Engine libraries take no packages** unless the plan says so: `CoolEngine.Imaging` has none, on purpose ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md)).
+- **Engine libraries take no packages** unless the plan says so: `CoolEngine.Imaging` and `CoolEngine.Mathematics` have none, on purpose ([IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md), [MATHEMATICS](CoolEngine.Mathematics/MATHEMATICS.md)).
 - **Nullable:** new code adds no nullable warnings to the [baseline](BUILD.md#2-build). Use `?` for "may be absent" and the `!` operator only where an invariant guarantees a value (a cache entry that startup has loaded).
 - **Unsafe code** only in `CoolEngine` (`AllowUnsafeBlocks`), for `sizeof` and buffer uploads.
 - **File-scoped namespaces** (`namespace X;`) matching the folder path. A few files still use block namespaces.
@@ -45,8 +45,10 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 
 ## Math types
 
-- **OpenTK.Mathematics** (`Vector3`, `Matrix4`, `Quaternion`) everywhere in the engine and the game.
-- **System.Numerics** only in ImGui controls, because ImGui.NET takes those types.
+- **Existing code:** `OpenTK.Mathematics` (`Vector3`, `Matrix4`, `Quaternion`) stays everywhere in the engine and the game until the move to `CoolEngine.Mathematics` (the rest of OT-5, after OT-4 merges); don't rewrite it piecemeal.
+- **New math** uses `CoolEngine.Mathematics`: its matrices (`Matrix2`, `Matrix3`, `Matrix4`, column vectors, column-major) on `System.Numerics.Vector2/3/4` and `System.Numerics.Quaternion`, and the double types where `double` is needed ([MATHEMATICS](CoolEngine.Mathematics/MATHEMATICS.md)). Until the move it is only used by its own tests and benchmarks.
+- **System.Numerics** in ImGui controls, because ImGui.NET takes those types, and as the vector and quaternion types of the new library.
+- **Banned APIs (RS0030, an error in `Common`, `CoolEngine`, `OldTanks.UI` and `OldTanks`):** `System.Numerics.Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them; the list is `BannedSymbols.txt` at the repository root, and it flags uses, not declarations. Use the `CoolEngine.Mathematics` matrices instead.
 - **Convert at the boundary** with `CoolEngine.Services.Extensions.VectorExtensions` (`ToGLVector3`, `ToSystemVector3`, and the `Vector2` pair), and with `OldTanks.Helpers.UIVectorHelper` where the UI shows degrees and the object stores radians.
 - **Float comparison:** `Common.Extensions.PrimitiveExtensions.ApproximateEqual` **with an explicit epsilon**. Its default, `float.Epsilon` (about 1.4e-45), makes it an exact comparison, and the existing callers (`Sphere`, `Collision.SpherePolygonSatCollisionCheck`) rely on that default.
 
@@ -78,4 +80,4 @@ The branch naming is Denys's rule (2026-11-24). Before it, branches had descript
 - **No build output or IDE state:** `bin/`, `obj/`, `.vs/`, `.idea/` are git-ignored.
 - **Build and test before committing:** `dotnet build OldTanks.slnx` with 0 errors and no new warnings, then `dotnet test OldTanks.slnx`.
 - **Test projects** live under `tests/`, use NUnit (as ArbBot and AnalysisTools do) and are named `<Project>.Tests`, or `OldTanks.Docs.Tests` for the documentation checks. `CoolEngine.Imaging.Tests` is the first code test project; `CoolEngine.Tests` (OT-7; the dispatcher's tests since OT-8) holds the engine's headless unit tests, so a test there may not make an OpenGL call (no context exists); `GL`-calling types such as `Texture` and `Shader` are built by reflection with finalizers suppressed ([KI-017](KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)). `OldTanks.UI.Tests` (OT-10) tests the UI layer; its tests share one `ControlHandler` per process, so each uses unique control names ([UI-CONTROLS §1](OldTanks.UI/UI-CONTROLS.md#1-controlhandler)).
-- **Math changes** (once `CoolEngine.Mathematics` exists, OT-5) are reviewed at effort `max` by an `opus` or `fable` reviewer ([plan D7](plans/ENGINES-AND-TANK-GAME.md#5-open-decisions)).
+- **Math changes** (`CoolEngine.Mathematics`, since OT-5) are reviewed at effort `max` by an `opus` or `fable` reviewer ([plan D7](plans/ENGINES-AND-TANK-GAME.md#5-open-decisions)); a member that uses only + − × ÷ and sqrt keeps the same-bits promise and the four-path test passes ([MATHEMATICS §3](CoolEngine.Mathematics/MATHEMATICS.md#3-the-same-bits-promise), [BUILD §2](BUILD.md#2-build)).
