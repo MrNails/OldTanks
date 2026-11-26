@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.Runtime.InteropServices;
 using CoolEngine.Services;
+using CoolEngine.Services.Extensions;
 using FreeTypeSharp;
 using OpenTK.Graphics.OpenGL4;
 using System.Numerics;
@@ -35,7 +36,7 @@ public readonly struct CharacterInfo
 
     public override string ToString()
     {
-        return $"Size: {Size.ToString()}, Bearing: {Bearing.ToString()}, Advance: {Advance}";
+        return $"Size: {Size.ToDisplayString()}, Bearing: {Bearing.ToDisplayString()}, Advance: {Advance}";
     }
 }
 

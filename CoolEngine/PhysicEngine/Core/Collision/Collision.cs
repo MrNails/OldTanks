@@ -172,7 +172,7 @@ public class Collision
                 }
 
                 if (sharedCount != 2 ||
-                    Vector3.Cross(faces[i].Normal, faces[j].Normal).LengthSquared() <ParallelEpsilon)
+                    Vector3.Cross(faces[i].Normal, faces[j].Normal).LengthSquared() < ParallelEpsilon)
                     continue;
 
                 var edge = (Math.Min(first, second), Math.Max(first, second));
@@ -200,7 +200,7 @@ public class Collision
                 var keptEdge = edges[keptIndex];
                 var keptDirection = Vector3.Normalize(shape.Vertices[keptEdge.B] - shape.Vertices[keptEdge.A]);
 
-                if (Vector3.Cross(direction, keptDirection).LengthSquared() <ParallelEpsilon)
+                if (Vector3.Cross(direction, keptDirection).LengthSquared() < ParallelEpsilon)
                 {
                     isParallelToKept = true;
                     break;
@@ -607,7 +607,7 @@ public class Collision
         {
             var axis = center - vertices[i];
             // The centre is on the vertex: the shapes overlap anyway, and the axis has no direction.
-            if (axis.LengthSquared() <ZeroAxisEpsilon)
+            if (axis.LengthSquared() < ZeroAxisEpsilon)
                 continue;
 
             axis = Vector3.Normalize(axis);
@@ -633,7 +633,7 @@ public class Collision
             var t = Math.Clamp(Vector3.Dot(center - start, edge) / Vector3.Dot(edge, edge), 0, 1);
             var axis = center - (start + t * edge);
             // The centre is on the edge: the shapes overlap anyway, and the axis has no direction.
-            if (axis.LengthSquared() <ZeroAxisEpsilon)
+            if (axis.LengthSquared() < ZeroAxisEpsilon)
                 continue;
 
             axis = Vector3.Normalize(axis);

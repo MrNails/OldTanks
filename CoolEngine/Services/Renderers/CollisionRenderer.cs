@@ -4,6 +4,7 @@ using System.Numerics;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.Mathematics;
+using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
@@ -101,7 +102,7 @@ public class CollisionRenderer
                     var pos = element.Vertices[j];
                     textDrawInfo.SelfPosition = pos;
 
-                    TextRenderer.DrawText3D(font, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
+                    TextRenderer.DrawText3D(font, $"{j % element.VerticesPerModel} {pos.ToDisplayString()}", camera, textDrawInfo, true);
                 }
             }
 

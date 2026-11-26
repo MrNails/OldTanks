@@ -173,6 +173,9 @@ public partial class MainWindow : GameWindow
         return new NativeWindowSettings
         {
             ClientSize = clientSize,
+            // The scene's depth lives in the render target (since M6): the window's framebuffer needs none.
+            DepthBits = 0,
+            StencilBits = 0,
             Title = caption,
             APIVersion = new Version(4, 6),
             Flags = ContextFlags.ForwardCompatible
@@ -491,9 +494,9 @@ public partial class MainWindow : GameWindow
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
-        m_tbCamRotation.Text = FormatHudVector(m_currentObject.Rotation);
-        m_tbPosition.Text = FormatHudVector(m_currentObject.Position);
-        m_tbRotation.Text = FormatHudVector(m_rotation);
+        m_tbCamRotation.Text = m_currentObject.Rotation.ToDisplayString();
+        m_tbPosition.Text = m_currentObject.Position.ToDisplayString();
+        m_tbRotation.Text = m_rotation.ToDisplayString();
 
         base.OnUpdateFrame(args);
     }
@@ -510,10 +513,13 @@ public partial class MainWindow : GameWindow
         if (Size.X == 0 || Size.Y == 0)
             return;
 
-        // After the zero-size check: the factory throws on an empty box (minimised), so the last one is kept.
+        // After the zero-size check, which protects a minimised fullscreen window (the only case with size 0): the
+        // factory throws on an empty box, so the last projection is kept there.
         EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
 
-        // Follows the viewport above; a zero size (minimised) keeps the last one.
+        // Follows the viewport above. A minimised decorated window reports its frame size (OpenTK's Size is the client
+        // area plus the GLFW frame, e.g. 16x39), and the target follows it; only a minimised fullscreen window has size
+        // 0, which keeps the last one.
         m_renderTarget?.Resize(Size.X, Size.Y);
 
         var aspect = (float)Size.X / Size.Y;
@@ -608,15 +614,6 @@ public partial class MainWindow : GameWindow
         lines.Add("Details are in the console and log.txt. Press Esc to quit.");
 
         m_startupError = string.Join('\n', lines);
-    }
-
-    // The HUD's text of a vector as OpenTK's Vector3.ToString wrote it before OT-5, "(x, y, z)" with the current
-    // culture's list separator (System.Numerics writes "<x, y, z>").
-    private static string FormatHudVector(Vector3 vector)
-    {
-        var separator = CultureInfo.CurrentCulture.TextInfo.ListSeparator;
-
-        return $"({vector.X}{separator} {vector.Y}{separator} {vector.Z})";
     }
 
     // GL thread only: ImGui computed these in NewFrame, inside ImGuiController.Update.
