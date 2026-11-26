@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Texture;
 using CoolEngine.Services;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Renderers;
+using CoolEngine.Tests.TestSupport;
 using OpenTK.Mathematics;
 
 namespace CoolEngine.Tests.Services.Renderers;
@@ -132,6 +134,44 @@ public sealed class ObjectRendererTests
             Assert.That(records[0].Color, Is.EqualTo(Colors.White));
             Assert.That(records[0].HaveTexture, Is.EqualTo(1f).Within(Tolerance));
         });
+    }
+
+    #endregion
+
+    #region Golden values
+
+    [Test]
+    public void ModelData_TextureTransform_MatchesGolden()
+    {
+        var scene = CreateScene();
+        var transformation = Matrix4.CreateScale(2f, 3f, 4f) *
+                             Matrix4.CreateRotationX(0.5f) *
+                             Matrix4.CreateRotationY(-0.3f) *
+                             Matrix4.CreateRotationZ(1.1f) *
+                             Matrix4.CreateTranslation(5f, -6f, 7f);
+        var drawables = new List<FakeDrawable> { CreateDrawable(scene, CreateTexture(7), transformation) };
+        var textureDatas = CreateTextureDatas(scene, drawables);
+        textureDatas[drawables[0]].Scale = new Vector2(2f, 0.5f);
+        textureDatas[drawables[0]].RotationAngle = 30f;
+        var records = new ObjectRenderer<FakeDrawable>.ModelData[1];
+
+        ObjectRenderer<FakeDrawable>.FillInstanceRecords(AsDrawableList(drawables), textureDatas, true, records);
+
+        // Recorded on 2026-11-26 at 3d22d58 with OpenTK.Mathematics, before the move onto CoolEngine.Mathematics.
+        // The record as the GPU receives it: transformation (16), color (4), texture transformation (4), haveTexture.
+        float[] expected =
+        [
+            0.8666738f, 1.7028059f, 0.59104043f, 0f,
+            -2.5391207f, 0.81540537f, 1.3740382f, 0f,
+            1.2385218f, -1.7943771f, 3.3535466f, 0f,
+            5f, -6f, 7f, 1f,
+            1f, 1f, 1f, 1f,
+            1.7320508f, 1f, -0.25f, 0.4330127f,
+            1f
+        ];
+
+        GoldenAssert.AreClose(expected, MemoryMarshal.Cast<ObjectRenderer<FakeDrawable>.ModelData, float>(records).ToArray(),
+            "ModelData");
     }
 
     #endregion
