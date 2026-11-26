@@ -51,4 +51,49 @@ public sealed class AllocationTests
 
         return checksum;
     }
+
+    [Test]
+    public void DoubleHotPaths_TenThousandCalls_AllocateNothing()
+    {
+        var random = Inputs.CreateRandom();
+        var matrix = random.NextTrsD();
+        var other = random.NextTrsD();
+        var vector4 = random.NextVector4d();
+        var vector3 = random.NextVector3d();
+        var rotation = random.NextRotationD();
+        var otherRotation = random.NextRotationD();
+
+        // Warm up once, so the JIT compiles every path before the measurement.
+        var checksum = RunDoubleHotPaths(1, matrix, other, vector4, vector3, rotation, otherRotation);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        checksum += RunDoubleHotPaths(Calls, matrix, other, vector4, vector3, rotation, otherRotation);
+        var after = GC.GetAllocatedBytesForCurrentThread();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(after - before, Is.EqualTo(0L), "allocated bytes");
+            Assert.That(double.IsNaN(checksum), Is.False, "checksum (keeps the results alive)");
+        });
+    }
+
+    // The plan's double hot paths: Matrix4d * Matrix4d, Matrix4d * Vector4d, TransformPosition, Vector3d.Normalize,
+    // Quaterniond * Quaterniond, Vector3d.Transform (rotation by a quaternion), Matrix4d.Inverted.
+    private static double RunDoubleHotPaths(int calls, Matrix4d matrix, Matrix4d other, Vector4d vector4, Vector3d vector3,
+        Quaterniond rotation, Quaterniond otherRotation)
+    {
+        var checksum = 0.0;
+        for (var i = 0; i < calls; i++)
+        {
+            checksum += (matrix * other).Column0.X;
+            checksum += (matrix * vector4).X;
+            checksum += matrix.TransformPosition(vector3).Y;
+            checksum += Vector3d.Normalize(vector3).Z;
+            checksum += (rotation * otherRotation).W;
+            checksum += Vector3d.Transform(vector3, rotation).X;
+            checksum += matrix.Inverted().Column3.X;
+        }
+
+        return checksum;
+    }
 }

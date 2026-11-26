@@ -466,6 +466,175 @@ internal static class MathAssert
 
     #endregion
 
+    #region Double types
+
+    public static void Exact(Vector2d actual, Vector2d expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+    public static void Exact(Vector3d actual, Vector3d expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+    public static void Exact(Vector4d actual, Vector4d expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+    public static void Exact(Quaterniond actual, Quaterniond expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+    public static void Exact(Matrix2d actual, Matrix2d expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+    public static void Exact(Matrix3d actual, Matrix3d expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+    public static void Exact(Matrix4d actual, Matrix4d expected, string? context = null) => Exact(Components(actual), Components(expected), context);
+
+    public static void Near(Vector2d actual, Vector2d expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Vector2d actual, Vector2d expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    public static void Near(Vector3d actual, Vector3d expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Vector3d actual, Vector3d expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    public static void Near(Vector4d actual, Vector4d expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Vector4d actual, Vector4d expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    public static void Near(Quaterniond actual, Quaterniond expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Quaterniond actual, Quaterniond expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    public static void Near(Matrix2d actual, Matrix2d expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Matrix2d actual, Matrix2d expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    public static void Near(Matrix3d actual, Matrix3d expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Matrix3d actual, Matrix3d expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    public static void Near(Matrix4d actual, Matrix4d expected, double tolerance, double scale = 1.0, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scale, context);
+
+    public static void Near(Matrix4d actual, Matrix4d expected, double tolerance, ReadOnlySpan<double> scales, string? context = null) =>
+        Near(Components(actual), Components(expected), tolerance, scales, context);
+
+    /// <summary>The components of a double vector or quaternion read from its fields: X, Y, Z, W.</summary>
+    public static double[] Components(Vector2d value) => [value.X, value.Y];
+
+    /// <inheritdoc cref="Components(Vector2d)"/>
+    public static double[] Components(Vector3d value) => [value.X, value.Y, value.Z];
+
+    /// <inheritdoc cref="Components(Vector2d)"/>
+    public static double[] Components(Vector4d value) => [value.X, value.Y, value.Z, value.W];
+
+    /// <inheritdoc cref="Components(Vector2d)"/>
+    public static double[] Components(Quaterniond value) => [value.X, value.Y, value.Z, value.W];
+
+    /// <summary>The elements of a double matrix read from its column fields, column after column.</summary>
+    public static double[] Components(Matrix2d value) => [.. Components(value.Column0), .. Components(value.Column1)];
+
+    /// <inheritdoc cref="Components(Matrix2d)"/>
+    public static double[] Components(Matrix3d value) =>
+        [.. Components(value.Column0), .. Components(value.Column1), .. Components(value.Column2)];
+
+    /// <inheritdoc cref="Components(Matrix2d)"/>
+    public static double[] Components(Matrix4d value) =>
+        [.. Components(value.Column0), .. Components(value.Column1), .. Components(value.Column2), .. Components(value.Column3)];
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Matrix2)"/>
+    public static double[] ProductScales(Matrix2d a, Matrix2d b) => ProductScalesD(Components(a), Components(b), 2, 2);
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Matrix2)"/>
+    public static double[] ProductScales(Matrix3d a, Matrix3d b) => ProductScalesD(Components(a), Components(b), 3, 3);
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Matrix2)"/>
+    public static double[] ProductScales(Matrix4d a, Matrix4d b) => ProductScalesD(Components(a), Components(b), 4, 4);
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Vector2)"/>
+    public static double[] ProductScales(Matrix2d matrix, Vector2d vector) => ProductScalesD(Components(matrix), Components(vector), 2, 1);
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Vector2)"/>
+    public static double[] ProductScales(Matrix3d matrix, Vector3d vector) => ProductScalesD(Components(matrix), Components(vector), 3, 1);
+
+    /// <inheritdoc cref="ProductScales(Matrix2, Vector2)"/>
+    public static double[] ProductScales(Matrix4d matrix, Vector4d vector) => ProductScalesD(Components(matrix), Components(vector), 4, 1);
+
+    /// <inheritdoc cref="DeterminantScale(Matrix2)"/>
+    public static double DeterminantScale(Matrix2d matrix) => AbsPermanentD(Components(matrix), 2, 0, 0);
+
+    /// <inheritdoc cref="DeterminantScale(Matrix2)"/>
+    public static double DeterminantScale(Matrix3d matrix) => AbsPermanentD(Components(matrix), 3, 0, 0);
+
+    /// <inheritdoc cref="DeterminantScale(Matrix2)"/>
+    public static double DeterminantScale(Matrix4d matrix) => AbsPermanentD(Components(matrix), 4, 0, 0);
+
+    /// <summary>The sums-of-products scale of the Hamilton product <c>a * b</c>, per component X, Y, Z, W.</summary>
+    public static double[] ProductScales(Quaterniond a, Quaterniond b)
+    {
+        return
+        [
+            SumOfAbs(a.W * b.X, a.X * b.W, a.Y * b.Z, a.Z * b.Y),
+            SumOfAbs(a.W * b.Y, a.X * b.Z, a.Y * b.W, a.Z * b.X),
+            SumOfAbs(a.W * b.Z, a.X * b.Y, a.Y * b.X, a.Z * b.W),
+            SumOfAbs(a.W * b.W, a.X * b.X, a.Y * b.Y, a.Z * b.Z),
+        ];
+    }
+
+    /// <inheritdoc cref="RotationScales(Quaternion, Vector3)"/>
+    public static double[] RotationScales(Quaterniond rotation, Vector3d vector)
+    {
+        double[] u = [rotation.X, rotation.Y, rotation.Z];
+        double[] v = [vector.X, vector.Y, vector.Z];
+        var w = rotation.W;
+        var scales = new double[3];
+        for (var i = 0; i < 3; i++)
+        {
+            var j = (i + 1) % 3;
+            var k = (i + 2) % 3;
+            scales[i] = SumOfAbs(v[i], 2.0 * w * u[j] * v[k], 2.0 * w * u[k] * v[j], 2.0 * u[j] * u[i] * v[j], 2.0 * u[j] * u[j] * v[i],
+                2.0 * u[k] * u[k] * v[i], 2.0 * u[k] * u[i] * v[k]);
+        }
+
+        return scales;
+    }
+
+    private static double[] ProductScalesD(double[] a, double[] b, int n, int m)
+    {
+        var scales = new double[n * m];
+        for (var column = 0; column < m; column++)
+        {
+            for (var row = 0; row < n; row++)
+            {
+                var sum = 0.0;
+                for (var k = 0; k < n; k++)
+                    sum += Math.Abs(a[k * n + row] * b[column * n + k]);
+
+                scales[column * n + row] = sum;
+            }
+        }
+
+        return scales;
+    }
+
+    private static double AbsPermanentD(double[] columnMajor, int n, int row, int usedColumns)
+    {
+        if (row == n)
+            return 1.0;
+
+        var sum = 0.0;
+        for (var column = 0; column < n; column++)
+        {
+            if ((usedColumns & (1 << column)) != 0)
+                continue;
+
+            sum += Math.Abs(columnMajor[column * n + row]) * AbsPermanentD(columnMajor, n, row + 1, usedColumns | (1 << column));
+        }
+
+        return sum;
+    }
+
+    #endregion
+
     #region Pure comparison cores
 
     /// <summary>

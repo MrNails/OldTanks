@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using Numerics = System.Numerics;
+using OpenTKMath = OpenTK.Mathematics;
 
 namespace CoolEngine.Mathematics.Tests.TestSupport;
 
@@ -162,6 +163,16 @@ internal static class Inputs
     /// </summary>
     public static double ConditionNumber1(ReadOnlySpan<float> columnMajor, int n)
     {
+        var widened = new double[columnMajor.Length];
+        for (var i = 0; i < widened.Length; i++)
+            widened[i] = columnMajor[i];
+
+        return ConditionNumber1(widened, n);
+    }
+
+    /// <inheritdoc cref="ConditionNumber1(ReadOnlySpan{float}, int)"/>
+    public static double ConditionNumber1(ReadOnlySpan<double> columnMajor, int n)
+    {
         // a is n × 2n row-major: [M | I], reduced to [I | M⁻¹].
         var a = new double[n, 2 * n];
         for (var row = 0; row < n; row++)
@@ -219,6 +230,112 @@ internal static class Inputs
         }
 
         return norm * inverseNorm;
+    }
+
+    // Double types: the same generators with double components (NextComponentD, NextAngleD, NextScaleFactorD).
+
+    /// <summary>A double vector with every component in [-100, 100].</summary>
+    public static Vector2d NextVector2d(this Random random) => new(random.NextComponentD(), random.NextComponentD());
+
+    /// <inheritdoc cref="NextVector2d"/>
+    public static Vector3d NextVector3d(this Random random) => new(random.NextComponentD(), random.NextComponentD(), random.NextComponentD());
+
+    /// <inheritdoc cref="NextVector2d"/>
+    public static Vector4d NextVector4d(this Random random) =>
+        new(random.NextComponentD(), random.NextComponentD(), random.NextComponentD(), random.NextComponentD());
+
+    /// <summary>A double quaternion with every component in [-100, 100] (not a rotation; for the algebra tests).</summary>
+    public static Quaterniond NextQuaterniond(this Random random) =>
+        new(random.NextComponentD(), random.NextComponentD(), random.NextComponentD(), random.NextComponentD());
+
+    /// <summary>A unit double quaternion, uniform over all rotations (<see cref="NextUnitQuaternionD"/>).</summary>
+    public static Quaterniond NextRotationD(this Random random)
+    {
+        var (x, y, z, w) = random.NextUnitQuaternionD();
+        return new Quaterniond(x, y, z, w);
+    }
+
+    /// <summary>A double matrix with every element in [-100, 100].</summary>
+    public static Matrix2d NextMatrix2d(this Random random) => Matrix2d.FromColumns(random.NextVector2d(), random.NextVector2d());
+
+    /// <inheritdoc cref="NextMatrix2d"/>
+    public static Matrix3d NextMatrix3d(this Random random) =>
+        Matrix3d.FromColumns(random.NextVector3d(), random.NextVector3d(), random.NextVector3d());
+
+    /// <inheritdoc cref="NextMatrix2d"/>
+    public static Matrix4d NextMatrix4d(this Random random) =>
+        Matrix4d.FromColumns(random.NextVector4d(), random.NextVector4d(), random.NextVector4d(), random.NextVector4d());
+
+    /// <summary><see cref="NextMatrix2d"/> drawn again until <c>κ₁ ≤ </c><see cref="MaxConditionNumber"/>.</summary>
+    public static Matrix2d NextWellConditionedMatrix2d(this Random random)
+    {
+        while (true)
+        {
+            var matrix = random.NextMatrix2d();
+            if (ConditionNumber1(MathAssert.Components(matrix), 2) <= MaxConditionNumber)
+                return matrix;
+        }
+    }
+
+    /// <inheritdoc cref="NextWellConditionedMatrix2d"/>
+    public static Matrix3d NextWellConditionedMatrix3d(this Random random)
+    {
+        while (true)
+        {
+            var matrix = random.NextMatrix3d();
+            if (ConditionNumber1(MathAssert.Components(matrix), 3) <= MaxConditionNumber)
+                return matrix;
+        }
+    }
+
+    /// <inheritdoc cref="NextWellConditionedMatrix2d"/>
+    public static Matrix4d NextWellConditionedMatrix4d(this Random random)
+    {
+        while (true)
+        {
+            var matrix = random.NextMatrix4d();
+            if (ConditionNumber1(MathAssert.Components(matrix), 4) <= MaxConditionNumber)
+                return matrix;
+        }
+    }
+
+    /// <summary>
+    /// A double TRS matrix <c>T * R * S</c> (scale per axis in [0.5, 2], a uniformly random rotation, translation in
+    /// [-100, 100]), built with OpenTK's double matrices (row vectors, <c>S * R * T</c>) and moved over byte for byte.
+    /// </summary>
+    public static Matrix4d NextTrsD(this Random random) => random.NextTrsD(out _);
+
+    /// <inheritdoc cref="NextTrsD(Random)"/>
+    /// <param name="random">The generator.</param>
+    /// <param name="scaleFactors">The per-axis scale factors, which are the lengths of the first three columns.</param>
+    public static Matrix4d NextTrsD(this Random random, out Vector3d scaleFactors)
+    {
+        var (x, y, z, w) = random.NextUnitQuaternionD();
+        scaleFactors = new Vector3d(random.NextScaleFactorD(), random.NextScaleFactorD(), random.NextScaleFactorD());
+        var scale = OpenTKMath.Matrix4d.CreateScale(scaleFactors.X, scaleFactors.Y, scaleFactors.Z);
+        var rotation = OpenTKMath.Matrix4d.CreateFromQuaternion(new OpenTKMath.Quaterniond(x, y, z, w));
+        var translation = OpenTKMath.Matrix4d.CreateTranslation(random.NextComponentD(), random.NextComponentD(), random.NextComponentD());
+
+        return Oracle.FromOpenTK(scale * rotation * translation);
+    }
+
+    /// <summary>The upper-left 3 × 3 of <see cref="NextTrsD(Random)"/>: a random rotation times a per-axis scale.</summary>
+    public static Matrix3d NextRotationScale3d(this Random random)
+    {
+        var trs = random.NextTrsD();
+        return Matrix3d.FromColumns(
+            new Vector3d(trs.Column0.X, trs.Column0.Y, trs.Column0.Z),
+            new Vector3d(trs.Column1.X, trs.Column1.Y, trs.Column1.Z),
+            new Vector3d(trs.Column2.X, trs.Column2.Y, trs.Column2.Z));
+    }
+
+    /// <summary>A 2D rotation by a random angle times a per-axis scale in [0.5, 2]: <c>R * S</c>, in double.</summary>
+    public static Matrix2d NextRotationScale2d(this Random random)
+    {
+        var (sin, cos) = Math.SinCos(random.NextAngleD());
+        var scaleX = random.NextScaleFactorD();
+        var scaleY = random.NextScaleFactorD();
+        return Matrix2d.FromColumns(new Vector2d(cos, sin) * scaleX, new Vector2d(-sin, cos) * scaleY);
     }
 
     /// <summary>The upper-left 3 × 3 of <see cref="NextTrs(Random)"/>: a random rotation times a per-axis scale.</summary>

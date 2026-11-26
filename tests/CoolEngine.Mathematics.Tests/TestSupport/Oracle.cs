@@ -99,6 +99,37 @@ internal static class Oracle
         return Reinterpret<OpenTKMath.Matrix4, Matrix4>(value);
     }
 
+    // Double types: OpenTK's double types are the oracle. Vectors and quaternions convert field by field, matrices byte
+    // for byte (OpenTK's row-vector, row-major double matrices have the bytes of our column-major ones).
+
+    public static OpenTKMath.Vector2d ToOpenTK(Vector2d value) => new(value.X, value.Y);
+
+    public static OpenTKMath.Vector3d ToOpenTK(Vector3d value) => new(value.X, value.Y, value.Z);
+
+    public static OpenTKMath.Vector4d ToOpenTK(Vector4d value) => new(value.X, value.Y, value.Z, value.W);
+
+    public static OpenTKMath.Quaterniond ToOpenTK(Quaterniond value) => new(value.X, value.Y, value.Z, value.W);
+
+    public static Vector2d FromOpenTK(OpenTKMath.Vector2d value) => new(value.X, value.Y);
+
+    public static Vector3d FromOpenTK(OpenTKMath.Vector3d value) => new(value.X, value.Y, value.Z);
+
+    public static Vector4d FromOpenTK(OpenTKMath.Vector4d value) => new(value.X, value.Y, value.Z, value.W);
+
+    public static Quaterniond FromOpenTK(OpenTKMath.Quaterniond value) => new(value.X, value.Y, value.Z, value.W);
+
+    public static OpenTKMath.Matrix2d ToOpenTK(Matrix2d value) => Reinterpret<Matrix2d, OpenTKMath.Matrix2d>(value);
+
+    public static OpenTKMath.Matrix3d ToOpenTK(Matrix3d value) => Reinterpret<Matrix3d, OpenTKMath.Matrix3d>(value);
+
+    public static OpenTKMath.Matrix4d ToOpenTK(Matrix4d value) => Reinterpret<Matrix4d, OpenTKMath.Matrix4d>(value);
+
+    public static Matrix2d FromOpenTK(OpenTKMath.Matrix2d value) => Reinterpret<OpenTKMath.Matrix2d, Matrix2d>(value);
+
+    public static Matrix3d FromOpenTK(OpenTKMath.Matrix3d value) => Reinterpret<OpenTKMath.Matrix3d, Matrix3d>(value);
+
+    public static Matrix4d FromOpenTK(OpenTKMath.Matrix4d value) => Reinterpret<OpenTKMath.Matrix4d, Matrix4d>(value);
+
     /// <summary>The bytes of <paramref name="value"/> in memory order.</summary>
     public static byte[] Bytes<T>(T value) where T : unmanaged
     {

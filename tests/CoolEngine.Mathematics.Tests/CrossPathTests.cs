@@ -41,6 +41,167 @@ public sealed class CrossPathTests
         Assert.That(hash.Value, Is.EqualTo(Golden), $"hash 0x{hash.Value:X16}");
     }
 
+    // Recorded 2026-11-26 on the default path (same machine) with OT-5 stage 4: the test ran once with a placeholder and the
+    // actual hash from its failure message was copied here, after the same hash was seen on all four paths. Re-recorded the
+    // same way for the reciprocal Normalize of the double vectors and Quaterniond (one 1 / Length, then multiplies). Re-record
+    // it only for a deliberate change of a result, never to make a path agree.
+    private const ulong DoubleGolden = 0xADE032B4A613B567;
+
+    [Test]
+    public void DoubleHashedLoop_SameBitsOnEveryPath_MatchesGolden()
+    {
+        var random = new Random(Inputs.Seed);
+        var hash = new Fnv1a64();
+
+        for (var step = 0; step < Steps; step++)
+        {
+            HashVectors(random, ref hash);
+            HashQuaterniond(random, ref hash);
+            HashMatrix2d(random, ref hash);
+            HashMatrix3d(random, ref hash);
+            HashMatrix4d(random, ref hash);
+        }
+
+        Assert.That(hash.Value, Is.EqualTo(DoubleGolden), $"hash 0x{hash.Value:X16}");
+    }
+
+    private static void HashVectors(Random random, ref Fnv1a64 hash)
+    {
+        var a2 = random.NextVector2d();
+        var b2 = random.NextVector2d();
+        var a3 = random.NextVector3d();
+        var b3 = random.NextVector3d();
+        var a4 = random.NextVector4d();
+        var b4 = random.NextVector4d();
+        var s = random.NextComponentD();
+        var t = random.NextDouble();
+
+        hash.Add(a2 + b2); hash.Add(a2 - b2); hash.Add(-a2); hash.Add(a2 * b2); hash.Add(a2 / b2); hash.Add(a2 * s); hash.Add(s * a2);
+        hash.Add(a2 / s); hash.Add(a2.Length()); hash.Add(a2.LengthSquared()); hash.Add(Vector2d.Dot(a2, b2));
+        hash.Add(Vector2d.Normalize(a2)); hash.Add(Vector2d.Distance(a2, b2)); hash.Add(Vector2d.DistanceSquared(a2, b2));
+        hash.Add(Vector2d.Min(a2, b2)); hash.Add(Vector2d.Max(a2, b2)); hash.Add(Vector2d.Abs(a2)); hash.Add(Vector2d.Clamp(a2, b2, a2 + b2));
+        hash.Add(Vector2d.Lerp(a2, b2, t));
+
+        hash.Add(a3 + b3); hash.Add(a3 - b3); hash.Add(-a3); hash.Add(a3 * b3); hash.Add(a3 / b3); hash.Add(a3 * s); hash.Add(s * a3);
+        hash.Add(a3 / s); hash.Add(a3.Length()); hash.Add(a3.LengthSquared()); hash.Add(Vector3d.Dot(a3, b3)); hash.Add(Vector3d.Cross(a3, b3));
+        hash.Add(Vector3d.Normalize(a3)); hash.Add(Vector3d.Distance(a3, b3)); hash.Add(Vector3d.DistanceSquared(a3, b3));
+        hash.Add(Vector3d.Min(a3, b3)); hash.Add(Vector3d.Max(a3, b3)); hash.Add(Vector3d.Abs(a3)); hash.Add(Vector3d.Clamp(a3, b3, a3 + b3));
+        hash.Add(Vector3d.Lerp(a3, b3, t)); hash.Add(Vector3d.Transform(a3, random.NextRotationD()));
+
+        hash.Add(a4 + b4); hash.Add(a4 - b4); hash.Add(-a4); hash.Add(a4 * b4); hash.Add(a4 / b4); hash.Add(a4 * s); hash.Add(s * a4);
+        hash.Add(a4 / s); hash.Add(a4.Length()); hash.Add(a4.LengthSquared()); hash.Add(Vector4d.Dot(a4, b4));
+        hash.Add(Vector4d.Normalize(a4)); hash.Add(Vector4d.Distance(a4, b4)); hash.Add(Vector4d.DistanceSquared(a4, b4));
+        hash.Add(Vector4d.Min(a4, b4)); hash.Add(Vector4d.Max(a4, b4)); hash.Add(Vector4d.Abs(a4)); hash.Add(Vector4d.Clamp(a4, b4, a4 + b4));
+        hash.Add(Vector4d.Lerp(a4, b4, t));
+    }
+
+    private static void HashQuaterniond(Random random, ref Fnv1a64 hash)
+    {
+        var a = random.NextQuaterniond();
+        var b = random.NextQuaterniond();
+        var ra = random.NextRotationD();
+        var rb = random.NextRotationD();
+        var s = random.NextComponentD();
+
+        hash.Add(a + b); hash.Add(a - b); hash.Add(-a); hash.Add(a * b); hash.Add(a * s); hash.Add(a.Length()); hash.Add(a.LengthSquared());
+        hash.Add(Quaterniond.Conjugate(a)); hash.Add(Quaterniond.Inverse(a)); hash.Add(Quaterniond.Normalize(a)); hash.Add(Quaterniond.Dot(a, b));
+        hash.Add(Quaterniond.CreateFromAxisAngle(Vector3d.Normalize(random.NextVector3d()), random.NextAngleD()));
+        hash.Add(Quaterniond.Slerp(ra, rb, random.NextDouble()));
+    }
+
+    private static void HashMatrix2d(Random random, ref Fnv1a64 hash)
+    {
+        var a = random.NextMatrix2d();
+        var b = random.NextMatrix2d();
+        var v = random.NextVector2d();
+
+        hash.Add(Matrix2d.FromRows(v, random.NextVector2d()));
+        hash.Add(a * b);
+        hash.Add(a * v);
+        hash.Add(a.Determinant);
+        hash.Add(a.Transposed());
+        hash.Add(a.Inverted());
+        hash.Add(Matrix2d.TryInvert(b, out var inverse));
+        hash.Add(inverse);
+        hash.Add(Matrix2d.CreateRotation(random.NextAngleD()));
+        hash.Add(Matrix2d.CreateScale(random.NextComponentD()));
+        hash.Add(Matrix2d.CreateScale(v));
+        hash.Add(Matrix2d.CreateScale(v.X, v.Y));
+        hash.Add((Matrix2)a);
+    }
+
+    private static void HashMatrix3d(Random random, ref Fnv1a64 hash)
+    {
+        var a = random.NextMatrix3d();
+        var b = random.NextMatrix3d();
+        var v = random.NextVector3d();
+
+        hash.Add(Matrix3d.FromRows(v, random.NextVector3d(), random.NextVector3d()));
+        hash.Add(new Matrix3d(random.NextMatrix4d()));
+        hash.Add(a * b);
+        hash.Add(a * v);
+        hash.Add(a.Determinant);
+        hash.Add(a.Transposed());
+        hash.Add(a.Inverted());
+        hash.Add(Matrix3d.TryInvert(b, out var inverse));
+        hash.Add(inverse);
+        hash.Add(Matrix3d.CreateScale(random.NextComponentD()));
+        hash.Add(Matrix3d.CreateScale(v));
+        hash.Add(Matrix3d.CreateScale(v.X, v.Y, v.Z));
+        hash.Add(Matrix3d.CreateRotationX(random.NextAngleD()));
+        hash.Add(Matrix3d.CreateRotationY(random.NextAngleD()));
+        hash.Add(Matrix3d.CreateRotationZ(random.NextAngleD()));
+        hash.Add(Matrix3d.CreateFromAxisAngle(random.NextVector3d(), random.NextAngleD()));
+        hash.Add(Matrix3d.CreateFromQuaternion(random.NextRotationD()));
+        hash.Add((Matrix3)a);
+    }
+
+    private static void HashMatrix4d(Random random, ref Fnv1a64 hash)
+    {
+        var a = random.NextMatrix4d();
+        var b = random.NextMatrix4d();
+        var v = random.NextVector4d();
+        var p = random.NextVector3d();
+
+        hash.Add(Matrix4d.FromRows(v, random.NextVector4d(), random.NextVector4d(), random.NextVector4d()));
+        hash.Add(new Matrix4d(random.NextMatrix3d()));
+        hash.Add(a.Translation);
+        hash.Add(a * b);
+        hash.Add(a * v);
+        hash.Add(a.TransformPosition(p));
+        hash.Add(a.TransformDirection(p));
+        hash.Add(a.Determinant);
+        hash.Add(a.Transposed());
+        hash.Add(a.Inverted());
+        hash.Add(Matrix4d.TryInvert(b, out var inverse));
+        hash.Add(inverse);
+        hash.Add(a.ClearRotation());
+        hash.Add(Matrix4d.CreateScale(random.NextComponentD()));
+        hash.Add(Matrix4d.CreateScale(p));
+        hash.Add(Matrix4d.CreateScale(p.X, p.Y, p.Z));
+        hash.Add(Matrix4d.CreateTranslation(p));
+        hash.Add(Matrix4d.CreateTranslation(p.X, p.Y, p.Z));
+        hash.Add(Matrix4d.CreateRotationX(random.NextAngleD()));
+        hash.Add(Matrix4d.CreateRotationY(random.NextAngleD()));
+        hash.Add(Matrix4d.CreateRotationZ(random.NextAngleD()));
+        hash.Add(Matrix4d.CreateFromAxisAngle(random.NextVector3d(), random.NextAngleD()));
+        hash.Add(Matrix4d.CreateFromQuaternion(random.NextRotationD()));
+        hash.Add(Matrix4d.LookAt(p, random.NextVector3d(), random.NextVector3d()));
+        hash.Add((Matrix4)a);
+
+        var fovY = 0.1 + 2.9 * random.NextDouble();
+        var aspectRatio = 0.5 + 2.5 * random.NextDouble();
+        var depthNear = 0.01 + random.NextDouble();
+        var depthFar = depthNear + 1.0 + 999.0 * random.NextDouble();
+        hash.Add(Matrix4d.CreatePerspectiveFieldOfView(fovY, aspectRatio, depthNear, depthFar));
+        hash.Add(Matrix4d.CreatePerspectiveFieldOfViewInfinite(fovY, aspectRatio, depthNear));
+
+        var left = random.NextComponentD();
+        var bottom = random.NextComponentD();
+        hash.Add(Matrix4d.CreateOrthographicOffCenter(left, left + 1.0 + random.NextDouble() * 100.0, bottom,
+            bottom + 1.0 + random.NextDouble() * 100.0, -depthNear, depthFar));
+    }
+
     private static void HashMatrix2(Random random, ref Fnv1a64 hash)
     {
         var a = random.NextMatrix2();
