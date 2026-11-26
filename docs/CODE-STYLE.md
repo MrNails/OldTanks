@@ -45,7 +45,7 @@ Exceptions exist: `RigidBody` (`_isStatic`) and the engine's `EngineSettings` (`
 
 ## Math types
 
-- **Existing code:** `OpenTK.Mathematics` (`Vector3`, `Matrix4`, `Quaternion`) stays everywhere in the engine and the game until the move to `CoolEngine.Mathematics` (the rest of OT-5, after OT-4 merges); don't rewrite it piecemeal.
+- **Existing code:** `OpenTK.Mathematics` (`Vector3`, `Matrix4`, `Quaternion`) stays everywhere in the engine and the game until the move to `CoolEngine.Mathematics` (the rest of OT-5, planned and not waiting for OT-4); don't rewrite it piecemeal.
 - **New math** uses `CoolEngine.Mathematics`: its matrices (`Matrix2`, `Matrix3`, `Matrix4`, column vectors, column-major) on `System.Numerics.Vector2/3/4` and `System.Numerics.Quaternion`, and the double types where `double` is needed ([MATHEMATICS](CoolEngine.Mathematics/MATHEMATICS.md)). Until the move it is only used by its own tests and benchmarks.
 - **System.Numerics** in ImGui controls, because ImGui.NET takes those types, and as the vector and quaternion types of the new library.
 - **Banned APIs (RS0030, an error in `Common`, `CoolEngine`, `OldTanks.UI` and `OldTanks`):** `System.Numerics.Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them; the list is `BannedSymbols.txt` at the repository root, and it flags uses, not declarations. Use the `CoolEngine.Mathematics` matrices instead.
