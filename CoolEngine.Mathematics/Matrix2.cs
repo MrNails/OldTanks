@@ -153,9 +153,9 @@ public struct Matrix2 : IEquatable<Matrix2>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector2 operator *(Matrix2 matrix, Vector2 vector)
     {
-        // AsVector128 zeroes the two unused lanes; AsVector2 reads back the first two.
-        var result = matrix.Column0.AsVector128() * vector.X;
-        result = Vector128.MultiplyAddEstimate(matrix.Column1.AsVector128(), Vector128.Create(vector.Y), result);
+        // Multiply, then add (no fused multiply-add: the same bits on every instruction set). AsVector128 zeroes the two
+        // unused lanes; AsVector2 reads back the first two.
+        var result = matrix.Column0.AsVector128() * vector.X + matrix.Column1.AsVector128() * vector.Y;
         return result.AsVector2();
     }
 

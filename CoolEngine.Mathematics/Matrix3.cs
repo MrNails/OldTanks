@@ -241,10 +241,10 @@ public struct Matrix3 : IEquatable<Matrix3>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector3 operator *(Matrix3 matrix, Vector3 vector)
     {
-        // AsVector128 zeroes the unused fourth lane; AsVector3 reads back the first three.
-        var result = matrix.Column0.AsVector128() * vector.X;
-        result = Vector128.MultiplyAddEstimate(matrix.Column1.AsVector128(), Vector128.Create(vector.Y), result);
-        result = Vector128.MultiplyAddEstimate(matrix.Column2.AsVector128(), Vector128.Create(vector.Z), result);
+        // Multiply, then add, left to right (no fused multiply-add: the same bits on every instruction set). AsVector128
+        // zeroes the unused fourth lane; AsVector3 reads back the first three.
+        var result = matrix.Column0.AsVector128() * vector.X + matrix.Column1.AsVector128() * vector.Y
+                     + matrix.Column2.AsVector128() * vector.Z;
         return result.AsVector3();
     }
 

@@ -107,24 +107,30 @@ public struct Matrix4 : IEquatable<Matrix4>
     }
 
     /// <summary>
-    /// The determinant, by the same 2 × 2 sub-determinant expansion that <see cref="TryInvert"/> uses, so both agree on
-    /// which matrices are singular.
+    /// The determinant by Laplace expansion along the top two rows: the six 2 × 2 minors of rows 0-1 times the
+    /// complementary minors of rows 2-3, summed in a fixed order. The same own computation (no fused multiply-add) that
+    /// <see cref="TryInvert"/> uses, so both agree exactly on which matrices are singular (<c>Determinant == 0</c>); the
+    /// same bits on every instruction set.
     /// </summary>
     public readonly float Determinant
     {
         get
         {
-            var s = new SubDeterminants(this);
-            return s.Determinant;
+            var rows = Rows(this);
+            var top = new Minors(rows.Column0.AsVector128(), rows.Column1.AsVector128());
+            var bottom = new Minors(rows.Column2.AsVector128(), rows.Column3.AsVector128());
+            return Laplace(top, bottom);
         }
     }
 
+    /// <summary>The transpose. Delegates to <c>System.Numerics.Matrix4x4.Transpose</c> on the same bytes.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Matrix4 Transposed()
     {
-        return FromRows(Column0, Column1, Column2, Column3);
+        return FromNumerics(Matrix4x4.Transpose(ToNumerics(this)));
     }
 
-    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="Determinant"/> is exactly 0.</summary>
+    /// <summary>The inverse; throws <see cref="InvalidOperationException"/> when <see cref="TryInvert"/> reports a singular matrix.</summary>
     public readonly Matrix4 Inverted()
     {
         if (!TryInvert(this, out var result))
@@ -134,14 +140,31 @@ public struct Matrix4 : IEquatable<Matrix4>
     }
 
     /// <summary>
-    /// The inverse, the adjugate (cofactors from 2 × 2 sub-determinants of the top two and bottom two rows) divided by
-    /// the determinant. When <see cref="Determinant"/> is exactly 0, returns false and sets every element of
-    /// <paramref name="result"/> to NaN.
+    /// The inverse, the adjugate divided by the determinant. Own code on <see cref="Vector128{T}"/> without fused
+    /// multiply-add and with every sum in a fixed order, so the bits are the same on every instruction set (System.Numerics'
+    /// <c>Matrix4x4.Invert</c> differs between FMA, SSE and software). Each column of the adjugate is the cofactors of one
+    /// row, built from the 2 × 2 minors of the other two row pairs with the signs applied to the minors before the
+    /// products, so a zero cofactor is +0 (the inverse of a diagonal matrix is diagonal bit for bit). When
+    /// <see cref="Determinant"/> is exactly 0, returns false and sets every element of <paramref name="result"/> to NaN.
     /// </summary>
     public static bool TryInvert(Matrix4 matrix, out Matrix4 result)
     {
-        var d = new SubDeterminants(matrix);
-        var determinant = d.Determinant;
+        var rows = Rows(matrix);
+        var row0 = rows.Column0.AsVector128();
+        var row1 = rows.Column1.AsVector128();
+        var row2 = rows.Column2.AsVector128();
+        var row3 = rows.Column3.AsVector128();
+
+        var bottom = new Minors(row2, row3);
+        var top = new Minors(row0, row1);
+
+        // Column c of the adjugate holds the cofactors of row c's elements (the adjugate is the transposed cofactor matrix).
+        var column0 = Cofactors(row1, bottom, SignsPlusMinus, SignsMinusPlus);
+        var column1 = Cofactors(row0, bottom, SignsMinusPlus, SignsPlusMinus);
+        var column2 = Cofactors(row3, top, SignsPlusMinus, SignsMinusPlus);
+        var column3 = Cofactors(row2, top, SignsMinusPlus, SignsPlusMinus);
+
+        var determinant = Laplace(top, bottom);
         if (determinant == 0f)
         {
             var nan = new Vector4(float.NaN);
@@ -149,36 +172,11 @@ public struct Matrix4 : IEquatable<Matrix4>
             return false;
         }
 
-        var m = matrix;
-        var a00 = m.Column0.X; var a10 = m.Column0.Y; var a20 = m.Column0.Z; var a30 = m.Column0.W;
-        var a01 = m.Column1.X; var a11 = m.Column1.Y; var a21 = m.Column1.Z; var a31 = m.Column1.W;
-        var a02 = m.Column2.X; var a12 = m.Column2.Y; var a22 = m.Column2.Z; var a32 = m.Column2.W;
-        var a03 = m.Column3.X; var a13 = m.Column3.Y; var a23 = m.Column3.Z; var a33 = m.Column3.W;
-
-        // b[r][c] is the cofactor of element (c, r) (the adjugate); the inverse is b / determinant, stored column-major.
-        var b00 = a11 * d.C5 - a12 * d.C4 + a13 * d.C3;
-        var b01 = -a01 * d.C5 + a02 * d.C4 - a03 * d.C3;
-        var b02 = a31 * d.S5 - a32 * d.S4 + a33 * d.S3;
-        var b03 = -a21 * d.S5 + a22 * d.S4 - a23 * d.S3;
-        var b10 = -a10 * d.C5 + a12 * d.C2 - a13 * d.C1;
-        var b11 = a00 * d.C5 - a02 * d.C2 + a03 * d.C1;
-        var b12 = -a30 * d.S5 + a32 * d.S2 - a33 * d.S1;
-        var b13 = a20 * d.S5 - a22 * d.S2 + a23 * d.S1;
-        var b20 = a10 * d.C4 - a11 * d.C2 + a13 * d.C0;
-        var b21 = -a00 * d.C4 + a01 * d.C2 - a03 * d.C0;
-        var b22 = a30 * d.S4 - a31 * d.S2 + a33 * d.S0;
-        var b23 = -a20 * d.S4 + a21 * d.S2 - a23 * d.S0;
-        var b30 = -a10 * d.C3 + a11 * d.C1 - a12 * d.C0;
-        var b31 = a00 * d.C3 - a01 * d.C1 + a02 * d.C0;
-        var b32 = -a30 * d.S3 + a31 * d.S1 - a32 * d.S0;
-        var b33 = a20 * d.S3 - a21 * d.S1 + a22 * d.S0;
-
-        var inverseDeterminant = 1f / determinant;
-        result = FromColumns(
-            new Vector4(b00, b10, b20, b30) * inverseDeterminant,
-            new Vector4(b01, b11, b21, b31) * inverseDeterminant,
-            new Vector4(b02, b12, b22, b32) * inverseDeterminant,
-            new Vector4(b03, b13, b23, b33) * inverseDeterminant);
+        var inverseDeterminant = Vector128.Create(1f / determinant);
+        result.Column0 = (column0 * inverseDeterminant).AsVector4();
+        result.Column1 = (column1 * inverseDeterminant).AsVector4();
+        result.Column2 = (column2 * inverseDeterminant).AsVector4();
+        result.Column3 = (column3 * inverseDeterminant).AsVector4();
         return true;
     }
 
@@ -197,102 +195,127 @@ public struct Matrix4 : IEquatable<Matrix4>
 
     /// <summary>
     /// The point <paramref name="position"/> transformed by this matrix: <c>this * (position, 1)</c> without its W, so the
-    /// translation applies. No divide by w (use it with affine matrices, not projections).
+    /// translation applies. No divide by w (use it with affine matrices, not projections). The same own code as
+    /// <c>Matrix4 * Vector4</c> on <c>(position, 1)</c>.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Vector3 TransformPosition(Vector3 position)
     {
-        return Xyz(Transform(this, new Vector4(position, 1f)));
+        return Transform(this, new Vector4(position, 1f).AsVector128()).AsVector3();
     }
 
     /// <summary>
     /// The direction <paramref name="direction"/> transformed by this matrix: <c>this * (direction, 0)</c> without its W,
-    /// so the translation does not apply.
+    /// so the translation does not apply. The same own code as <c>Matrix4 * Vector4</c> on <c>(direction, 0)</c>.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Vector3 TransformDirection(Vector3 direction)
     {
-        return Xyz(Transform(this, new Vector4(direction, 0f)));
+        return Transform(this, new Vector4(direction, 0f).AsVector128()).AsVector3();
     }
 
-    /// <summary>The uniform scale: <paramref name="scale"/> on the first three diagonal elements, 1 in the corner.</summary>
+    /// <summary>
+    /// The uniform scale: <paramref name="scale"/> on the first three diagonal elements, 1 in the corner. Delegates to
+    /// <c>System.Numerics.Matrix4x4.CreateScale</c> (a diagonal matrix has the same bytes in both conventions).
+    /// </summary>
     public static Matrix4 CreateScale(float scale)
     {
-        return CreateScale(scale, scale, scale);
+        return FromNumerics(Matrix4x4.CreateScale(scale));
     }
 
-    /// <summary>The scale with <paramref name="scale"/>'s components on the diagonal, 1 in the corner.</summary>
+    /// <summary>The scale with <paramref name="scale"/>'s components on the diagonal, 1 in the corner. Delegates to <c>Matrix4x4.CreateScale</c>.</summary>
     public static Matrix4 CreateScale(Vector3 scale)
     {
-        return CreateScale(scale.X, scale.Y, scale.Z);
+        return FromNumerics(Matrix4x4.CreateScale(scale));
     }
 
-    /// <summary>The scale with <paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>, 1 on the diagonal.</summary>
+    /// <summary>The scale with <paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>, 1 on the diagonal. Delegates to <c>Matrix4x4.CreateScale</c>.</summary>
     public static Matrix4 CreateScale(float x, float y, float z)
     {
-        return FromColumns(new Vector4(x, 0f, 0f, 0f), new Vector4(0f, y, 0f, 0f), new Vector4(0f, 0f, z, 0f), Vector4.UnitW);
+        return FromNumerics(Matrix4x4.CreateScale(x, y, z));
     }
 
-    /// <summary><see cref="Identity"/> with <c>Column3.Xyz</c> = <paramref name="translation"/>.</summary>
+    /// <summary>
+    /// <see cref="Identity"/> with the X, Y, Z of <see cref="Column3"/> = <paramref name="translation"/>. Delegates to
+    /// <c>System.Numerics.Matrix4x4.CreateTranslation</c>, whose fourth row has the bytes of our fourth column.
+    /// </summary>
     public static Matrix4 CreateTranslation(Vector3 translation)
     {
-        return CreateTranslation(translation.X, translation.Y, translation.Z);
+        return FromNumerics(Matrix4x4.CreateTranslation(translation));
     }
 
-    /// <summary><see cref="Identity"/> with <c>Column3.Xyz</c> = (<paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>).</summary>
+    /// <summary>
+    /// <see cref="Identity"/> with the X, Y, Z of <see cref="Column3"/> = (<paramref name="x"/>, <paramref name="y"/>,
+    /// <paramref name="z"/>). Delegates to <c>Matrix4x4.CreateTranslation</c>.
+    /// </summary>
     public static Matrix4 CreateTranslation(float x, float y, float z)
     {
-        return FromColumns(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(x, y, z, 1f));
+        return FromNumerics(Matrix4x4.CreateTranslation(x, y, z));
     }
 
-    /// <summary><see cref="Matrix3.CreateRotationX"/> in the upper-left 3 × 3: turns +Y toward +Z.</summary>
+    /// <summary>
+    /// The rotation about +X by <paramref name="angle"/> radians, rows <c>(1,0,0,0) (0,c,-s,0) (0,s,c,0) (0,0,0,1)</c>,
+    /// turning +Y toward +Z. Delegates to <c>System.Numerics.Matrix4x4.CreateRotationX</c>: their row-vector matrix of
+    /// the same rotation has the same bytes.
+    /// </summary>
     public static Matrix4 CreateRotationX(float angle)
     {
-        return new Matrix4(Matrix3.CreateRotationX(angle));
+        return FromNumerics(Matrix4x4.CreateRotationX(angle));
     }
 
-    /// <summary><see cref="Matrix3.CreateRotationY"/> in the upper-left 3 × 3: turns +Z toward +X.</summary>
+    /// <summary>
+    /// The rotation about +Y, rows <c>(c,0,s,0) (0,1,0,0) (-s,0,c,0) (0,0,0,1)</c>, turning +Z toward +X. Delegates to
+    /// <c>Matrix4x4.CreateRotationY</c> on the same bytes.
+    /// </summary>
     public static Matrix4 CreateRotationY(float angle)
     {
-        return new Matrix4(Matrix3.CreateRotationY(angle));
+        return FromNumerics(Matrix4x4.CreateRotationY(angle));
     }
 
-    /// <summary><see cref="Matrix3.CreateRotationZ"/> in the upper-left 3 × 3: turns +X toward +Y.</summary>
+    /// <summary>
+    /// The rotation about +Z, rows <c>(c,-s,0,0) (s,c,0,0) (0,0,1,0) (0,0,0,1)</c>, turning +X toward +Y. Delegates to
+    /// <c>Matrix4x4.CreateRotationZ</c> on the same bytes.
+    /// </summary>
     public static Matrix4 CreateRotationZ(float angle)
     {
-        return new Matrix4(Matrix3.CreateRotationZ(angle));
+        return FromNumerics(Matrix4x4.CreateRotationZ(angle));
     }
 
-    /// <summary><see cref="Matrix3.CreateFromAxisAngle"/> in the upper-left 3 × 3; a zero axis gives <see cref="Identity"/>.</summary>
+    /// <summary>
+    /// The rotation by <paramref name="angle"/> radians about <paramref name="axis"/>, counterclockwise when looking from
+    /// the axis' tip toward the origin. The axis is normalized here (<c>axis / sqrt(LengthSquared())</c>; a zero axis gives
+    /// <see cref="Identity"/>), then the work is delegated to <c>System.Numerics.Matrix4x4.CreateFromAxisAngle</c>, which
+    /// itself expects a unit axis.
+    /// </summary>
     public static Matrix4 CreateFromAxisAngle(Vector3 axis, float angle)
     {
-        return new Matrix4(Matrix3.CreateFromAxisAngle(axis, angle));
+        var lengthSquared = axis.LengthSquared();
+        if (lengthSquared == 0f)
+            return Identity;
+
+        return FromNumerics(Matrix4x4.CreateFromAxisAngle(axis / MathF.Sqrt(lengthSquared), angle));
     }
 
-    /// <summary><see cref="Matrix3.CreateFromQuaternion"/> in the upper-left 3 × 3; expects a unit quaternion.</summary>
+    /// <summary>
+    /// The rotation of the unit quaternion <paramref name="rotation"/> (not normalized here); the upper-left 3 × 3 is
+    /// <see cref="Matrix3.CreateFromQuaternion"/>'s. Delegates to <c>System.Numerics.Matrix4x4.CreateFromQuaternion</c>
+    /// on the same bytes.
+    /// </summary>
     public static Matrix4 CreateFromQuaternion(Quaternion rotation)
     {
-        return new Matrix4(Matrix3.CreateFromQuaternion(rotation));
+        return FromNumerics(Matrix4x4.CreateFromQuaternion(rotation));
     }
 
     /// <summary>
     /// The right-handed view matrix of a camera at <paramref name="eye"/> looking at <paramref name="target"/>:
     /// <c>z = normalize(eye - target)</c>, <c>x = normalize(cross(up, z))</c>, <c>y = cross(z, x)</c>; rows
-    /// <c>(x, -dot(x, eye)) (y, -dot(y, eye)) (z, -dot(z, eye)) (0, 0, 0, 1)</c>. View space looks down -Z. No checks:
-    /// <paramref name="eye"/> equal to <paramref name="target"/>, or <paramref name="up"/> parallel to the view
-    /// direction, gives NaN.
+    /// <c>(x, -dot(x, eye)) (y, -dot(y, eye)) (z, -dot(z, eye)) (0, 0, 0, 1)</c>. View space looks down -Z. Delegates to
+    /// <c>System.Numerics.Matrix4x4.CreateLookAt</c> (right-handed) on the same bytes. No checks: <paramref name="eye"/>
+    /// equal to <paramref name="target"/>, or <paramref name="up"/> parallel to the view direction, gives NaN.
     /// </summary>
     public static Matrix4 LookAt(Vector3 eye, Vector3 target, Vector3 up)
     {
-        var z = Vector3.Normalize(eye - target);
-        var x = Vector3.Normalize(Vector3.Cross(up, z));
-        var y = Vector3.Cross(z, x);
-
-        return FromColumns(
-            new Vector4(x.X, y.X, z.X, 0f),
-            new Vector4(x.Y, y.Y, z.Y, 0f),
-            new Vector4(x.Z, y.Z, z.Z, 0f),
-            new Vector4(-Vector3.Dot(x, eye), -Vector3.Dot(y, eye), -Vector3.Dot(z, eye), 1f));
+        return FromNumerics(Matrix4x4.CreateLookAt(eye, target, up));
     }
 
     /// <summary>
@@ -365,23 +388,31 @@ public struct Matrix4 : IEquatable<Matrix4>
             new Vector4(-(right + left) / width, -(top + bottom) / height, depthFar / depth, 1f));
     }
 
-    /// <summary>The column-vector product: <c>(left * right) * v == left * (right * v)</c>, so <paramref name="right"/> applies first.</summary>
+    /// <summary>
+    /// The column-vector product: <c>(left * right) * v == left * (right * v)</c>, so <paramref name="right"/> applies
+    /// first. Column j of the result is <c>left * right.Column{j}</c>. Own code on <see cref="Vector128{T}"/> without
+    /// fused multiply-add, so the bits are the same on every instruction set (System.Numerics' <c>Matrix4x4.Multiply</c>
+    /// fuses on FMA hardware).
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Matrix4 operator *(Matrix4 left, Matrix4 right)
     {
         Matrix4 result;
-        result.Column0 = Transform(left, right.Column0);
-        result.Column1 = Transform(left, right.Column1);
-        result.Column2 = Transform(left, right.Column2);
-        result.Column3 = Transform(left, right.Column3);
+        result.Column0 = Transform(left, right.Column0.AsVector128()).AsVector4();
+        result.Column1 = Transform(left, right.Column1.AsVector128()).AsVector4();
+        result.Column2 = Transform(left, right.Column2.AsVector128()).AsVector4();
+        result.Column3 = Transform(left, right.Column3.AsVector128()).AsVector4();
         return result;
     }
 
-    /// <summary><c>M * v</c>: <c>Column0 * v.X + Column1 * v.Y + Column2 * v.Z + Column3 * v.W</c>.</summary>
+    /// <summary>
+    /// <c>M * v</c>: <c>((Column0 * v.X + Column1 * v.Y) + Column2 * v.Z) + Column3 * v.W</c>, multiply then add, left to
+    /// right. Own code on <see cref="Vector128{T}"/> without fused multiply-add: the same bits on every instruction set.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector4 operator *(Matrix4 matrix, Vector4 vector)
     {
-        return Transform(matrix, vector);
+        return Transform(matrix, vector.AsVector128()).AsVector4();
     }
 
     /// <summary>IEEE comparison per element: NaN differs from everything, +0 equals -0.</summary>
@@ -425,14 +456,102 @@ public struct Matrix4 : IEquatable<Matrix4>
             $"({Column0.Z}, {Column1.Z}, {Column2.Z}, {Column3.Z})\n({Column0.W}, {Column1.W}, {Column2.W}, {Column3.W})");
     }
 
+    // M * v for a vector already in a register: ((c0 * x + c1 * y) + c2 * z) + c3 * w, multiply then add, left to right.
+    // Every operation is lane-wise (the broadcasts are moves), so the hardware and software paths give the same bits.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Vector4 Transform(in Matrix4 matrix, Vector4 vector)
+    private static Vector128<float> Transform(in Matrix4 matrix, Vector128<float> vector)
     {
-        var result = matrix.Column0.AsVector128() * vector.X;
-        result = Vector128.MultiplyAddEstimate(matrix.Column1.AsVector128(), Vector128.Create(vector.Y), result);
-        result = Vector128.MultiplyAddEstimate(matrix.Column2.AsVector128(), Vector128.Create(vector.Z), result);
-        result = Vector128.MultiplyAddEstimate(matrix.Column3.AsVector128(), Vector128.Create(vector.W), result);
-        return result.AsVector4();
+        var x = Vector128.Shuffle(vector, Vector128.Create(0, 0, 0, 0));
+        var y = Vector128.Shuffle(vector, Vector128.Create(1, 1, 1, 1));
+        var z = Vector128.Shuffle(vector, Vector128.Create(2, 2, 2, 2));
+        var w = Vector128.Shuffle(vector, Vector128.Create(3, 3, 3, 3));
+
+        return matrix.Column0.AsVector128() * x + matrix.Column1.AsVector128() * y + matrix.Column2.AsVector128() * z
+               + matrix.Column3.AsVector128() * w;
+    }
+
+    // The rows of the matrix as the columns of its transpose (the transpose only moves data, so it is the same on every path).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Matrix4 Rows(in Matrix4 matrix)
+    {
+        return FromNumerics(Matrix4x4.Transpose(ToNumerics(matrix)));
+    }
+
+    // Lane signs for the cofactor pattern: + - + - and - + - +, applied by flipping the sign bit (exact).
+    private static Vector128<float> SignsPlusMinus => Vector128.Create(0f, float.NegativeZero, 0f, float.NegativeZero);
+
+    private static Vector128<float> SignsMinusPlus => Vector128.Create(float.NegativeZero, 0f, float.NegativeZero, 0f);
+
+    // The cofactors of the elements of one row k (lane c: the cofactor of element (k, c)): each 3 × 3 minor is expanded
+    // along a second row, `elements`, using the 2 × 2 minors of the remaining two rows. Lane c combines the three entries
+    // of `elements` outside column c:
+    //   e_X = (e1, e0, e0, e0), e_Y = (e2, e2, e1, e1), e_Z = (e3, e3, e3, e2)
+    // with the minors P, Q, R of the matching column pairs, each sign-flipped before the product (so a zero product is
+    // +0 unless its minor's sign is flipped, and the sum of a +0 term with anything zero stays +0), then summed left to right.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector128<float> Cofactors(Vector128<float> elements, in Minors minors, Vector128<float> signsOfPAndR,
+        Vector128<float> signsOfQ)
+    {
+        var x = Vector128.Shuffle(elements, Vector128.Create(1, 0, 0, 0));
+        var y = Vector128.Shuffle(elements, Vector128.Create(2, 2, 1, 1));
+        var z = Vector128.Shuffle(elements, Vector128.Create(3, 3, 3, 2));
+
+        return x * (minors.P ^ signsOfPAndR) + y * (minors.Q ^ signsOfQ) + z * (minors.R ^ signsOfPAndR);
+    }
+
+    // det = S01 C23 - S02 C13 + S03 C12 + S12 C03 - S13 C02 + S23 C01 (S: minors of rows 0-1, C: of rows 2-3, by column
+    // pair), in scalar arithmetic, left to right: no horizontal vector sum, so the order is the same on every path. The
+    // minors are read from the lanes where Minors keeps them (see its summary).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static float Laplace(in Minors top, in Minors bottom)
+    {
+        return top.R.GetElement(2) * bottom.P.GetElement(0)
+               - top.R.GetElement(1) * bottom.Q.GetElement(0)
+               + top.Q.GetElement(1) * bottom.P.GetElement(3)
+               + top.R.GetElement(0) * bottom.Q.GetElement(1)
+               - top.Q.GetElement(0) * bottom.R.GetElement(1)
+               + top.P.GetElement(0) * bottom.R.GetElement(2);
+    }
+
+    /// <summary>
+    /// The 2 × 2 minors of two rows <c>a</c> and <c>b</c> that the cofactors of the other two rows need, lane c matching
+    /// <see cref="Cofactors"/>' element lanes: <c>P</c> pairs columns (2,3) (2,3) (1,3) (1,2), <c>Q</c> pairs (1,3) (0,3)
+    /// (0,3) (0,2), <c>R</c> pairs (1,2) (0,2) (0,1) (0,1); the minor of columns (i, j) is <c>a_i b_j - b_i a_j</c>.
+    /// </summary>
+    private readonly struct Minors
+    {
+        public readonly Vector128<float> P;
+        public readonly Vector128<float> Q;
+        public readonly Vector128<float> R;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Minors(Vector128<float> a, Vector128<float> b)
+        {
+            var aX = Vector128.Shuffle(a, Vector128.Create(1, 0, 0, 0));
+            var aY = Vector128.Shuffle(a, Vector128.Create(2, 2, 1, 1));
+            var aZ = Vector128.Shuffle(a, Vector128.Create(3, 3, 3, 2));
+            var bX = Vector128.Shuffle(b, Vector128.Create(1, 0, 0, 0));
+            var bY = Vector128.Shuffle(b, Vector128.Create(2, 2, 1, 1));
+            var bZ = Vector128.Shuffle(b, Vector128.Create(3, 3, 3, 2));
+
+            P = aY * bZ - bY * aZ;
+            Q = aX * bZ - bX * aZ;
+            R = aX * bY - bX * aY;
+        }
+    }
+
+    // A column-major matrix has the bytes of the row-major (System.Numerics) matrix of the same transform. Matrix4x4 stays
+    // inside the implementation: it never appears in a public signature (PublicApiTests guards that).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Matrix4x4 ToNumerics(Matrix4 matrix)
+    {
+        return Unsafe.BitCast<Matrix4, Matrix4x4>(matrix);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Matrix4 FromNumerics(Matrix4x4 matrix)
+    {
+        return Unsafe.BitCast<Matrix4x4, Matrix4>(matrix);
     }
 
     // The first three components of a Vector4 (System.Numerics has no Xyz).
@@ -450,45 +569,5 @@ public struct Matrix4 : IEquatable<Matrix4>
             throw new ArgumentOutOfRangeException(nameof(aspectRatio), aspectRatio, "The aspect ratio must be positive.");
         if (!(depthNear > 0f))
             throw new ArgumentOutOfRangeException(nameof(depthNear), depthNear, "The near plane distance must be positive.");
-    }
-
-    /// <summary>
-    /// The 2 × 2 sub-determinants of the top two rows (<c>S0…S5</c>) and of the bottom two rows (<c>C0…C5</c>), from
-    /// which the determinant and every cofactor follow (Laplace expansion along the top two rows).
-    /// </summary>
-    private readonly struct SubDeterminants
-    {
-        public readonly float S0, S1, S2, S3, S4, S5;
-        public readonly float C0, C1, C2, C3, C4, C5;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public SubDeterminants(in Matrix4 m)
-        {
-            // aRC = row R, column C.
-            var a00 = m.Column0.X; var a10 = m.Column0.Y; var a20 = m.Column0.Z; var a30 = m.Column0.W;
-            var a01 = m.Column1.X; var a11 = m.Column1.Y; var a21 = m.Column1.Z; var a31 = m.Column1.W;
-            var a02 = m.Column2.X; var a12 = m.Column2.Y; var a22 = m.Column2.Z; var a32 = m.Column2.W;
-            var a03 = m.Column3.X; var a13 = m.Column3.Y; var a23 = m.Column3.Z; var a33 = m.Column3.W;
-
-            S0 = a00 * a11 - a10 * a01;
-            S1 = a00 * a12 - a10 * a02;
-            S2 = a00 * a13 - a10 * a03;
-            S3 = a01 * a12 - a11 * a02;
-            S4 = a01 * a13 - a11 * a03;
-            S5 = a02 * a13 - a12 * a03;
-
-            C5 = a22 * a33 - a32 * a23;
-            C4 = a21 * a33 - a31 * a23;
-            C3 = a21 * a32 - a31 * a22;
-            C2 = a20 * a33 - a30 * a23;
-            C1 = a20 * a32 - a30 * a22;
-            C0 = a20 * a31 - a30 * a21;
-        }
-
-        public float Determinant
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => S0 * C5 - S1 * C4 + S2 * C3 + S3 * C2 - S4 * C1 + S5 * C0;
-        }
     }
 }
