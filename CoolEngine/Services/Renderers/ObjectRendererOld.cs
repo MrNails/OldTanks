@@ -306,7 +306,9 @@ public static class ObjectRendererOld
 
         vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * 3 * Unsafe.SizeOf<Vector3>(), vertices,
+        // Exactly the array: DrawSkyBox draws its 36 vertices (stride one Vector3). The old size, three times the array,
+        // made the driver read past the managed array's end.
+        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * Unsafe.SizeOf<Vector3>(), vertices,
             BufferUsageHint.StaticDraw);
 
         vao = GL.GenVertexArray();

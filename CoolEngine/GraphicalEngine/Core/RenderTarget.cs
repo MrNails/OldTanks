@@ -9,7 +9,8 @@ namespace CoolEngine.GraphicalEngine.Core;
 /// </summary>
 /// <remarks>
 /// GL thread only: its methods make GL calls (OpenGL 4.5 direct state access, plus glBindFramebuffer and glViewport in
-/// <see cref="Bind"/> and <see cref="BlitColorToWindow"/>) and must run on the thread that owns the context. The owner keeps the target at the size of the window's viewport (see <see cref="Resize"/>), because
+/// <see cref="Bind"/> and <see cref="BlitColorToWindow"/>) and must run on the thread that owns the context. The owner
+/// keeps the target at the size of the window's viewport (see <see cref="Resize"/>), because
 /// <see cref="BlitColorToWindow"/> copies it 1:1 to the window's lower-left corner and leaves the viewport at the
 /// target's size. There is no finalizer: a finalizer has no GL context (KI-017), so a target that is never disposed
 /// keeps its GL objects until the context is destroyed.

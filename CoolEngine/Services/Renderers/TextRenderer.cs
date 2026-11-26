@@ -185,9 +185,9 @@ public static class TextRenderer
         if (useBillboardView)
         {
             var camLookAt = camera.LookAt;
-            // A view matrix never has a zero determinant. OpenTK's instance Inverted() returned the matrix itself for
-            // one (its static Invert threw "Matrix is singular"), and a NaN one gave NaN, as our TryInvert's failed
-            // result does. TryInvert keeps exceptions out of the render loop; our Inverted() would throw.
+            // OpenTK's Inverted() returned the matrix itself when its determinant was exactly 0; otherwise it called
+            // Invert, which could still throw "Matrix is singular" when its own determinant rounded to 0. Neither
+            // happens for a view matrix. TryInvert keeps exceptions out of the render loop.
             if (!Matrix4.TryInvert(camLookAt, out var invertedMat) && camLookAt.Determinant == 0)
                 invertedMat = camLookAt;
 
