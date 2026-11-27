@@ -23,9 +23,12 @@ public sealed class WindowMetricsTests
     {
         var created = WindowMetrics.TryCreate(new Vector2i(800, 600), new Vector2i(800, 600), out var metrics);
 
-        Assert.That(created, Is.True);
-        Assert.That(metrics.ClientSize, Is.EqualTo(new Vector2i(800, 600)));
-        Assert.That(metrics.FramebufferSize, Is.EqualTo(new Vector2i(800, 600)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.True);
+            Assert.That(metrics.ClientSize, Is.EqualTo(new Vector2i(800, 600)));
+            Assert.That(metrics.FramebufferSize, Is.EqualTo(new Vector2i(800, 600)));
+        });
     }
 
     [Test]
@@ -33,8 +36,23 @@ public sealed class WindowMetricsTests
     {
         var created = WindowMetrics.TryCreate(new Vector2i(0, 0), new Vector2i(0, 0), out var metrics);
 
-        Assert.That(created, Is.False);
-        Assert.That(metrics, Is.EqualTo(default(WindowMetrics)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(metrics, Is.EqualTo(default(WindowMetrics)));
+        });
+    }
+
+    [Test]
+    public void TryCreate_EmptyClientOnly_ReturnsFalse()
+    {
+        var created = WindowMetrics.TryCreate(new Vector2i(0, 0), new Vector2i(800, 600), out var metrics);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(metrics, Is.EqualTo(default(WindowMetrics)));
+        });
     }
 
     [Test]
@@ -96,9 +114,12 @@ public sealed class WindowMetricsTests
 
         var ndc = metrics.CreateScreenProjection() * new Vector4(0, 600 - 15, 0, 1);
 
-        Assert.That(ndc.X, Is.EqualTo(-1f).Within(1e-6f));
-        Assert.That(ndc.Y, Is.EqualTo(0.95f).Within(1e-6f));
-        Assert.That((1 - ndc.Y) / 2 * 600, Is.EqualTo(15f).Within(1e-3f));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ndc.X, Is.EqualTo(-1f).Within(1e-6f));
+            Assert.That(ndc.Y, Is.EqualTo(0.95f).Within(1e-6f));
+            Assert.That((1 - ndc.Y) / 2 * 600, Is.EqualTo(15f).Within(1e-3f));
+        });
     }
 
     [Test]
@@ -110,9 +131,12 @@ public sealed class WindowMetricsTests
         var lowerLeft = projection * new Vector4(0, 0, 0, 1);
         var upperRight = projection * new Vector4(800, 600, 0, 1);
 
-        Assert.That(lowerLeft.X, Is.EqualTo(-1f).Within(1e-6f));
-        Assert.That(lowerLeft.Y, Is.EqualTo(-1f).Within(1e-6f));
-        Assert.That(upperRight.X, Is.EqualTo(1f).Within(1e-6f));
-        Assert.That(upperRight.Y, Is.EqualTo(1f).Within(1e-6f));
+        Assert.Multiple(() =>
+        {
+            Assert.That(lowerLeft.X, Is.EqualTo(-1f).Within(1e-6f));
+            Assert.That(lowerLeft.Y, Is.EqualTo(-1f).Within(1e-6f));
+            Assert.That(upperRight.X, Is.EqualTo(1f).Within(1e-6f));
+            Assert.That(upperRight.Y, Is.EqualTo(1f).Within(1e-6f));
+        });
     }
 }

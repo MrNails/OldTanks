@@ -23,10 +23,13 @@ public sealed class ImGuiDisplayMetricsTests
     {
         var created = ImGuiDisplayMetrics.TryCreate(new Vector2i(800, 600), new Vector2i(800, 600), out var metrics);
 
-        Assert.That(created, Is.True);
-        Assert.That(metrics.DisplaySize, Is.EqualTo(new Vector2(800, 600)));
-        Assert.That(metrics.FramebufferScale, Is.EqualTo(new Vector2(1, 1)));
-        Assert.That(metrics.FramebufferHeight, Is.EqualTo(600));
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.True);
+            Assert.That(metrics.DisplaySize, Is.EqualTo(new Vector2(800, 600)));
+            Assert.That(metrics.FramebufferScale, Is.EqualTo(new Vector2(1, 1)));
+            Assert.That(metrics.FramebufferHeight, Is.EqualTo(600));
+        });
     }
 
     [Test]
@@ -34,10 +37,13 @@ public sealed class ImGuiDisplayMetricsTests
     {
         var created = ImGuiDisplayMetrics.TryCreate(new Vector2i(800, 600), new Vector2i(1600, 1200), out var metrics);
 
-        Assert.That(created, Is.True);
-        Assert.That(metrics.DisplaySize, Is.EqualTo(new Vector2(800, 600)));
-        Assert.That(metrics.FramebufferScale, Is.EqualTo(new Vector2(2, 2)));
-        Assert.That(metrics.FramebufferHeight, Is.EqualTo(1200));
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.True);
+            Assert.That(metrics.DisplaySize, Is.EqualTo(new Vector2(800, 600)));
+            Assert.That(metrics.FramebufferScale, Is.EqualTo(new Vector2(2, 2)));
+            Assert.That(metrics.FramebufferHeight, Is.EqualTo(1200));
+        });
     }
 
     [Test]
@@ -45,8 +51,47 @@ public sealed class ImGuiDisplayMetricsTests
     {
         var created = ImGuiDisplayMetrics.TryCreate(new Vector2i(0, 0), new Vector2i(0, 0), out var metrics);
 
-        Assert.That(created, Is.False);
-        Assert.That(metrics, Is.EqualTo(default(ImGuiDisplayMetrics)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(metrics, Is.EqualTo(default(ImGuiDisplayMetrics)));
+        });
+    }
+
+    [Test]
+    public void TryCreate_EmptyClientOnly_ReturnsFalse()
+    {
+        var created = ImGuiDisplayMetrics.TryCreate(new Vector2i(0, 0), new Vector2i(800, 600), out var metrics);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(metrics, Is.EqualTo(default(ImGuiDisplayMetrics)));
+        });
+    }
+
+    [Test]
+    public void TryCreate_ZeroHeightClientArea_ReturnsFalse()
+    {
+        var created = ImGuiDisplayMetrics.TryCreate(new Vector2i(800, 0), new Vector2i(800, 0), out var metrics);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(metrics, Is.EqualTo(default(ImGuiDisplayMetrics)));
+        });
+    }
+
+    [Test]
+    public void TryCreate_EmptyFramebufferOnly_ReturnsFalse()
+    {
+        var created = ImGuiDisplayMetrics.TryCreate(new Vector2i(800, 600), new Vector2i(0, 0), out var metrics);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created, Is.False);
+            Assert.That(metrics, Is.EqualTo(default(ImGuiDisplayMetrics)));
+        });
     }
 
     [Test]
@@ -58,12 +103,15 @@ public sealed class ImGuiDisplayMetricsTests
         var bottomRight = projection * new Vector4(800, 600, 0, 1);
         var centre = projection * new Vector4(400, 300, 0, 1);
 
-        Assert.That(topLeft.X, Is.EqualTo(-1f).Within(1e-6f));
-        Assert.That(topLeft.Y, Is.EqualTo(1f).Within(1e-6f));
-        Assert.That(bottomRight.X, Is.EqualTo(1f).Within(1e-6f));
-        Assert.That(bottomRight.Y, Is.EqualTo(-1f).Within(1e-6f));
-        Assert.That(centre.X, Is.EqualTo(0f).Within(1e-6f));
-        Assert.That(centre.Y, Is.EqualTo(0f).Within(1e-6f));
+        Assert.Multiple(() =>
+        {
+            Assert.That(topLeft.X, Is.EqualTo(-1f).Within(1e-6f));
+            Assert.That(topLeft.Y, Is.EqualTo(1f).Within(1e-6f));
+            Assert.That(bottomRight.X, Is.EqualTo(1f).Within(1e-6f));
+            Assert.That(bottomRight.Y, Is.EqualTo(-1f).Within(1e-6f));
+            Assert.That(centre.X, Is.EqualTo(0f).Within(1e-6f));
+            Assert.That(centre.Y, Is.EqualTo(0f).Within(1e-6f));
+        });
     }
 
     [Test]
