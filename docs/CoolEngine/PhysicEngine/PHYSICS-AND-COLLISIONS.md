@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-27 |
-| Verified against | 2026-11-27; bug/OT-14 at da7db97; §2's `Move` bullet against the code and its behaviour test (reasoned from code and tested, not seen in the game); 2026-11-25; bug/OT-13 rebased on master at 8ded8f4; §4 and §5 against `Collision` and its 29 tests (`dotnet test`: 67 in `CoolEngine.Tests`), the thread notes reasoned from code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-27; bug/OT-18 rebased on master at 65b186e (§5's sphere bullet and §6's key `0` row against `CollisionRenderGroup`, `CollisionRenderer` and the six `CollisionRenderGroupTests`; the mentor's app check of key `0`); bug/OT-14 at da7db97; §2's `Move` bullet against the code and its behaviour test (reasoned from code and tested, not seen in the game); 2026-11-25; bug/OT-13 rebased on master at 8ded8f4; §4 and §5 against `Collision` and its 29 tests (`dotnet test`: 67 in `CoolEngine.Tests`), the thread notes reasoned from code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -69,7 +69,7 @@ There is no bounce, friction between bodies, rotation response or sleeping; reso
 - **Cuboid detection** (once, from the model-space shape): 8 vertices that are the 8 corners of an axis-aligned box with nonzero extent, and 6 faces whose normals are the six signed axes. `OldTanks.Models.Cube` is one; a cube split into triangles is not (it takes the fallback and gives the same answers). The closest-point path also needs the three current axes perpendicular: `WorldObject.ApplyTransformation` scales before it rotates (no shear), but `IPhysicObject.Transformation` forbids neither shear nor a zero size.
 - **Zero size is not supported.** A box × box test against a box with a zero size component never reports contact: a NaN face normal separates in the face loop (as before OT-13). Sphere tests on such a box take the fallback and are exact.
 - **Face vertex order matters** for the ray test: indices 0, 1 and 2 must be one corner and its two neighbours. `OldTanks.Models.Cube`'s static constructor shows the expected layout (8 vertices, 6 quads, outward normals).
-- **Spheres have no vertices.** Their radius is `PhysicObject.Width / 2` and their box is position ± radius; `OldTanks.Models.Sphere` keeps width, height and length equal.
+- **Spheres have no vertices.** Their radius is `PhysicObject.Width / 2` and their box is position ± radius; `OldTanks.Models.Sphere` keeps width, height and length equal. The collision debug view therefore draws nothing for a sphere: no wireframe, labels or normals (§6; Denys, 2026-11-27).
 - **Shared originals:** each shape is registered once in `GlobalCache<CollisionData>` under `OldTanks.Infrastructure.CollisionConstants` names (`CubeCollision`, `SphereCollision`) by the owning class's **static constructor**, and every `Collision` copies it. Since OT-13 the original is only read (the constructor no longer recomputes its bounding box). Construct one instance of the class before fetching its shape.
 - **Threads:** a `Collision` is constructed on a thread-pool thread (`OldTanks.Windows.MainWindow.InitDefaultObjects` runs in the startup continuation) or on the GL thread (the debug window's spawn). `CheckCollision` runs on the physics thread. `UpdateCollision` runs on the physics thread (`World.CollideObjects`, both branches) and, while the collision debug view is on, also on the GL thread ([KI-031](../../KNOWN-ISSUES.md#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does); reasoned from code). The per-shape edge and cuboid data are readonly and set in the constructor.
 - **Every world object needs a `Collision`:** `CollideObjects` dereferences it without a null check (the ray loop does check).
@@ -79,7 +79,7 @@ There is no bounce, friction between bodies, rotation response or sleeping; reso
 
 | Key | View |
 |-----|------|
-| `0` | Replace textured rendering with collision wireframes, vertex coordinates as 3D text and face normals (`CoolEngine.Services.Renderers.CollisionRenderer`); it also re-applies the objects' transformations on the GL thread ([KI-031](../../KNOWN-ISSUES.md#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does)) |
+| `0` | Replace textured rendering with collision wireframes, vertex coordinates as 3D text and face normals of polygons (`CoolEngine.Services.Renderers.CollisionRenderer`); **spheres are not drawn**: their shape has no vertices, so their group creates no GL objects and `DrawElementsCollision` skips it ([KI-034](../../KNOWN-ISSUES.md#ki-034-the-sphere-collision-render-group-has-no-vertices-and-re-creates-its-buffers-every-frame), closed in OT-18; drawing them is in [BACKLOG](../../BACKLOG.md#game-and-engine-features-not-built)); it also re-applies the objects' transformations on the GL thread ([KI-031](../../KNOWN-ISSUES.md#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does)) |
 | `N` | Draw mesh normals as red lines |
 | `U`, `I` | Step mode and single step (§3) |
 

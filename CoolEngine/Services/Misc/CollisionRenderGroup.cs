@@ -20,6 +20,11 @@ internal class CollisionRenderGroup
 
     private int m_activeCount;
 
+    // Set once InitRenderGroup has taken the layout of the first collisionable's shape.
+    // A shape without vertices (a sphere) leaves m_vertices empty, so the array's length cannot tell
+    // whether the group is initialised (KI-034).
+    private bool m_isInitialized;
+
     private Vector3[] m_vertices;
     private uint[] m_indices;
 
@@ -62,7 +67,7 @@ internal class CollisionRenderGroup
 
     public void UpdateCollisionablesData()
     {
-        if (m_vertices.Length == 0 && m_collisionables.Count != 0)
+        if (!m_isInitialized && m_collisionables.Count != 0)
             InitRenderGroup();
 
         if (m_collisionables.Capacity * m_verticesPerModel > m_vertices.Length)
@@ -94,7 +99,12 @@ internal class CollisionRenderGroup
         for (int i = 0; i < collisionable.Collision.CollisionData.Faces.Count; i++)
             m_indicesPerModel += collisionable.Collision.CollisionData.Faces[i].Indices.Length;
 
-        ResizeCollisionableData();
+        m_isInitialized = true;
+
+        // A shape without vertices has nothing to upload or draw: no arrays and no GL objects.
+        // CollisionRenderer.DrawElementsCollision skips a group whose Vertices is empty.
+        if (m_verticesPerModel != 0)
+            ResizeCollisionableData();
     }
 
     private void ResizeCollisionableData()
