@@ -25,7 +25,7 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 
 | Folder | Types |
 |--------|-------|
-| `Services/` | `ControlHandler`, `ControlCollection`, `Binding<,,>` (unused); `ImGUI/ImGuiController`; `Interfaces/` (`IControl`, `IControlContainer`, `IControlsContainer`) |
+| `Services/` | `ControlHandler`, `ControlCollection`, `Binding<,,>` (unused); `ImGUI/ImGuiController`, `ImGUI/ImGuiDisplayMetrics` (the pure display size, framebuffer scale, projection and scissor box); `Interfaces/` (`IControl`, `IControlContainer`, `IControlsContainer`) |
 | `Controls/` | `Control`, `TextControl`, `TextBlock` (screen text through `TextRenderer`) |
 | `ImGuiControls/` | `ImGuiControl`, `ImGuiControlContainer`, `ImGuiWindow`, `ImGuiPanel`, `ImGuiColumnsControl`, `ImGuiTreeNode`, `ImGuiButton`, `ImGuiCheckBox`, `ImGuiTextBlock`, `ImGuiTextBox`, the `ImGuiFloat*DragTextBox` family, `ImGuiListBox<T>`, `ImGuiImage`, `ImGuiSameLine`, `ImGuiNewLine` |
 
@@ -36,7 +36,7 @@ The UI layer: the `ControlHandler` singleton, engine-drawn screen text controls,
 | `Common`, `CoolEngine` (projects) | Observable base, typed events; `TextRenderer`, `Font`, `GLSettings`, `Texture` |
 | ImGui.NET 1.91.6.1 | Dear ImGui bindings |
 | OpenTK 4.9.4 | GL calls in the ImGui renderer, window input |
-| `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (analyzer) | RS0030 error for the System.Numerics row-vector matrix APIs and OpenTK's math types in `BannedSymbols.txt` (OpenTK's `Vector2`, `Vector2i` and `Color4` stay allowed, for `ImGuiController`); `System.Numerics.Vector2/3/4` stay allowed ([BUILD §2](../docs/BUILD.md#2-build)) |
+| `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (analyzer) | RS0030 error for the System.Numerics row-vector matrix APIs and OpenTK's math types in `BannedSymbols.txt` (OpenTK's `Vector2`, `Vector2i` and `Color4` stay allowed, for `ImGuiController` and `ImGuiDisplayMetrics`); `System.Numerics.Vector2/3/4` stay allowed ([BUILD §2](../docs/BUILD.md#2-build)) |
 
 ## Constraints
 
