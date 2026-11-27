@@ -424,7 +424,8 @@ public sealed class ObjectRendererTests
         return textureDatas;
     }
 
-    // Texture's constructor is private, and its finalizer calls GL.DeleteTexture (KI-017): no GL context here.
+    // Texture's constructor is private. Its finalizer no longer calls OpenGL; the suppression keeps its leak line out of
+    // other fixtures' log captures and its handle out of the GLDeletionQueue tests.
     private static Texture CreateTexture(int handle)
     {
         var constructor = typeof(Texture).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance,
@@ -435,7 +436,9 @@ public sealed class ObjectRendererTests
         return texture;
     }
 
-    // Shader's constructor and finalizer call OpenGL (KI-017); the renderer only stores the instanced shader while filing.
+    // Shader's constructor calls OpenGL; the renderer only stores the instanced shader while filing. Its finalizer no
+    // longer calls OpenGL; the suppression keeps its leak line out of other fixtures' log captures and its program out
+    // of the GLDeletionQueue tests.
     private static Shader CreateShaderWithoutGl()
     {
         var shader = (Shader)RuntimeHelpers.GetUninitializedObject(typeof(Shader));

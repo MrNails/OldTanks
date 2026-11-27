@@ -6,6 +6,7 @@ using Common.Services;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.GraphicalEngine.Services;
 using CoolEngine.Models;
 using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core.Collision;
@@ -466,6 +467,7 @@ public partial class MainWindow : GameWindow
     protected override void OnUpdateFrame(FrameEventArgs args)
     {
         Application.Current.Dispatcher.HandleQueue();
+        GLDeletionQueue.DeletePending();
 
         if (KeyboardState.IsKeyPressed(Keys.Escape) && !m_imGuiWantsKeyboard)
             Close();
@@ -536,6 +538,8 @@ public partial class MainWindow : GameWindow
     protected override void OnUnload()
     {
         // The context still exists here (OpenTK deletes it after OnUnload).
+        // Last deletion of leaked objects' queued GL names; a name queued after this is freed with the context.
+        GLDeletionQueue.DeletePending();
         m_renderTarget?.Dispose();
         m_renderTarget = null;
 

@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using CoolEngine.GraphicalEngine.Services;
+using OpenTK.Graphics.OpenGL4;
 using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core.Texture;
@@ -71,10 +72,14 @@ public class Texture : IDisposable, IEquatable<Texture>
         GC.SuppressFinalize(this);
     }
 
+    // Runs on the finalizer thread, which has no GL context: no GL call here; the GL thread deletes the name.
     ~Texture()
     {
-        Log.Fatal("Abandoned Shader {ShaderName} ({ShaderId})", Name, Handle);
-        ReleaseUnmanagedResources();
+        Log.Warning("Texture {TextureName} (GL texture {TextureHandle}) was never disposed; its deletion is queued for the GL thread",
+            Name, Handle);
+
+        if (!Disposed)
+            GLDeletionQueue.Enqueue(GLObjectKind.Texture, Handle);
     }
     
     public static Texture CreateTexture2D<T>(T[] pixels, (int Width, int Height) imgSize,

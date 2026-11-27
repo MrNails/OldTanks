@@ -1,4 +1,6 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using CoolEngine.GraphicalEngine.Services;
+using OpenTK.Graphics.OpenGL4;
+using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core;
 
@@ -91,8 +93,19 @@ public sealed class DrawObjectInfo : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    // Runs on the finalizer thread, which has no GL context: no GL call here; the GL thread deletes the names
+    // (the queue ignores a 0 name, such as a missing element buffer).
     ~DrawObjectInfo()
     {
-        ReleaseUnmanagedResources();
+        Log.Warning("Draw object info (GL vertex array {VertexArrayObject}, vertex buffer {VertexBufferObject}, " +
+                    "element buffer {ElementsBufferObject}) was never disposed; its deletion is queued for the GL thread",
+            m_vertexArrayObject, m_vertexBufferObject, m_elementsBufferObject);
+
+        if (!m_disposed)
+        {
+            GLDeletionQueue.Enqueue(GLObjectKind.VertexArray, m_vertexArrayObject);
+            GLDeletionQueue.Enqueue(GLObjectKind.Buffer, m_vertexBufferObject);
+            GLDeletionQueue.Enqueue(GLObjectKind.Buffer, m_elementsBufferObject);
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using OpenTK.Graphics.OpenGL4;
+﻿using CoolEngine.GraphicalEngine.Services;
+using OpenTK.Graphics.OpenGL4;
 using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core;
@@ -69,9 +70,13 @@ public sealed class Buffer<T> : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    // Runs on the finalizer thread, which has no GL context: no GL call (not even the unbind); the GL thread deletes the name.
     ~Buffer()
     {
-        Log.Logger.Fatal("Abandoned buffer {Name}: {Id}", Name ?? BufferTarget.ToString(), Id);
-        ReleaseUnmanagedResources();
+        Log.Logger.Warning("Buffer {BufferName} (GL buffer {BufferId}) was never disposed; its deletion is queued for the GL thread",
+            Name ?? BufferTarget.ToString(), Id);
+
+        if (!m_disposed)
+            GLDeletionQueue.Enqueue(GLObjectKind.Buffer, Id);
     }
 }
