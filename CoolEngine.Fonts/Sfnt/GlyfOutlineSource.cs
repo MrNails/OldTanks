@@ -1,5 +1,6 @@
-// Follows FreeType 2.13.2 src/truetype/ttgload.c (load_truetype_glyph, TT_Process_Simple_Glyph,
-// TT_Process_Composite_Component, tt_loader_set_pp, compute_glyph_metrics) (FreeType Project License; credit in docs).
+// Follows FreeType 2.13.2 src/truetype/ttgload.c (load_truetype_glyph, tt_get_metrics, TT_Process_Simple_Glyph,
+// TT_Process_Composite_Component, TT_Process_Composite_Glyph, tt_loader_set_pp, compute_glyph_metrics) and
+// src/truetype/ttmtx.c (TT_Get_VMetrics) (FreeType Project License; credit in docs).
 
 using CoolEngine.Fonts.Hinting.TrueType;
 
@@ -31,6 +32,10 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
 {
     private const int PhantomCount = 4;
 
+    // The point arrays one composite program run copies: x, y and tags in the loader, original and unscaled x and y in the
+    // hinter.
+    private const int CompositeZoneArrays = 7;
+
     private readonly FaceData m_face;
     private readonly GlyfTable m_glyf;
     private readonly FontScale m_scale;
@@ -49,6 +54,15 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
     private Phantoms m_phantoms;
     private bool m_overlap;
 
+    // Whether this load runs glyph programs (FreeType's IS_HINTED on the loader's flags): false without a hinter, or when prep
+    // turned hinting off with INSTCTRL.
+    private bool m_hinted;
+
+    // The x minimum and y maximum of the last glyph header read in this load (FreeType's loader->bbox), which an empty
+    // glyph (no data, so no header) keeps for its phantom points.
+    private int m_bboxXMin;
+    private int m_bboxYMax;
+
     public GlyfGlyphLoader(FaceData face, FontScale scale, ITrueTypeHinter? hinter)
     {
         m_face = face;
@@ -62,6 +76,11 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         m_pointCount = 0;
         m_contourCount = 0;
         m_overlap = false;
+        m_bboxXMin = 0;
+        m_bboxYMax = 0;
+
+        // tt_loader_init: throws when fpgm or prep failed, as FreeType fails every hinted load then.
+        m_hinted = m_hinter?.BeginGlyph() ?? false;
 
         LoadGlyph(glyphIndex, isTopLevel: true);
 
@@ -109,14 +128,14 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         var contourCount = data.Length == 0 ? 0 : r.I16(0);
         var empty = contourCount == 0;
 
-        int xMin = 0, yMax = 0;
-        if (!empty)
+        // A glyph with data has a header (even with 0 contours); one without keeps the box of the last header read.
+        if (data.Length > 0)
         {
-            xMin = r.I16(2);
-            yMax = r.I16(8);
+            m_bboxXMin = r.I16(2);
+            m_bboxYMax = r.I16(8);
         }
 
-        SetPhantoms(glyphIndex, xMin, yMax);
+        SetPhantoms(glyphIndex, m_bboxXMin, m_bboxYMax);
 
         if (empty)
         {
@@ -135,15 +154,24 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
     {
         var (advance, bearing) = m_face.Hmtx.Get(glyphIndex);
 
-        // TT_Get_VMetrics without a vmtx table: the typographic (or hhea) ascender and descender.
-        short ascender, descender;
-        if (m_face.Os2 is { } os2)
-            (ascender, descender) = (os2.TypoAscender, os2.TypoDescender);
+        // TT_Get_VMetrics: vmtx when the face has vertical metrics, else the typographic (or hhea) ascender and descender.
+        short topBearing;
+        ushort advanceHeight;
+        if (m_face.Vmtx is { } vmtx)
+        {
+            (advanceHeight, topBearing) = vmtx.Get(glyphIndex);
+        }
         else
-            (ascender, descender) = (m_face.Hhea.Ascender, m_face.Hhea.Descender);
+        {
+            short ascender, descender;
+            if (m_face.Os2 is { } os2)
+                (ascender, descender) = (os2.TypoAscender, os2.TypoDescender);
+            else
+                (ascender, descender) = (m_face.Hhea.Ascender, m_face.Hhea.Descender);
 
-        var topBearing = (short)(ascender - yMax);
-        var advanceHeight = (ushort)Math.Abs(ascender - descender);
+            topBearing = (short)(ascender - yMax);
+            advanceHeight = (ushort)Math.Abs(ascender - descender);
+        }
 
         long x1 = xMin - bearing;
         long x3 = 0;
@@ -175,8 +203,8 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         // Scale every point and the phantom points (pp1.y and pp2.y are 0).
         var x = new long[total];
         var y = new long[total];
-        long[]? unscaledX = m_hinter is null ? null : new long[total];
-        long[]? unscaledY = m_hinter is null ? null : new long[total];
+        long[]? unscaledX = m_hinted ? new long[total] : null;
+        long[]? unscaledY = m_hinted ? new long[total] : null;
         for (var i = 0; i < n; i++)
         {
             x[i] = glyph.X[i];
@@ -208,12 +236,12 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         var scaled = new Phantoms(x[n], x[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
         m_phantoms = scaled;
 
-        if (m_hinter is not null)
+        if (m_hinted)
         {
             var zone = new GlyphZone(x, y, unscaledX, unscaledY, tags, glyph.ContourEnds[..glyph.ContourCount], total,
                 glyph.ContourCount);
             var instructions = data.Slice(glyph.InstructionOffset, glyph.InstructionLength);
-            if (m_hinter.HintGlyph(zone, instructions, isComposite: false))
+            if (m_hinter!.HintGlyph(zone, instructions, isComposite: false))
                 m_phantoms = new Phantoms(x[n], x[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
         }
 
@@ -267,7 +295,7 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
 
         // FreeType hints a composite only when its last component announces instructions and there are some.
         var last = components[^1];
-        if (m_hinter is not null && (last.Flags & GlyfTable.WeHaveInstructions) != 0 && instructionBytes.Length > 0 &&
+        if (m_hinted && (last.Flags & GlyfTable.WeHaveInstructions) != 0 && instructionBytes.Length > 0 &&
             m_pointCount > startPoint)
             HintComposite(startPoint, startContour, instructionBytes);
     }
@@ -315,10 +343,10 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
             dx = FixedMath.MulFix(dx, m_scale.XScale);
             dy = FixedMath.MulFix(dy, m_scale.YScale);
 
-            if ((flags & GlyfTable.RoundXyToGrid) != 0 && m_hinter is not null)
+            if ((flags & GlyfTable.RoundXyToGrid) != 0 && m_hinted)
             {
                 // The x offset is rounded only in v35, where advance widths are hinted too.
-                if (m_hinter.Version == TrueTypeInterpreterVersion.V35)
+                if (m_hinter!.Version == TrueTypeInterpreterVersion.V35)
                     dx = FixedMath.PixRound(dx);
 
                 dy = FixedMath.PixRound(dy);
@@ -340,12 +368,20 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
     {
         var n = m_pointCount - startPoint;
         var total = n + PhantomCount;
+
+        // Each instructed level of a nested composite copies all its points again (x, y and tags here; the original and
+        // unscaled points in the hinter): charged to the glyph load's work budget before the copies are made.
+        m_hinter!.ChargeWork(CompositeZoneArrays * (long)total);
         var x = new long[total];
         var y = new long[total];
         var tags = new byte[total];
         Array.Copy(m_x, startPoint, x, 0, n);
         Array.Copy(m_y, startPoint, y, 0, n);
         Array.Copy(m_tags, startPoint, tags, 0, n);
+
+        // The components' programs touched some points: the composite's program starts with none touched.
+        for (var i = 0; i < n; i++)
+            tags[i] &= unchecked((byte)~0x18);
 
         var p = m_phantoms;
         (x[n], y[n]) = (p.X1, 0);
@@ -358,11 +394,12 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         for (var c = 0; c < contourCount; c++)
             contours[c] = m_contours[startContour + c] - startPoint;
 
-        var zone = new GlyphZone(x, y, null, null, tags, contours, total, contourCount);
+        var zone = new GlyphZone(x, y, null, null, tags, contours, total, contourCount, startPoint);
         var takePhantoms = m_hinter!.HintGlyph(zone, instructions, isComposite: true);
 
         Array.Copy(x, 0, m_x, startPoint, n);
         Array.Copy(y, 0, m_y, startPoint, n);
+        Array.Copy(tags, 0, m_tags, startPoint, n);
         if (takePhantoms)
             m_phantoms = new Phantoms(x[n], x[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
     }

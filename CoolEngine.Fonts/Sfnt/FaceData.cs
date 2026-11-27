@@ -35,5 +35,17 @@ internal sealed class FaceData
 
     public required OutlineFormat OutlineFormat { get; init; }
 
+    /// <summary>
+    /// The vertical metrics, when the face has both <c>vhea</c> and <c>vmtx</c> (FreeType's <c>vertical_info</c>); null otherwise.
+    /// Read for the hinter's vertical phantom points (OT-4 WP4).
+    /// </summary>
+    public VmtxTable? Vmtx { get; init; }
+
+    /// <summary>
+    /// The <c>hdmx</c> table of a face with TrueType outlines (without records when FreeType would not use it); null when the
+    /// face has none. Read for the hinter's advance widths (OT-4 WP4).
+    /// </summary>
+    public Hinting.TrueType.HdmxTable? Hdmx { get; init; }
+
     public int GlyphCount => Maxp.NumGlyphs;
 }

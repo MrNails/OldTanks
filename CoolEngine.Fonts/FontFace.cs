@@ -163,7 +163,7 @@ public sealed class FontFace
     }
 
     /// <summary>FreeType's <c>sfnt_load_face</c> choice of family and style names.</summary>
-    private static (string Family, string Style) ReadNames(FaceData data)
+    internal static (string Family, string Style) ReadNames(FaceData data)
     {
         var name = data.Name;
         string? family, style;

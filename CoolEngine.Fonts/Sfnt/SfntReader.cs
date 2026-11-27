@@ -28,6 +28,10 @@ namespace CoolEngine.Fonts.Sfnt;
 /// <c>maxp</c> of a version other than 0.5 or 1.0 or too short for it, <c>numGlyphs</c> 0, or version 0.5 with <c>glyf</c>;
 /// <c>hhea</c> shorter than 36 bytes, its majorVersion not 1, <c>numberOfHMetrics</c> 0 or above <c>numGlyphs</c>;
 /// <c>hmtx</c> shorter than its metrics;
+/// when a face with TrueType outlines has both <c>vhea</c> and <c>vmtx</c> (read for the hinter's vertical phantom points, as
+/// FreeType's <c>TT_Get_VMetrics</c> reads them; OT-4 WP4): <c>vhea</c> shorter than 36 bytes, its <c>numOfLongVerMetrics</c> 0
+/// or above <c>numGlyphs</c>, <c>vmtx</c> shorter than its metrics (one of the two alone, or either in a face without
+/// <c>glyf</c> outlines, is not read);
 /// <c>name</c> with its header, records or language-tag records past the table;
 /// <c>post</c> shorter than 32 bytes, or of a version other than 1.0, 2.0, 2.5, 3.0 and 4.0;
 /// <c>loca</c> shorter than <c>numGlyphs + 1</c> offsets, an offset smaller than the one before it or past the end of <c>glyf</c>;
@@ -71,7 +75,9 @@ namespace CoolEngine.Fonts.Sfnt;
 /// file; past the end of the file or at version 0xFFFF, the table is absent); the glyph names of <c>post</c> 2.0 and 2.5 and
 /// the character codes of <c>post</c> 4.0, which are never read; an <c>SVG </c> version above 0, read with version 0's layout;
 /// the final format-4 segment's <c>idRangeOffset</c>, a final pair of 0xFFFF-0xFFFF segments, and U+FFFF's mapping, which
-/// FreeType reads its own way.
+/// FreeType reads its own way. Accepted but read otherwise than FreeType reads it (mentor, 2026-11-27, following OTS): an
+/// <c>hdmx</c> with two records of one pixel size is ignored, as OTS drops it, where FreeType picks one of the two through its
+/// unstable sort (see <see cref="Hinting.TrueType.HdmxTable"/>).
 /// </para>
 /// <para>
 /// Ours works where FreeType fails (Denys: "Ours works, documented"; each tested to fail in FreeType and to work here): a
@@ -447,6 +453,27 @@ internal static class SfntReader
             throw new InvalidDataException("The font has no outline table ('glyf') and no bitmap or 'SVG ' table.");
         }
 
+        // For TrueType outlines only (the hinter reads them; OT-4 WP4): vhea and vmtx, read together only when both are present,
+        // as FreeType's vertical_info; hdmx.
+        VmtxTable? vmtx = null;
+        Hinting.TrueType.HdmxTable? hdmx = null;
+        if (format == OutlineFormat.TrueType && tables.TryGetRecord(Hinting.TrueType.HdmxTable.Tag, out var hdmxRecord))
+        {
+            // Its check walks at most 255 record headers, so each face reads it itself (no parse charged); faces sharing it
+            // must still read it with the same glyph count.
+            parsed.Register(hdmxRecord, new TableInputs(GlyphCount: glyphCount), faceIndex);
+            hdmx = Hinting.TrueType.HdmxTable.Read(tables.Get(Hinting.TrueType.HdmxTable.Tag), glyphCount);
+        }
+
+        if (format == OutlineFormat.TrueType && tables.TryGetRecord(VheaTable.Tag, out var vheaRecord) &&
+            tables.TryGetRecord(VmtxTable.Tag, out var vmtxRecord))
+        {
+            var vhea = parsed.Get(vheaRecord, new TableInputs(GlyphCount: glyphCount), faceIndex,
+                () => VheaTable.Parse(tables.Get(VheaTable.Tag).Span, glyphCount));
+            vmtx = parsed.Get(vmtxRecord, new TableInputs(GlyphCount: glyphCount, NumberOfVMetrics: vhea.NumberOfLongMetrics),
+                faceIndex, () => VmtxTable.Parse(tables.Get(VmtxTable.Tag), vhea.NumberOfLongMetrics, glyphCount));
+        }
+
         return new FaceData
         {
             FaceIndex = faceIndex,
@@ -463,6 +490,8 @@ internal static class SfntReader
             Glyf = glyf,
             Cff = cff,
             OutlineFormat = format,
+            Vmtx = vmtx,
+            Hdmx = hdmx,
         };
     }
 }

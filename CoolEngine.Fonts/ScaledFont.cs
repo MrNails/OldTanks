@@ -10,6 +10,13 @@ namespace CoolEngine.Fonts;
 /// A face at one pixel size with one hinting mode: outlines, metrics and coverage bitmaps in 26.6 fixed-point pixels, equal
 /// to FreeType 2.13.2's for the same size and load flags. NOT thread-safe (it holds hinting state): use one per thread.
 /// </summary>
+/// <remarks>
+/// Each of <see cref="GetOutline"/>, <see cref="GetMetrics"/> and <see cref="Render"/> loads the glyph again, and with
+/// <see cref="HintingMode.Native"/> runs its glyph programs again. The size's twilight zone persists from one load to the
+/// next, as in FreeType, and so does a WCVTF write to the size's cvt (made when no WCVTP or DELTAC of the same load has made
+/// a working copy first); for a font whose glyph programs write to either, two calls for one glyph can differ, as two
+/// <c>FT_Load_Glyph</c> calls can.
+/// </remarks>
 public sealed class ScaledFont
 {
     /// <summary>The most pixels one glyph bitmap may have, 16384 × 16384; <see cref="Render"/> throws past it.</summary>
