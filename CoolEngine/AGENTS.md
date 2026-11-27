@@ -29,11 +29,11 @@ Representative, by folder.
 
 | Folder | Types |
 |--------|-------|
-| `GraphicalEngine/Core/` | `Camera`, `Shader`, `Scene`, `Mesh`, `Face`, `SkyBox`, `Buffer<T>`, `DrawObjectInfo`; `Texture/` (`Texture`, `TextureData`, `TexturedObjectInfo`); `Font/` (`Font`, `FontInformation`); `Primitives/` (`Vertex`, `FontVertex`) |
+| `GraphicalEngine/Core/` | `Camera`, `Shader`, `Scene`, `Mesh`, `Face`, `SkyBox`, `Buffer<T>`, `DrawObjectInfo`, `RenderTarget` (offscreen framebuffer with a float depth buffer, GL thread only, no finalizer by design); `Texture/` (`Texture`, `TextureData`, `TexturedObjectInfo`); `Font/` (`Font`, `FontInformation`); `Primitives/` (`Vertex`, `FontVertex`) |
 | `GraphicalEngine/Services/` | `GLSettings` (GL state snapshot and restore) |
 | `PhysicEngine/` | `PhysicsConstants`; `Core/RigidBody`, `Core/Face`; `Core/Collision/` (`Collision`, `CollisionData`) |
 | `Models/` | `Ray`, `BoundingBox`, `Level` (unused) |
-| `Services/` | `Application`, `EngineSettings`, `GlobalCache<T>`, `UI` (`UIInvoke`), `Colors` |
+| `Services/` | `Application`, `EngineSettings`, `GlobalCache<T>`, `UI` (`UIInvoke`), `Colors`; `Misc/QuaternionHelper` (`FromAxisAngle`, OpenTK's normalizing axis-angle), `Extensions/VectorExtensions` (`ToDisplayString`, OpenTK-style vector text) |
 | `Services/Renderers/` | `ObjectRenderer<T>`, `ObjectRendererOld` (legacy: skybox, primitives), `CollisionRenderer`, `TextRenderer` |
 | `Services/Loaders/` | `WaveFrontLoader`, `ShaderLoader`, `TextureLoader`, `SkyBoxTextureLoader` (the last two decode through `CoolEngine.Imaging.ImageDecoder`) |
 | `Services/Exceptions/` | `DrawException`, `ObjectException`, `ShaderException` (a shader program that failed to link) |
@@ -46,8 +46,9 @@ Representative, by folder.
 |------------|--------|
 | `Common` (project) | `ObservableObject`, typed events, extensions |
 | `CoolEngine.Imaging` (project) | PNG and JPEG decoding for the texture and skybox loaders |
-| OpenTK 4.9.4 | OpenGL bindings, math types, windowing types |
-| `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (analyzer, `PrivateAssets=all`) | RS0030 is an error: `BannedSymbols.txt` at the repository root bans System.Numerics' row-vector `Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them (uses only) |
+| `CoolEngine.Mathematics` (project) | `Matrix2`, `Matrix3`, `Matrix4` and `MathHelper`, with `System.Numerics` vectors and quaternions (OT-5) |
+| OpenTK 4.9.4 | OpenGL bindings and windowing types; its math types are banned except `Vector2`, `Vector2i` and `Color4` |
+| `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (analyzer, `PrivateAssets=all`) | RS0030 is an error: `BannedSymbols.txt` at the repository root bans System.Numerics' row-vector `Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them, and OpenTK's math types (uses only) |
 | FreeTypeSharp 3.1.0 | Font rasterising, through its pointer API (`Font` wraps it in small `unsafe` helpers) |
 | Serilog 4.4.0 | Logging, GL debug output and the dispatcher's `Error` log of a throwing posted callback, through the static `Log.Logger` (core API only) |
 | `Serilog.Sinks.File` 7.0.0 | Not used by this project's code: the game's `LoggerService` uses the file sink through this reference |
@@ -57,7 +58,7 @@ Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.Fas
 ## Constraints
 
 - **No game knowledge:** nothing here may reference `OldTanks.*`.
-- **No row-vector System.Numerics matrices:** a use of `Matrix4x4`, `Matrix3x2`, `Plane` or the Transform overloads that take them does not build (RS0030, [BUILD §2](../docs/BUILD.md#2-build)); new math is `CoolEngine.Mathematics` ([CODE-STYLE](../docs/CODE-STYLE.md#math-types)).
+- **No row-vector System.Numerics matrices and no OpenTK math:** a use of `Matrix4x4`, `Matrix3x2`, `Plane`, the Transform overloads that take them, or an OpenTK math type other than `Vector2`, `Vector2i` and `Color4` does not build (RS0030, [BUILD §2](../docs/BUILD.md#2-build)); math is `CoolEngine.Mathematics` matrices on `System.Numerics` vectors, column vectors ([CODE-STYLE](../docs/CODE-STYLE.md#math-types)).
 - **GL calls only on the GL thread.** New loaders keep GL work after an `await` started on the main thread or inside `UI.UIInvoke`; renderers create GL objects lazily in their draw methods (`ObjectRenderer<T>.Render`, `DrawSkyBox`, `DrawPrimitives`, `DrawText2D`/`DrawText3D`, `DrawElementsCollision`).
 - **Changing a uniform or attribute name** means changing the shader files in `OldTanks/Assets/Shaders/` in the same change; an unknown name now logs a Warning once and resolves to -1 (GL ignores it), and a program that fails to link throws `ShaderException` ([RENDERING §3](../docs/CoolEngine/Services/Renderers/RENDERING.md#3-gpu-side-types)). Never name a GLSL variable like a built-in (`texture`).
 - **The static renderers get their shaders from the game:** `CollisionRenderer.Shader` and `TextRenderer.Shader` when shaders load, `ObjectRendererOld`'s skybox shader through `RegisterScene`; `ObjectRenderer<T>` works without `InstancedShader` (everything is then drawn one by one) and accepts it before or after the drawables (KI-019, closed in OT-7). A new renderer is documented in RENDERING.

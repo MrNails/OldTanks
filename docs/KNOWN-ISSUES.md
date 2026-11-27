@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living - known-issues register |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; merge-state wording brought up to date after PRs #11 to #17 (OT-13); bug/OT-13 rebased on master at 8ded8f4 (KI-016 and KI-022 closed there; KI-022's fix confirmed by a 12 s run of the game on 2026-11-25 with no `InitCollision error` line on the console or in `log.txt`, KI-016's by tests; KI-031 read from code); bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 (before its fix) observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Last updated | 2026-11-26 |
+| Verified against | 2026-11-26; feature/OT-5 at 98ab147 (KI-002's note on the move; KI-032 to KI-034 reasoned from the code and the mentor's app checks and review D's triage of 2026-11-26, the debug-view numbers not re-measured here); 2026-11-25; merge-state wording brought up to date after PRs #11 to #17 (OT-13); bug/OT-13 rebased on master at 8ded8f4 (KI-016 and KI-022 closed there; KI-022's fix confirmed by a 12 s run of the game on 2026-11-25 with no `InitCollision error` line on the console or in `log.txt`, KI-016's by tests; KI-031 read from code); bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 (before its fix) observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
@@ -47,6 +47,9 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-029](#ki-029-a-control-renamed-after-construction-bypasses-the-name-check) | A control renamed after construction bypasses the name check | UI | Open |
 | [KI-030](#ki-030-a-malformed-last-v-vt-or-vn-line-drops-the-last-mesh-of-an-obj-file) | A malformed last v, vt or vn line drops the last mesh of an OBJ file | Assets | Open |
 | [KI-031](#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does) | The collision debug view transforms objects on the GL thread while the physics thread does | Threads, physics | Open |
+| [KI-032](#ki-032-the-viewport-projections-imgui-and-render-target-use-the-windows-outer-size) | The viewport, projections, ImGui and render target use the window's outer size | Rendering, UI | Open |
+| [KI-033](#ki-033-the-normals-overlay-overflows-the-primitives-buffer) | The normals overlay overflows the primitives buffer | Rendering | Open |
+| [KI-034](#ki-034-the-sphere-collision-render-group-has-no-vertices-and-re-creates-its-buffers-every-frame) | The sphere collision render group has no vertices and re-creates its buffers every frame | Rendering | Open |
 
 ---
 
@@ -68,7 +71,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Status** | Open |
 | **Scope** | `OldTanks.Models.WorldObject`, the debug window's Rotation field, normals drawing, player turning |
 | **Root cause** | `WorldObject.ApplyTransformation` passes `Yaw`, `Pitch` and `Roll` straight to `Matrix4.CreateRotation*` (radians), and the debug window converts degrees to radians (`OldTanks.Helpers.UIVectorHelper`). But `WorldObject.Move` and `WorldObject.SetCameraData` turn `Rotation.Y` into radians with `DegreesToRadians`, and so does `MainWindow.DrawNormals` for all three axes. The player's `A`/`D` add 1 per tick to `Pitch` |
-| **Current state** | An object turned in the debug window moves and shows normals at a different angle from the one it is drawn at; the player would turn about 57° per tick |
+| **Current state** | An object turned in the debug window moves and shows normals at a different angle from the one it is drawn at; the player would turn about 57° per tick. The move of OT-5 (2026-11-26) kept the behaviour exactly: `WorldObject.Move` and `SetCameraData` still apply OpenTK's transposed rotation, pinned by the golden tests in `tests/OldTanks.Tests` (Denys: "Port exactly, KI-002 later (Recommended)"; turned down: "Follow the drawn facing now", "Forward rotation anyway"). Its own bug task is open |
 | **Remaining check** | Pick radians as the stored unit, change the three degree readers, and check that a cube rotated 90° in the debug window draws its normals on its faces |
 | **Evidence** | The symbols above |
 
@@ -308,3 +311,36 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Current state** | Reasoned from code, not observed. The physics thread can read a half-updated transform or collision (for example new vertices with old normals) for one pair test, and both threads can write the same arrays |
 | **Remaining check** | Let only the physics thread apply transformations and have the renderer read a snapshot, or guard both with one lock; then watch the debug view with many moving objects |
 | **Evidence** | The call chain `CollisionRenderer` → `CollisionRenderGroup.UpdateCollisionablesData` → `WorldObject.ApplyTransformation` → `Collision.UpdateCollision`, against `World.CollideObjects` (OT-13 review, 2026-11-25) |
+
+## KI-032: The viewport, projections, ImGui and render target use the window's outer size
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.Windows.MainWindow.OnLoad` and `OnResize` (the viewport, `EngineSettings.Current.Projection` and `ScreenProjection`, the `CoolEngine.GraphicalEngine.Core.RenderTarget` size), `OldTanks.UI.Services.ImGUI.ImGuiController` (its window size and a hard-coded 39-pixel frame) |
+| **Root cause** | They take OpenTK's `Size`, the window's outer size (the client area plus the GLFW frame), where the framebuffer or client size is meant. The ImGui controller works around part of it with a fixed 39-pixel frame height, which does not follow the DPI scale or the window theme (reasoned from the code) |
+| **Current state** | At 800 by 600 about 8% more pixels are rendered than the client area shows (reasoned from the sizes; the render target made it visible when it was added, found by the OT-5 M6 stage). A minimised decorated window reports its frame size (for example 16 by 39), so the target and projections follow that; only a minimised fullscreen window has size 0 (`OnResize` returns early there). |
+| **Remaining check** | Use `FramebufferSize` for the viewport, the render target and the projections, and `ClientSize` for UI layout, together; then check a resize, a minimise, and a DPI scale other than 100% |
+| **Evidence** | The `OnResize` code and comments (OT-5 reviews C and D, 2026-11-26); the plan's M6 outcome |
+
+## KI-033: The normals overlay overflows the primitives buffer
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | The normals overlay (key `N`, `OldTanks.Windows.MainWindow.DrawNormals`), `CoolEngine.Services.Renderers.ObjectRendererOld.DrawPrimitives` and its `s_maxPrimitivesIndices` |
+| **Root cause** | `DrawNormals` passes every visible object's normals as line vertices: 11 808 of them in the default scene. The primitives buffer is capped at `s_maxPrimitivesIndices` = 6 900 vertices, and `DrawPrimitives` grows it only up to that cap, then uploads and draws the full count |
+| **Current state** | Every frame with the overlay on: `GL_INVALID_VALUE` from the buffer update (the debug view logged about 1 160 per 12 s run in the app checks of 2026-11-26, on `master` too), the Lines VAO and VBO recreated (the needed size is always above the current one), and 4 908 vertices read past the buffer. The size counter is shared by every primitive type, so Points would overflow the same way once Lines has grown it. Pre-existing; found by review D |
+| **Remaining check** | Size the buffer per type from the draw count (or draw in chunks), then watch the console with the overlay on for a minute: no `GL_INVALID_VALUE`, no per-frame VAO creation |
+| **Evidence** | `DrawNormals`, `DrawPrimitives` (OT-5 review D with its GL harness, 2026-11-26) |
+
+## KI-034: The sphere collision render group has no vertices and re-creates its buffers every frame
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.Services.Misc.CollisionRenderGroup.UpdateCollisionablesData`, the sphere group of `CoolEngine.Services.Renderers.CollisionRenderer` (debug view, key `0`) |
+| **Root cause** | A sphere's `CollisionData` has no vertices, so the group's `m_vertices` stays empty, and `UpdateCollisionablesData` runs `InitRenderGroup` again whenever `m_vertices.Length == 0` and the group holds collisionables |
+| **Current state** | In the debug view the sphere group creates and deletes a VAO and VBO every frame (reasoned from the code; found by review D, not measured separately from KI-033's errors). Nothing is drawn for it |
+| **Remaining check** | Skip groups with no vertices or draw spheres another way; watch for per-frame buffer creation in the debug view |
+| **Evidence** | `CollisionRenderGroup.UpdateCollisionablesData`, `InitRenderGroup` (OT-5 review D, 2026-11-26) |

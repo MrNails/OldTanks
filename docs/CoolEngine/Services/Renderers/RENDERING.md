@@ -3,12 +3,12 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); bug/OT-6 (rebased on master at 6753e46): §3's Shader row, the name-lookup paragraph (its fail-fast consequences against OT-8's exception logging) and §4's sampler note against the code and the two OT-6 runs; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Last updated | 2026-11-26 |
+| Verified against | 2026-11-26; feature/OT-5 at 98ab147 (§5, §3's `RenderTarget` row, §4's `SkyBoxShader` row and the skybox upload fix against the code, review D's GL harness on the real `RenderTarget` and shaders, and the app checks of 2026-11-26; the other sections' claims not rechecked); 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); bug/OT-6 (rebased on master at 6753e46): §3's Shader row, the name-lookup paragraph (its fail-fast consequences against OT-8's exception logging) and §4's sampler note against the code and the two OT-6 runs; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
-How the engine draws a frame: the four renderers in `CoolEngine/Services/Renderers/`, the GPU-side types they use, and the contract each shader in `OldTanks/Assets/Shaders/` must meet. Frame order and threads: [ARCHITECTURE §4](../../../ARCHITECTURE.md#4-startup-and-the-frame).
+How the engine draws a frame: the four renderers in `CoolEngine/Services/Renderers/`, the GPU-side types they use, and the contract each shader in `OldTanks/Assets/Shaders/` must meet. Frame order and threads: [ARCHITECTURE §4](../../../ARCHITECTURE.md#4-startup-and-the-frame). Math types (since OT-5): `CoolEngine.Mathematics` matrices and `System.Numerics` vectors, uploaded to uniforms as floats ([MATHEMATICS §5](../../../CoolEngine.Mathematics/MATHEMATICS.md#5-the-opengl-memory-layout)).
 
 ## 1. Renderers
 
@@ -49,6 +49,7 @@ How the engine draws a frame: the four renderers in `CoolEngine/Services/Rendere
 | `CoolEngine.GraphicalEngine.Core.DrawObjectInfo` | A VAO, VBO and EBO triple with vertex and index counts |
 | `CoolEngine.GraphicalEngine.Core.Scene`, `Mesh`, `Face` | Loaded geometry: a scene is the meshes of one OBJ file ([ASSET-PIPELINE](../Loaders/ASSET-PIPELINE.md)) |
 | `CoolEngine.GraphicalEngine.Core.Camera` | Position, look **direction** (`Rotation`, a unit vector, not angles), up vector, FOV, `LookAt` view matrix, free-fly `Move` and mouse `Rotate` |
+| `CoolEngine.GraphicalEngine.Core.RenderTarget` | The offscreen framebuffer the 3D scene is drawn into: RGBA8 colour and 32-bit float depth ([§5](#5-the-render-target-and-reversed-z)) |
 | `CoolEngine.GraphicalEngine.Services.GLSettings` | Snapshot and restore of the GL state ImGui changes |
 
 **Lookups by name (since OT-6, 2026-11-25):** `Shader.GetUniformLocation`, `GetUniformBlockIndex` and `GetAttribLocation` return -1 for a name the linked program has no active entry for (GL ignores -1 in uniform calls), and log a Warning once per kind and name. Members of a uniform block have no location and are reported like unknown names (no shader declares a block today). `SetAttributeData` and `BindUniformBlock` make no GL call for -1. After changing a shader, check the console or `log.txt` for compile, link and "has no active" lines, and check every name the C# side sets.
@@ -61,7 +62,7 @@ How the engine draws a frame: the four renderers in `CoolEngine/Services/Rendere
 
 **Consequences of a link failure (fail fast):** `OldTanks.Services.GameManager.LoadShaders` loads the shader folders alphabetically (`3DFontShader` first) and stops at the first that throws, so `ShadersLoaded` never fires and nobody awaits the faulted task ([KI-012](../../../KNOWN-ISSUES.md#ki-012-startup-continues-after-a-failed-asset-load)); since OT-8 the unobserved-task handler may log it late, after a garbage collection, or never ([ARCHITECTURE §4](../../../ARCHITECTURE.md#4-startup-and-the-frame)). The `Task.WhenAll` continuation in `MainWindow.OnLoad` then fails on the missing `SkyBoxShader` (an `ArgumentNullException` in `ObjectRendererOld.RegisterScene`) before `m_readyToHandle` is set: the window stays blank and still closes with Esc; the dependable trace is the two Error lines (observed in the red run of 2026-11-25, before OT-8). If the ImGui shader (`OldTanks.UI.Services.ImGUI.ImGuiController.CreateDeviceResources`) failed to link, the exception would leave the window constructor and end the process; since OT-8 `Program.CurrentDomainOnUnhandledException` logs it at `Fatal` first ([KI-015](../../../KNOWN-ISSUES.md#ki-015-unhandled-exceptions-are-never-logged), closed; reasoned from code). All 8 programs link on the 2026-11-25 run of bug/OT-6; earlier failures: [KI-008](../../../KNOWN-ISSUES.md#ki-008-unknown-shader-names-resolve-to-location-0) and [KI-020](../../../KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway) (closed). A name that hides a GLSL built-in (such as `texture`) fails to compile on NVIDIA drivers, so sampler and varying names must not reuse built-in names.
 
-**Disposal:** `Shader`, `Texture`, `Buffer<T>` and `DrawObjectInfo` free their GL objects in `Dispose` and, if never disposed, in a finalizer ([KI-017](../../../KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)).
+**Disposal:** `Shader`, `Texture`, `Buffer<T>` and `DrawObjectInfo` free their GL objects in `Dispose` and, if never disposed, in a finalizer ([KI-017](../../../KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)). `RenderTarget` has no finalizer by design ([§5](#5-the-render-target-and-reversed-z)).
 
 ## 4. Shader contract
 
@@ -71,7 +72,7 @@ Each shader is a folder `Assets/Shaders/<Name>/` holding `<Name>.vert` and `<Nam
 |--------|---------------|---------------------------|---------|
 | `DefaultShader` | `iPos` (0), `iNormal` (1), `iTextureCoord` (2) | `projection`, `view`, `model`, `textureTransform`, `color`, `hasTexture` | `ObjectRenderer<T>` per-instance path |
 | `DefaultShader2` | as above, plus per instance `iModel` (3-6), `iColor` (7), `iTextureTransform` (8), `iHasTexture` (9) | `projection`, `view` | `ObjectRenderer<T>` instanced path |
-| `SkyBoxShader` | `iPos` | `projection`, `view` (a `mat3`, so the skybox ignores camera translation) | `ObjectRendererOld.DrawSkyBox` |
+| `SkyBoxShader` | `iPos` | `projection`, `view` (a `mat3`, so the skybox ignores camera translation) | `ObjectRendererOld.DrawSkyBox`; the vertex shader writes clip depth 0 (the far plane in reversed Z, [§5](#5-the-render-target-and-reversed-z)) |
 | `PrimitivesShader` | `iPos` | `projection`, `view`, `color` | Ray and normals in `OldTanks.Windows.MainWindow` |
 | `CollisionShader` | `iPos` | `projection`, `view`, `color` | `CollisionRenderer` |
 | `FontShader` | `iPos`, `iTexture` | `projection`, `model`, `color` | `TextRenderer` (2D and 3D) |
@@ -86,3 +87,35 @@ The ImGui renderer, `OldTanks.UI.Services.ImGUI.ImGuiController`, compiles its o
 1. Make the object an `IDrawable` (the game's `OldTanks.Models.WorldObject` already is) whose `Scene` comes from `GlobalCache<Scene>`.
 2. Give it one `TexturedObjectInfo` with a `TextureData` for **every** mesh of its scene (a missing mesh throws in `ObjectRenderer<T>`; no `TexturedObjectInfo` at all makes it invisible).
 3. Add it to `World.WorldObjects`; `ObjectRenderer<T>` picks it up (the game sets its `InstancedShader` at startup, though the renderer no longer needs it). For the debug view also call `CollisionRenderer.AddCollision`, and keep `ObjectRendererOld.AddDrawable` in step with what `OldTanks.UI.ImGuiUI.MainWindow` does until the legacy renderer is removed.
+
+## 5. The render target and reversed Z
+
+Since OT-5 (2026-11-26, `feature/OT-5`, not yet merged; reasoned from the code and measured by the review's GL harness and the app checks, as stated per row).
+
+**`CoolEngine.GraphicalEngine.Core.RenderTarget`** (sealed, `IDisposable`): a framebuffer with an RGBA8 colour renderbuffer and a `DEPTH_COMPONENT32F` depth renderbuffer.
+
+| Member | Behaviour |
+|--------|-----------|
+| `RenderTarget(int width, int height)` | Creates the framebuffer and both renderbuffers, checks completeness; throws `ArgumentOutOfRangeException` for a size below 1 (no GL object made) and `InvalidOperationException` naming the status for an incomplete framebuffer (its GL objects are deleted first) |
+| `Width`, `Height` | The size of both renderbuffers |
+| `Resize(int width, int height)` | Reallocates both renderbuffers (contents undefined); does nothing when the size is unchanged; throws below 1 or after disposal |
+| `Bind()` | Binds the target as draw and read framebuffer and sets the viewport to its size; every frame |
+| `BlitColorToWindow()` | Copies the colour 1:1 (nearest) to framebuffer 0, then binds framebuffer 0 and sets the viewport to the target's size; every frame. The blit is subject to the scissor test, so that must be off. On NVIDIA the blit ignores the colour mask (review D) |
+| `Dispose()` | Deletes the three GL objects; repeated calls do nothing |
+
+**GL thread only.** Creation, `Resize`, `Bind`, the blit and `Dispose` make GL calls (OpenGL 4.5 direct state access, plus `glBindFramebuffer` and `glViewport` in `Bind` and the blit). **No finalizer, by design:** a finalizer has no GL context ([KI-017](../../../KNOWN-ISSUES.md#ki-017-gl-objects-are-deleted-from-finalizers)); a target that is never disposed keeps its objects until the context is destroyed. The owner, `OldTanks.Windows.MainWindow`, creates it in `OnLoad` at the window's `Size`, resizes it in `OnResize` after the viewport and disposes it in `OnUnload`. A render frame: `Bind`, clear colour and depth, draw the skybox, objects or collision view and primitives, `BlitColorToWindow`, then HUD, labels and ImGui on the window with the depth test off ([ARCHITECTURE §4](../../../ARCHITECTURE.md#4-startup-and-the-frame)). The window requests no depth or stencil bits (`NativeWindowSettings.DepthBits` and `StencilBits` 0), so a driver setting that forces multisampling on the default framebuffer cannot break the blit. The error screen draws on the window only. No unit test is possible (GL); review D's harness checked depth values, lifetime and a failed construction, and the blit costs about 9 µs of GPU time (measured by that harness, 2026-11-26).
+
+**Reversed Z.**
+
+| Part | Rule |
+|------|------|
+| Clip control | `GL.ClipControl(LowerLeft, ZeroToOne)` once in `OldTanks.Windows.MainWindow`'s `ApplyGLSettings`: clip depth [0, 1] |
+| Clear | `GL.ClearDepth(0)` once at load: depth 0 is the far plane, so every depth clear is 0 |
+| Depth functions | `Greater` for objects, the collision view and primitives; `Gequal` for the skybox |
+| Projections | `CoolEngine.Mathematics.Matrix4.CreatePerspectiveFieldOfView` and `CreateOrthographicOffCenter` (near maps to 1, far to 0) |
+| Skybox | `SkyBoxShader.vert` writes `vec4(pos.xy, 0.0, pos.w)`: depth 0 passes `Gequal` against the clear and stays behind everything drawn with `Greater` |
+| Why | A 32-bit float depth with reversed Z keeps precision far away. Review D's harness resolved 1000 from 1000.1 and 1990 from 1990.5, which the old pipeline (standard Z, `LEQUAL`) z-fought |
+
+**The screen projection** (`EngineSettings.Current.ScreenProjection`, used by `TextRenderer` for 2D text) is set in `OnResize` below the zero-size guard: the orthographic factory rejects an empty range, and only a minimised **fullscreen** window has size 0; a minimised decorated window reports its frame size (for example 16 by 39) and the target follows it. The viewport, projections and target use the window's outer `Size`, not the client area ([KI-032](../../../KNOWN-ISSUES.md#ki-032-the-viewport-projections-imgui-and-render-target-use-the-windows-outer-size)).
+
+**Skybox upload (fixed in OT-5, no KI number):** `ObjectRendererOld.CreateSkyBoxDrawMeshInfo` uploaded three times the skybox array, so the driver read 864 bytes past the managed array (it crashed review D's GL harness with an access violation; the game survived by luck). It now uploads exactly the array: the 36 vertices `DrawSkyBox` draws.

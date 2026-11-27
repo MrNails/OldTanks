@@ -2,14 +2,14 @@
 
 > **Project knowledge:** [../docs/PROJECT-KNOWLEDGE.md](../docs/PROJECT-KNOWLEDGE.md)
 
-The engine's own math: column-major float matrices over `System.Numerics`' vectors and quaternion, and double vectors, matrices and a quaternion, with no package dependencies. Added in OT-5 (library part); nothing uses it yet.
+The engine's own math: column-major float matrices over `System.Numerics`' vectors and quaternion, and double vectors, matrices and a quaternion, with no package dependencies. Added in OT-5; `CoolEngine` references it since the move (2026-11-26, unmerged).
 
 ## Related Docs
 
 | Topic | Page |
 |-------|------|
 | Conventions, the types, what is delegated and what is own code, the same-bits promise, edge behaviour, tests, benchmarks, limits | [MATHEMATICS](../docs/CoolEngine.Mathematics/MATHEMATICS.md) |
-| The decisions (D6, D7) and the planned move from `OpenTK.Mathematics` | [plan §6](../docs/plans/ENGINES-AND-TANK-GAME.md#6-decisions-of-ot-3-and-the-planned-tasks) |
+| The decisions (D6, D7) and the move from `OpenTK.Mathematics` (done in OT-5) | [plan §6](../docs/plans/ENGINES-AND-TANK-GAME.md#6-decisions-of-ot-3-and-the-planned-tasks) |
 | The upload layout (`transpose = false`) | [MATHEMATICS §5](../docs/CoolEngine.Mathematics/MATHEMATICS.md#5-the-opengl-memory-layout) |
 | Remaining work (the move, a faster inverse, tests and benchmark pinning) | [BACKLOG](../docs/BACKLOG.md#own-libraries-and-engine-direction) |
 
