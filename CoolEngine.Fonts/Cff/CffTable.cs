@@ -42,17 +42,22 @@ namespace CoolEngine.Fonts.Cff;
 /// not ascending, a sentinel below the glyph count, or a Font DICT index not below the FDArray's count;
 /// a CFF2 variation store as <see cref="ItemVariationStore"/> lists; a CFF2 Private DICT whose <c>blend</c> names a
 /// <c>vsindex</c> the store lacks, counts its values with anything but an integer, blends more values than the stack holds
-/// or has fewer operands than its values need, or that sets <c>vsindex</c> after a <c>blend</c>.
+/// or has fewer operands than its values need, or that sets <c>vsindex</c> after a <c>blend</c>;
+/// any entry FreeType 2.13.2's parser knows for the DICT's kind (its <c>cfftoken.h</c> field tables for the CFF Top and
+/// CID Font DICTs, the CFF Private DICT, the CFF2 Top, Font and Private DICTs) given fewer operands than its handler pops: at
+/// least one for every entry but a delta array, four for FontBBox; FreeType's parser fails there (<c>Stack_Underflow</c>),
+/// and with it the face (OT-4 WP6, <see cref="CffDict.CheckOperandCounts"/>; the entries this library reads keep their own,
+/// stricter rules above, checked first).
 /// </para>
 /// <para>
 /// Accepted, as FreeType accepts them (each tested to read as FreeType reads it): any other entry this library reads
 /// present twice in one DICT (FreeType and OTS accept the repeat; the last one is read, as FreeType reads it, each one's
 /// operands checked: Encoding, Private, FontMatrix, CharstringType, initialRandomSeed, a Font DICT's Private and its Private
-/// DICT's Subrs, vsindex, and a predefined charset repeated); a 5-byte integer operand (29) with its top bit set, read unsigned, as FreeType's 64-bit
-/// <c>cff_parse_integer</c> reads it (an offset of that size then lies past the table); operands after a DICT's last operator, an
-/// integer or real cut by the end of the DICT among them (ignored); DICT operators this library does not read, unknown ones
-/// (one- and two-byte, the reserved bytes 22 to 26, 31 and 255 among them) included, whatever their operands (ignored, their
-/// operands dropped); a Private entry of size or offset 0 (no Private DICT: no local subroutines); charset ranges covering
+/// DICT's Subrs, vsindex, and a predefined charset repeated); a 5-byte integer operand (29) with its top bit set, read
+/// unsigned, as FreeType's 64-bit <c>cff_parse_integer</c> reads it (an offset of that size then lies past the table);
+/// operands after a DICT's last operator, an integer or real cut by the end of the DICT among them (ignored); DICT operators
+/// this library does not read, unknown ones (one- and two-byte, the reserved bytes 22 to 26, 31 and 255 among them) included,
+/// whatever their operands once FreeType's operand counts are met (ignored, their operands dropped); a Private entry of size or offset 0 (no Private DICT: no local subroutines); charset ranges covering
 /// more glyphs than the font has (the extra ones are ignored); an FDSelect sentinel above the glyph count; the FDSelect of a
 /// CFF2 table with one Font DICT (not read: every glyph uses Font DICT 0).
 /// </para>
@@ -67,9 +72,10 @@ namespace CoolEngine.Fonts.Cff;
 /// </para>
 /// <para>
 /// Not checked, as nothing here reads them: the Name and String INDEXes beyond their structure, Top DICT INDEX entries past
-/// the first, the operands of DICT entries this library does not read (FreeType's hinting entries of a Private DICT are
-/// WP6's), the code-to-glyph mapping of an encoding (OpenType maps characters through <c>cmap</c>), the deltas of a CFF2
-/// variation store, and the charstrings, which run at glyph load.
+/// the first, the operands of DICT entries this library does not read beyond their count (the hinting entries of a Private
+/// DICT are read as FreeType reads them, any operand kind, only the first operand of a number entry), the code-to-glyph
+/// mapping of an encoding (OpenType maps characters through <c>cmap</c>), the deltas of a CFF2 variation store, and the
+/// charstrings, which run at glyph load.
 /// </para>
 /// <para>
 /// The load's work: each INDEX's offsets, each DICT, the charset, encoding and FDSelect bytes and each glyph they fill are
@@ -177,6 +183,33 @@ internal sealed class CffTable
         var bytes = Data.Span.Slice(fontDict.PrivateOffset, fontDict.PrivateSize);
         return CffDict.Parse(bytes, true, $"Private DICT at {fontDict.PrivateOffset}", new ParsedTables(bytes.Length, unlimited: true),
             VariationStore, coords);
+    }
+
+    /// <summary>
+    /// The work <see cref="PrivateHintsAt"/> is charged for a Font DICT (OT-4 WP6): the Private DICT's size times the variation
+    /// store's regions plus one, a bound on its tokens and the blend weights its blends compute; 0 without a Private DICT.
+    /// </summary>
+    public long PrivateReparseCost(int fontDictIndex)
+    {
+        var fontDict = FontDicts.Length == 0 ? Top : FontDicts[fontDictIndex];
+        return (long)fontDict.PrivateSize * (VariationStore.RegionCount + 1);
+    }
+
+    /// <summary>
+    /// A CFF2 Font DICT's hinting values at normalized coordinates (OT-4 WP6): <see cref="PrivateDictAt"/>'s entries as
+    /// FreeType's <c>cff_load_private_dict</c> stores them; FreeType's zeroed values for a Font DICT without a Private DICT.
+    /// </summary>
+    /// <param name="fontDictIndex">The Font DICT (an index of <see cref="FontDicts"/>).</param>
+    /// <param name="coords">The normalized coordinates, one per axis of the variation store.</param>
+    public Hinting.Cff.CffPrivateHints PrivateHintsAt(int fontDictIndex, ReadOnlySpan<long> coords)
+    {
+        var fontDict = FontDicts.Length == 0 ? Top : FontDicts[fontDictIndex];
+        if (!IsCff2 || fontDict.PrivateSize == 0)
+            return fontDict.Hints;
+
+        var bytes = Data.Span.Slice(fontDict.PrivateOffset, fontDict.PrivateSize);
+        return Hinting.Cff.CffPrivateHints.Parse(bytes, PrivateDictAt(fontDictIndex, coords), true, "CFF2",
+            $"Private DICT at {fontDict.PrivateOffset}");
     }
 
     /// <summary>Parses and checks the table.</summary>
@@ -321,6 +354,9 @@ internal sealed class CffTable
                     throw new InvalidDataException($"The CFF table's {what} has an ROS entry; only the Top DICT may.");
 
                 fontDicts[i] = ReadPrivate(span, fd, fd.FontMatrixOf(), isCff2, variationStore, privates, subrs, parsed, topLevel: false);
+
+                // FreeType reads a CID-keyed CFF table's Font DICTs with its Top DICT fields.
+                fd.CheckOperandCounts(isCff2 ? CffDictKind.Cff2Font : CffDictKind.CffTop);
             }
 
             if (!isCff2 || fontDicts.Length > 1)
@@ -334,6 +370,10 @@ internal sealed class CffTable
                 fdSelect = ReadFdSelect(span, fdSelectOffset.Value, glyphCount, fontDicts.Length, isCff2, parsed);
             }
         }
+
+        // The entries this library does not read still need the operands FreeType's handlers pop (after the checks of the
+        // entries it reads, whose own rules come first).
+        top.CheckOperandCounts(isCff2 ? CffDictKind.Cff2Top : CffDictKind.CffTop);
 
         return new CffTable(data, isCff2, charStrings, globalSubrs, topFontDict, fontDicts, fdSelect, sids, variationStore);
     }
@@ -406,8 +446,15 @@ internal sealed class CffTable
                 seed = seed < 0 ? -seed : seed == 0 ? DefaultRandomSeed : seed;
             }
 
-            // FreeType's state is the seed's low 32 bits (FT_UInt32).
-            shared = new CffFontDict(localSubrs, vsindex, (uint)seed) { PrivateOffset = offset, PrivateSize = size };
+            // FreeType's state is the seed's low 32 bits (FT_UInt32). The hinting values (OT-4 WP6) as cff_load_private_dict
+            // leaves them, their arrays reserved first.
+            parsed.Reserve(Hinting.Cff.CffPrivateHints.Cost, "the hinting values of the CFF Private DICT at", offset);
+            shared = new CffFontDict(localSubrs, vsindex, (uint)seed)
+            {
+                PrivateOffset = offset,
+                PrivateSize = size,
+                Hints = values.Hints(isCff2),
+            };
             privates.Add((offset, size), shared);
         }
 
@@ -725,6 +772,15 @@ internal sealed class CffTable
 
         public long Integer(DictOperand[] operands, string name) => CffDict.RequireInteger(m_dict, operands, Table, What, name);
 
+        /// <summary><see cref="CffDict.CheckOperandCounts"/> on the DICT's entries.</summary>
+        public void CheckOperandCounts(CffDictKind kind) => CffDict.CheckOperandCounts(m_entries, kind, Table, What);
+
+        /// <summary>
+        /// The DICT's hinting entries as FreeType stores them (a Private DICT; OT-4 WP6), after FreeType's operand-count rule
+        /// for the Private DICT.
+        /// </summary>
+        public Hinting.Cff.CffPrivateHints Hints(bool isCff2) => Hinting.Cff.CffPrivateHints.Parse(m_dict, m_entries, isCff2, Table, What);
+
         /// <summary>
         /// The charset entry's offset (0, the ISOAdobe charset, when absent): the last entry, as FreeType reads it; two entries
         /// pointing at charsets of the font's own are <see cref="InvalidDataException"/>, as OTS refuses them (a predefined
@@ -871,4 +927,10 @@ internal sealed record CffFontDict(CffIndex LocalSubrs, uint Vsindex, uint Rando
 
     /// <summary>The Private DICT's length; 0 for none.</summary>
     public int PrivateSize { get; init; }
+
+    /// <summary>
+    /// The Private DICT's hinting values (OT-4 WP6), read at load; FreeType's zeroed values without a Private DICT. A CFF2
+    /// table's at variation coordinates come from <see cref="CffTable.PrivateDictAt"/>.
+    /// </summary>
+    public Hinting.Cff.CffPrivateHints Hints { get; init; } = Hinting.Cff.CffPrivateHints.None;
 }

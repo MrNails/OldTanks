@@ -1,5 +1,7 @@
 // The tokenizer follows FreeType 2.13.2 src/cff/cffparse.c (cff_parser_run, cff_parse_blend) and src/cff/cffload.c
-// (cff_blend_doBlend) (FreeType Project License; credit in docs).
+// (cff_blend_doBlend); the operand-count rule cff_parser_run's Stack_Underflow over the field tables of src/cff/cfftoken.h
+// and the callbacks' counts (cff_parse_font_bbox, cff_parse_font_matrix, cff_parse_private_dict, cff_parse_cid_ros)
+// (FreeType Project License; credit in docs).
 
 using CoolEngine.Fonts.Sfnt;
 
@@ -26,6 +28,25 @@ internal readonly record struct DictOperand(DictOperandKind Kind, int Position, 
 /// <param name="Operator">The operator: 0..255, or 0x100 | b for the two-byte operator 12 b.</param>
 /// <param name="Operands">Its operands, first to last.</param>
 internal readonly record struct DictEntry(int Operator, DictOperand[] Operands);
+
+/// <summary>The field table FreeType 2.13.2's DICT parser reads a DICT with (<c>cfftoken.h</c>).</summary>
+internal enum CffDictKind : byte
+{
+    /// <summary>A CFF Top DICT, and a CID-keyed CFF table's Font DICT (<c>CFF_CODE_TOPDICT</c>).</summary>
+    CffTop,
+
+    /// <summary>A CFF Private DICT (<c>CFF_CODE_PRIVATE</c>).</summary>
+    CffPrivate,
+
+    /// <summary>A CFF2 Top DICT (<c>CFF2_CODE_TOPDICT</c>).</summary>
+    Cff2Top,
+
+    /// <summary>A CFF2 Font DICT (<c>CFF2_CODE_FONTDICT</c>).</summary>
+    Cff2Font,
+
+    /// <summary>A CFF2 Private DICT (<c>CFF2_CODE_PRIVATE</c>).</summary>
+    Cff2Private,
+}
 
 /// <summary>The variation data a CFF2 Private DICT's <c>blend</c> reads: the region count of each <c>vsindex</c>.</summary>
 internal interface IBlendRegions
@@ -178,6 +199,87 @@ internal static class CffDict
 
         return entries;
     }
+
+    /// <summary>
+    /// FreeType's operand-count rule (<c>cff_parser_run</c>): every entry its parser knows for the DICT kind
+    /// (<c>cfftoken.h</c>) must have the operands its handler pops, or the parser fails (<c>Stack_Underflow</c>) and with it the
+    /// face: at least one for every entry but a delta array, which may be empty; four for FontBBox, six for FontMatrix, two
+    /// for Private and three for ROS (their callbacks). Entries FreeType's parser does not know (in CFF2, the Private DICT's
+    /// lenIV, ForceBold, ForceBoldThreshold, initialRandomSeed, defaultWidthX and nominalWidthX among them) take any operands.
+    /// MultipleMaster is left to the face's <see cref="NotSupportedException"/>.
+    /// </summary>
+    /// <param name="dict">The DICT's entries.</param>
+    /// <param name="kind">Which of FreeType's field tables reads the DICT.</param>
+    /// <param name="table">"CFF" or "CFF2", for messages.</param>
+    /// <param name="what">The DICT, for messages.</param>
+    /// <exception cref="InvalidDataException">An entry has fewer operands than FreeType's handler pops.</exception>
+    public static void CheckOperandCounts(IReadOnlyList<DictEntry> dict, CffDictKind kind, string table, string what)
+    {
+        foreach (var entry in dict)
+        {
+            var needed = NeededOperands(kind, entry.Operator);
+            if (entry.Operands.Length < needed)
+                throw new InvalidDataException(
+                    $"The {table} table's {what} gives the entry {OperatorName(entry.Operator)} {entry.Operands.Length} operands; " +
+                    $"FreeType's parser needs at least {needed} (it fails the face).");
+        }
+    }
+
+    /// <summary>The operands FreeType's handler of an entry pops (0: not known to the parser for the kind, or a delta array).</summary>
+    private static int NeededOperands(CffDictKind kind, int op) => kind switch
+    {
+        // CFF_CODE_TOPDICT, which also reads a CID-keyed CFF table's Font DICTs. XUID (14), BaseFontName, BaseFontBlend,
+        // BlendAxisTypes and Chameleon are compiled out (#if 0) in FreeType 2.13.2. MultipleMaster's callback needs five
+        // operands (a Top DICT with the entry is NotSupportedException anyway, checked first).
+        CffDictKind.CffTop => op switch
+        {
+            0 or 1 or 2 or 3 or 4 or 13 or 15 or 16 or 17 => 1,
+            0x100 or 0x101 or 0x102 or 0x103 or 0x104 or 0x105 or 0x106 or 0x108 or 0x114 or 0x115 => 1,
+            >= 0x11F and <= 0x126 => 1,
+            5 => 4,
+            0x107 => 6,
+            18 => 2,
+            0x11E => 3,
+            0x118 => 5,
+            _ => 0,
+        },
+
+        // CFF_CODE_PRIVATE: BlueValues, OtherBlues, FamilyBlues, FamilyOtherBlues, StemSnapH and StemSnapV are delta arrays.
+        CffDictKind.CffPrivate => op switch
+        {
+            10 or 11 or 19 or 20 or 21 => 1,
+            0x109 or 0x10A or 0x10B or 0x10E or 0x10F or 0x110 or 0x111 or 0x112 or 0x113 => 1,
+            _ => 0,
+        },
+
+        // CFF2_CODE_TOPDICT.
+        CffDictKind.Cff2Top => op switch
+        {
+            17 or 24 or 25 or 0x124 or 0x125 => 1,
+            0x107 => 6,
+            _ => 0,
+        },
+
+        // CFF2_CODE_FONTDICT.
+        CffDictKind.Cff2Font => op switch
+        {
+            18 => 2,
+            0x107 => 6,
+            _ => 0,
+        },
+
+        // CFF2_CODE_PRIVATE (blend, 23, is checked by the tokenizer).
+        CffDictKind.Cff2Private => op switch
+        {
+            10 or 11 or 19 or OpVsindex => 1,
+            0x109 or 0x10A or 0x10B or 0x111 or 0x112 => 1,
+            _ => 0,
+        },
+
+        _ => 0,
+    };
+
+    private static string OperatorName(int op) => op >= 0x100 ? $"12 {op & 0xFF}" : $"{op}";
 
     /// <summary>The value of an operator's single integer operand; <see cref="InvalidDataException"/> for any other operand list.</summary>
     public static long RequireInteger(ReadOnlySpan<byte> dict, IReadOnlyList<DictOperand> operands, string table, string what,

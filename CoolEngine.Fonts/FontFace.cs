@@ -153,7 +153,7 @@ public sealed class FontFace
     /// an axis the face does not have, names one twice or has a value that is not finite.
     /// </exception>
     /// <exception cref="NotSupportedException">
-    /// <see cref="HintingMode.Native"/> is asked of a CFF or CFF2 face (OT-4 WP6); variation coordinates are given for a variable
+    /// Variation coordinates are given for a variable
     /// face with CFF (not CFF2) outlines, a library limit (FreeType varies only such a face's <c>HVAR</c> advances and
     /// <c>MVAR</c> metrics, its outlines staying the default's, and refuses the coordinates when its <c>fvar</c> has named
     /// instances); a work budget of the library is passed.

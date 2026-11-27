@@ -1,17 +1,20 @@
-// Follows FreeType 2.13.2 src/psaux/psintrp.c (cf2_interpT2CharString, cf2_doStems, cf2_doFlex, cf2_doBlend,
-// cf2_hintmask_*), src/psaux/psstack.c (the operand stack), src/psaux/psread.c (cf2_buf_readByte), src/psaux/pshints.c
-// (cf2_glyphpath_* without hinting or darkening, the validity bookkeeping of cf2_hintmap_build), src/psaux/psfont.c
-// (cf2_getGlyphOutline, the per-glyph vsindex) and src/psaux/psft.c (cf2_getSeacComponent, the subroutine buffers)
-// (FreeType Project License; credit in docs).
+// Follows FreeType 2.13.2 src/psaux/psintrp.c (cf2_interpT2CharString, cf2_doStems, cf2_doFlex, cf2_doBlend, the
+// hintmask and cntrmask operators), src/psaux/psstack.c (the operand stack), src/psaux/psread.c (cf2_buf_readByte),
+// src/psaux/pshints.c (cf2_glyphpath_* with hinting and without darkening: moveTo, lineTo, curveTo, closeOpenPath,
+// pushMove, pushPrevElem, hintPoint), src/psaux/psfont.c (cf2_getGlyphOutline, the per-glyph vsindex) and src/psaux/psft.c
+// (cf2_getSeacComponent, the subroutine buffers) (FreeType Project License; credit in docs).
+
+using CoolEngine.Fonts.Hinting.Cff;
 
 namespace CoolEngine.Fonts.Cff;
 
 /// <summary>
-/// The Type 2 (CFF) and CFF2 charstring interpreter, unhinted, as FreeType 2.13.2's Adobe engine (<c>psintrp.c</c>) runs it
-/// with hinting and stem darkening off: the same operators, the same operand types and wrapping 16.16 arithmetic, the same
-/// leniencies (operands an operator does not use are dropped, <c>roll</c> works on the bottom of the stack, hints after a
-/// hint mask are ignored) and an error wherever FreeType's interpreter sets one. Points go to a <see cref="CffOutlineBuilder"/>
-/// in whole font units. One per glyph loader; not thread-safe.
+/// The Type 2 (CFF) and CFF2 charstring interpreter as FreeType 2.13.2's Adobe engine (<c>psintrp.c</c>) runs it with stem
+/// darkening off, unhinted or hinted (OT-4 WP6): the same operators, the same operand types and wrapping 16.16 arithmetic,
+/// the same leniencies (operands an operator does not use are dropped, <c>roll</c> works on the bottom of the stack, hints
+/// after a hint mask are ignored) and an error wherever FreeType's interpreter sets one. Unhinted, points go to a
+/// <see cref="CffOutlineBuilder"/> in whole font units; hinted, in 26.6 pixels, each y through the hint map of the stems
+/// active where it is drawn (<see cref="CffGlyphHints"/>). One per glyph loader; not thread-safe.
 /// </summary>
 /// <remarks>
 /// FreeType's limits, each an <see cref="InvalidDataException"/> for the glyph when passed (FreeType fails the glyph there):
@@ -33,10 +36,11 @@ namespace CoolEngine.Fonts.Cff;
 /// each of at most 20,000,000 operators. This library's, below it (Denys's "Glyph and size budgets", 2026-11-27): one work
 /// budget per glyph load, <see cref="GlyphWorkBudget"/> units shared by all its runs, charged as the work happens (1 per
 /// operator or number, plus the operands a stack-clearing operator consumes, the elements a <c>roll</c> moves, the operands a
-/// <c>blend</c> reads, the bytes a hint mask takes and the glyphs a seac scans); past it, <see cref="NotSupportedException"/>,
-/// where FreeType runs on.
+/// <c>blend</c> reads, the bytes a hint mask takes and the glyphs a seac scans, and when hinted the stems a hint map build
+/// visits, the edges each insertion and adjustment pass walks or moves, the edges a map copy takes and the edges each mapped
+/// y may search); past it, <see cref="NotSupportedException"/>, where FreeType runs on.
 /// </remarks>
-internal sealed class Type2Interpreter
+internal sealed class Type2Interpreter : ICffHintHost
 {
     /// <summary>FreeType's <c>CF2_OPERAND_STACK_SIZE</c>.</summary>
     public const int CffStackSize = 48;
@@ -65,11 +69,15 @@ internal sealed class Type2Interpreter
     /// glyph: so 1,000,000. A glyph refused at it has run about a million operators (about 15 ms on the test machine).
     /// Re-measured by OT-4 WP5 at every named instance and axis extreme of SourceSans3VF-Upright.otf (the blend vector built at
     /// the coordinates charged too; the loader's <c>HVAR</c> advance adds a few units more): the largest is still 1,140.
+    /// Re-measured by OT-4 WP6 with hinting (the hint map work charged too) over every glyph of the three faces at 8, 9, 12,
+    /// 16, 24, 32, 72, 300 and 1,999 px (the VF also at every named instance and axis extreme): the largest is 2,849
+    /// (SourceSans3-Regular.otf glyph 400; 1,145 in the VF, 896 in ROGFonts-Regular_0.otf; means 531, 316 and 153). About 100
+    /// times that, 284,900, is still below the floor, which stays.
     /// </summary>
     internal const long GlyphWorkBudget = 1_000_000;
 
-    // The Adobe engine's unhinted scale, 1/64 in 16.16 (cf2_getScaleAndHintFlag): device units are 1/1024 font unit.
-    private const int UnhintedScale = 0x0400;
+    /// <summary>The Adobe engine's unhinted scale, 1/64 in 16.16 (cf2_getScaleAndHintFlag): device units are 1/1024 font unit.</summary>
+    public const int UnhintedScale = 0x0400;
 
     private const int FixedMax = 0x7FFFFFFF;
 
@@ -112,6 +120,12 @@ internal sealed class Type2Interpreter
     private readonly long[]? m_coords;
     private int m_builtVsindex = -1;
 
+    // The run's transform (FreeType's innerTransform a and d: the unhinted 1/64, or the size's scale in 16.16 pixels) and
+    // the blue zones of the glyph's Font DICT for a hinted run (null unhinted).
+    private int m_scaleX = UnhintedScale;
+    private int m_scaleY = UnhintedScale;
+    private CffBlues? m_blues;
+
     /// <param name="table">The checked table.</param>
     /// <param name="builder">Receives the outline.</param>
     /// <param name="coords">
@@ -142,8 +156,19 @@ internal sealed class Type2Interpreter
     /// <exception cref="InvalidDataException">FreeType's interpreter fails the glyph (the reason is in the message).</exception>
     /// <exception cref="NotSupportedException">The outline passes <see cref="CffOutlineBuilder.MaxPoints"/>.</exception>
     /// <exception cref="NotSupportedException">The glyph's charstrings pass <see cref="GlyphWorkBudget"/>.</exception>
-    public void Run(int glyphIndex)
+    public void Run(int glyphIndex) => Run(glyphIndex, null, UnhintedScale, UnhintedScale);
+
+    /// <summary>
+    /// Runs the glyph's charstring hinted (<paramref name="hinter"/> given: the blue zones of the glyph's Font DICT at
+    /// <paramref name="scaleY"/>, their first set-up charged to this glyph) or unhinted (null), at the engine's transform
+    /// (FreeType's <c>innerTransform</c>: <paramref name="scaleX"/> and <paramref name="scaleY"/> in 16.16, the unhinted
+    /// <see cref="UnhintedScale"/> or a size's scale divided by 64).
+    /// </summary>
+    /// <inheritdoc cref="Run(int)"/>
+    public void Run(int glyphIndex, CffHinter? hinter, int scaleX, int scaleY)
     {
+        m_scaleX = scaleX;
+        m_scaleY = scaleY;
         m_glyph = glyphIndex;
         m_error = null;
         m_work = 0;
@@ -151,6 +176,7 @@ internal sealed class Type2Interpreter
 
         m_fontDict = m_table.FontDictOf(glyphIndex);
         m_fontDictIndex = m_table.FontDictIndexOf(glyphIndex);
+        m_blues = hinter?.Blues(m_fontDictIndex, scaleY, this);
 
         // Per glyph, as cf2_font_setup sets them: the Private DICT's vsindex, no blend used yet.
         m_vsindex = m_fontDict.Vsindex;
@@ -172,6 +198,9 @@ internal sealed class Type2Interpreter
     {
         var data = m_table.Data.Span;
         f.Reset(start, end);
+
+        // cf2_glyphpath_init with the run's hint origin (a seac accent's y, else 0).
+        f.Hints.Reset(this, m_blues, m_scaleY, curY);
         var isCff2 = m_table.IsCff2;
         var instructionLimit = InstructionLimit;
 
@@ -234,15 +263,15 @@ internal sealed class Type2Interpreter
                 case OpHstemhm:
                 case OpHstem:
                     // Hints after the mask is computed are ignored.
-                    if (!f.MaskValid)
-                        DoStems(f, ref f.HStems);
+                    if (!f.Hints.Mask.IsValid)
+                        DoStems(f, horizontal: true);
 
                     break;
 
                 case OpVstemhm:
                 case OpVstem:
-                    if (!f.MaskValid)
-                        DoStems(f, ref f.VStems);
+                    if (!f.Hints.Mask.IsValid)
+                        DoStems(f, horizontal: false);
 
                     break;
 
@@ -393,26 +422,20 @@ internal sealed class Type2Interpreter
                 case OpHintmask:
                 {
                     // Hints after the mask is computed: the operator is ignored (its mask bytes then read as charstring).
-                    if (f.Count > 1 && f.MaskValid)
+                    if (f.Count > 1 && f.Hints.Mask.IsValid)
                         break;
 
                     // Operands here are an implied vstem.
-                    DoStems(f, ref f.VStems);
-                    var total = f.HStems + f.VStems;
-                    if (op == OpHintmask)
-                    {
-                        if (!ReadMask(f, data, total))
-                            break;
+                    DoStems(f, horizontal: false);
 
-                        f.MaskValid = true;
-                        f.MaskIsNew = true;
-                        f.MaskBitCount = total;
-                    }
-                    else if (ReadMask(f, data, total))
-                    {
-                        // The counter mask builds a throw-away hint map, which only makes the initial map valid.
-                        f.InitialMapValid = true;
-                    }
+                    // cf2_hintmask_read: the hint mask, or a counter mask that builds a throw-away hint map (placing and
+                    // locking the stems it holds, and building the initial map).
+                    var mask = f.Hints.BeginMask(op == OpCntrmask, out var maskBytes);
+                    for (var i = 0; i < maskBytes; i++)
+                        mask.Mask[i] = (byte)ReadByte(f, data);
+
+                    if (op == OpCntrmask)
+                        f.Hints.EndCounterMask();
 
                     break;
                 }
@@ -889,12 +912,29 @@ internal sealed class Type2Interpreter
         }
     }
 
-    /// <summary><c>cf2_doStems</c>: adds the operand pairs as stems (an odd first operand is the width); clears the stack.</summary>
-    private void DoStems(Frame f, ref long stems)
+    /// <summary>
+    /// <c>cf2_doStems</c>: adds the operand pairs as stems (an odd first operand is the width), each edge the running sum of
+    /// the operands (16.16, wrapping); clears the stack. Only horizontal stems keep their positions.
+    /// </summary>
+    private void DoStems(Frame f, bool horizontal)
     {
         var count = f.Count;
         var first = count & 1;
-        stems += (count - first + 1) / 2;
+        if (horizontal)
+        {
+            var position = 0;
+            for (var i = first; i < count; i += 2)
+            {
+                var min = position = Add(position, GetReal(f, i));
+                var max = position = Add(position, GetReal(f, i + 1));
+                f.Hints.AddHStem(min, max);
+            }
+        }
+        else
+        {
+            f.Hints.AddVStems((count - first) / 2);
+        }
+
         Clear(f);
     }
 
@@ -904,6 +944,10 @@ internal sealed class Type2Interpreter
         Charge(f.Count);
         f.Clear();
     }
+
+    void ICffHintHost.Charge(long units) => Charge(units);
+
+    void ICffHintHost.SetError(string message) => SetError(message);
 
     /// <summary>Charges glyph work; past <see cref="GlyphWorkBudget"/>, <see cref="NotSupportedException"/> (FreeType runs on).</summary>
     private void Charge(long units)
@@ -1095,60 +1139,13 @@ internal sealed class Type2Interpreter
         return m_error is null;
     }
 
-    /// <summary>Reads a hint or counter mask of <paramref name="bits"/> bits (<c>cf2_hintmask_read</c>); false when it is not read.</summary>
-    private bool ReadMask(Frame f, ReadOnlySpan<byte> data, long bits)
-    {
-        if (bits > MaxHints)
-        {
-            SetError($"{bits} stem hints, more than FreeType's {MaxHints}");
-            return false;
-        }
-
-        Charge((bits + 7) / 8);
-        for (var i = 0; i < (bits + 7) / 8; i++)
-            ReadByte(f, data);
-
-        return true;
-    }
-
-    // ---- The glyph path (pshints.c's cf2_glyphpath_*, without hinting or darkening).
+    // ---- The glyph path (pshints.c's cf2_glyphpath_*, without darkening: every offset is 0, so an element always ends where
+    // the next begins and the miter intersection of cf2_glyphpath_pushPrevElem is never taken).
 
     /// <summary>
-    /// The validity bookkeeping of <c>cf2_hintmap_build</c>, which is all of it that matters unhinted: the initial map and the
-    /// mask become valid (all stems on when no mask was read, an error past 96 stems), the mask is no longer new.
+    /// <c>cf2_glyphpath_moveTo</c>: closes the open path; the current map is (re)built when invalid or a new mask awaits, and
+    /// the first map becomes a copy of it, for the path's closing segment.
     /// </summary>
-    private void BuildHintMap(Frame f)
-    {
-        var total = f.HStems + f.VStems;
-        if (!f.InitialMapValid)
-        {
-            if (total > MaxHints)
-                SetError($"{total} stem hints, more than FreeType's {MaxHints}");
-            else
-                f.InitialMapValid = true;
-        }
-
-        if (!f.MaskValid)
-        {
-            if (total > MaxHints)
-            {
-                SetError($"{total} stem hints, more than FreeType's {MaxHints}");
-                return;
-            }
-
-            f.MaskValid = true;
-            f.MaskIsNew = true;
-            f.MaskBitCount = total;
-        }
-
-        if (f.HStems > f.MaskBitCount)
-            return;
-
-        f.HintMapValid = true;
-        f.MaskIsNew = false;
-    }
-
-    /// <summary><c>cf2_glyphpath_moveTo</c>.</summary>
     private void MoveTo(Frame f, int x, int y)
     {
         CloseOpenPath(f);
@@ -1156,14 +1153,16 @@ internal sealed class Type2Interpreter
         f.CurrentY = f.StartY = y;
         f.MoveIsPending = true;
 
-        if (!f.HintMapValid || f.MaskIsNew)
-            BuildHintMap(f);
+        if (!f.Hints.CurrentMap.IsValid || f.Hints.Mask.IsNew)
+            f.Hints.BuildCurrent();
+
+        f.Hints.SaveFirstMap();
     }
 
     /// <summary><c>cf2_glyphpath_lineTo</c>: a zero-length line is dropped unless a new hint mask awaits.</summary>
     private void LineTo(Frame f, int x, int y)
     {
-        var newHintMap = f.MaskIsNew && !f.PathIsClosing;
+        var newHintMap = f.Hints.Mask.IsNew && !f.PathIsClosing;
         if (f.CurrentX == x && f.CurrentY == y && !newHintMap)
             return;
 
@@ -1185,8 +1184,9 @@ internal sealed class Type2Interpreter
         f.Prev[2] = x;
         f.Prev[3] = y;
 
+        // The new map applies from this element on: the queued one went out with the old map above.
         if (newHintMap)
-            BuildHintMap(f);
+            f.Hints.BuildCurrent();
 
         f.CurrentX = x;
         f.CurrentY = y;
@@ -1217,8 +1217,8 @@ internal sealed class Type2Interpreter
         f.Prev[6] = x3;
         f.Prev[7] = y3;
 
-        if (f.MaskIsNew)
-            BuildHintMap(f);
+        if (f.Hints.Mask.IsNew)
+            f.Hints.BuildCurrent();
 
         f.CurrentX = x3;
         f.CurrentY = y3;
@@ -1233,7 +1233,7 @@ internal sealed class Type2Interpreter
         f.PathIsClosing = true;
         LineTo(f, f.StartX, f.StartY);
         if (f.ElemIsQueued)
-            PushPrevElem(f, f.OffsetStartX, f.OffsetStartY);
+            PushPrevElem(f, f.OffsetStartX, f.OffsetStartY, close: true);
 
         f.MoveIsPending = true;
         f.PathIsOpen = false;
@@ -1245,26 +1245,27 @@ internal sealed class Type2Interpreter
     private void PushMove(Frame f, int x, int y)
     {
         // A first subpath without a moveto: FreeType synthesises one to set up its hint map.
-        if (!f.HintMapValid)
+        if (!f.Hints.CurrentMap.IsValid)
             MoveTo(f, f.StartX, f.StartY);
 
+        (f.CurrentDsX, f.CurrentDsY) = HintPoint(f.Hints.CurrentMap, x, y);
         m_builder.MoveTo();
-        f.CurrentDsX = Device(x);
-        f.CurrentDsY = Device(y);
         f.OffsetStartX = x;
         f.OffsetStartY = y;
     }
 
     /// <summary>
-    /// <c>cf2_glyphpath_pushPrevElem</c> without offsets: the queued element goes to the builder (a line only when it has
-    /// length in device units), then the line to the next element's start when it is elsewhere.
+    /// <c>cf2_glyphpath_pushPrevElem</c> without offsets: the queued element goes to the builder through the current hint
+    /// map (a line only when it has length in device space; the closing line's end through the first map, where the path
+    /// began), then the line to the next element's start when it lands elsewhere (the closing segment's return to the start).
     /// </summary>
-    private void PushPrevElem(Frame f, int nextX, int nextY)
+    private void PushPrevElem(Frame f, int nextX, int nextY, bool close = false)
     {
+        var map = f.Hints.CurrentMap;
+        var endMap = close ? f.Hints.FirstMap : map;
         if (!f.PrevIsCurve)
         {
-            var x1 = Device(f.Prev[2]);
-            var y1 = Device(f.Prev[3]);
+            var (x1, y1) = HintPoint(endMap, f.Prev[2], f.Prev[3]);
             if (x1 != f.CurrentDsX || y1 != f.CurrentDsY)
             {
                 m_builder.LineTo(f.CurrentDsX, f.CurrentDsY, x1, y1);
@@ -1274,18 +1275,16 @@ internal sealed class Type2Interpreter
         }
         else
         {
-            var x3 = Device(f.Prev[6]);
-            var y3 = Device(f.Prev[7]);
-            m_builder.CubeTo(f.CurrentDsX, f.CurrentDsY, Device(f.Prev[2]), Device(f.Prev[3]), Device(f.Prev[4]),
-                Device(f.Prev[5]), x3, y3);
+            var (x1, y1) = HintPoint(map, f.Prev[2], f.Prev[3]);
+            var (x2, y2) = HintPoint(map, f.Prev[4], f.Prev[5]);
+            var (x3, y3) = HintPoint(map, f.Prev[6], f.Prev[7]);
+            m_builder.CubeTo(f.CurrentDsX, f.CurrentDsY, x1, y1, x2, y2, x3, y3);
             f.CurrentDsX = x3;
             f.CurrentDsY = y3;
         }
 
-        // The line joining the element's end to the next element's start (none when they meet, as without offsets they do
-        // except where a closing segment returns to the start).
-        var nx = Device(nextX);
-        var ny = Device(nextY);
+        // The line joining the element's end to the next element's start.
+        var (nx, ny) = HintPoint(endMap, nextX, nextY);
         if (nx != f.CurrentDsX || ny != f.CurrentDsY)
         {
             m_builder.LineTo(f.CurrentDsX, f.CurrentDsY, nx, ny);
@@ -1294,8 +1293,12 @@ internal sealed class Type2Interpreter
         }
     }
 
-    /// <summary>A character-space 16.16 value in the unhinted device space: <c>FT_MulFix(v, 1/64)</c>.</summary>
-    private static int Device(int value) => CffFixed.MulFix32(value, UnhintedScale);
+    /// <summary>
+    /// <c>cf2_glyphpath_hintPoint</c>: a character-space point in device space, x through the transform's scale, y through the
+    /// hint map (a uniform scale when unhinted: <c>FT_MulFix(v, 1/64)</c>, whole font units after the builder's shift). The
+    /// outer transform is the identity and the translation 0 in FreeType's CFF driver, so they change nothing.
+    /// </summary>
+    private (int X, int Y) HintPoint(CffHintMap map, int x, int y) => (CffFixed.MulFix32(m_scaleX, x), map.Map(y, this));
 
     // ---- The operand stack (psstack.c) and the buffers (psread.c).
 
@@ -1409,13 +1412,8 @@ internal sealed class Type2Interpreter
         public int Count;
         public int Index;
 
-        public long HStems;
-        public long VStems;
-        public bool MaskValid;
-        public bool MaskIsNew;
-        public long MaskBitCount;
-        public bool HintMapValid;
-        public bool InitialMapValid;
+        // The stems, the hint mask and the hint maps (reset by Interpret with the run's hinting).
+        public readonly CffGlyphHints Hints = new();
 
         public bool MoveIsPending;
         public bool PathIsOpen;
@@ -1466,9 +1464,6 @@ internal sealed class Type2Interpreter
             BufPtr[0] = start;
             BufEnd[0] = end;
             Array.Clear(Storage);
-            HStems = VStems = 0;
-            MaskValid = MaskIsNew = HintMapValid = InitialMapValid = false;
-            MaskBitCount = 0;
             MoveIsPending = true;
             PathIsOpen = PathIsClosing = ElemIsQueued = PrevIsCurve = false;
             CurrentX = CurrentY = StartX = StartY = OffsetStartX = OffsetStartY = CurrentDsX = CurrentDsY = 0;

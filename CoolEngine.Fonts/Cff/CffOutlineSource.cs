@@ -1,8 +1,8 @@
 // Follows FreeType 2.13.2 src/cff/cffobjs.c (cff_face_init: the font matrix normalisation and the concatenation of a
 // Font DICT's matrix with the Top DICT's) and src/cff/cffgload.c (cff_slot_load: the Font DICT's matrix and scale, the
-// matrix, offset and scale applied to the outline and the advance, the metrics from the control box) and src/sfnt/ttmtx.c
-// (tt_face_get_metrics: the HVAR step of the advance, through src/truetype/ttgxvar.c's tt_hvadvance_adjust) (FreeType
-// Project License; credit in docs).
+// matrix, offset and scale applied to the outline and the advance, the metrics from the control box; hinted, the outline
+// not scaled again, the Glyph_Too_Big retry unhinted) and src/sfnt/ttmtx.c (tt_face_get_metrics: the HVAR step of the
+// advance, through src/truetype/ttgxvar.c's tt_hvadvance_adjust) (FreeType Project License; credit in docs).
 
 using CoolEngine.Fonts.Hinting.Cff;
 using CoolEngine.Fonts.Sfnt;
@@ -17,6 +17,9 @@ namespace CoolEngine.Fonts.Cff;
 /// outline's control box. CFF2 glyphs blend at the size's variation coordinates (the default instance without them), and their
 /// advance takes <c>HVAR</c>'s delta, as FreeType's <c>cff_slot_load</c> takes it through <c>tt_face_get_metrics</c>. A glyph whose charstrings pass
 /// <see cref="Type2Interpreter.GlyphWorkBudget"/> is <see cref="NotSupportedException"/> (a library limit; FreeType runs on).
+/// With <see cref="HintingMode.Native"/> (OT-4 WP6) the charstring runs hinted at the size's transform (<see cref="CffHinter"/>)
+/// and gives 26.6 pixels, which the matrix and offset still change but no scale does; past FreeType's hinting limit of
+/// 2,000 pixels per em the glyph loads unhinted, as FreeType retries it; either way the metrics are grid-fitted.
 /// Immutable; safe on any thread.
 /// </summary>
 internal sealed class CffOutlineSource : IOutlineSource
@@ -72,13 +75,9 @@ internal sealed class CffOutlineSource : IOutlineSource
         }
     }
 
-    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale, Variations.VariationInstance? variation)
-    {
-        if (options.Hinting == HintingMode.Native)
-            CffHinterFactory.Create(m_face, scale);
-
-        return new CffGlyphLoader(this, scale, variation);
-    }
+    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale, Variations.VariationInstance? variation) =>
+        new CffGlyphLoader(this, scale, variation,
+            options.Hinting == HintingMode.Native ? new CffHinter(m_table, variation?.Normalized) : null);
 
     /// <summary>
     /// <c>cff_face_init</c>'s normalisation, in FreeType's 64-bit <c>FT_Fixed</c>: the matrix divided by |yy| (|yx| when yy is
@@ -102,7 +101,10 @@ internal sealed class CffOutlineSource : IOutlineSource
     /// <summary>A font matrix as FreeType applies it: normalised, its offset in whole font units.</summary>
     private readonly record struct FontMatrix(CffMatrix Matrix, long OffsetX, long OffsetY, long UnitsPerEm);
 
-    /// <summary>Loads glyphs at one size (FreeType's <c>cff_slot_load</c>, unhinted); reuses its buffers, so not thread-safe.</summary>
+    /// <summary>
+    /// Loads glyphs at one size (FreeType's <c>cff_slot_load</c>), unhinted or, with a <see cref="CffHinter"/>, hinted; reuses
+    /// its buffers, so not thread-safe.
+    /// </summary>
     private sealed class CffGlyphLoader : IGlyphLoader
     {
         private readonly CffOutlineSource m_source;
@@ -110,12 +112,14 @@ internal sealed class CffOutlineSource : IOutlineSource
         private readonly CffOutlineBuilder m_builder = new();
         private readonly Type2Interpreter m_interpreter;
         private readonly Variations.VariationInstance? m_variation;
+        private readonly CffHinter? m_hinter;
 
-        public CffGlyphLoader(CffOutlineSource source, FontScale scale, Variations.VariationInstance? variation)
+        public CffGlyphLoader(CffOutlineSource source, FontScale scale, Variations.VariationInstance? variation, CffHinter? hinter)
         {
             m_source = source;
             m_scale = scale;
             m_variation = variation;
+            m_hinter = hinter;
             m_interpreter = new Type2Interpreter(source.m_table, m_builder, variation?.Normalized);
         }
 
@@ -144,7 +148,20 @@ internal sealed class CffOutlineSource : IOutlineSource
                 matrix = sub;
             }
 
-            m_interpreter.Run(glyphIndex);
+            // Hinted (OT-4 WP6): the engine hints at the size's transform and outputs 26.6 pixels, which cff_slot_load does
+            // not scale again. Past the engine's largest size it refuses (Glyph_Too_Big), and cff_slot_load loads the glyph
+            // again unhinted, scaled afterwards; the metrics are still grid-fitted, as for every hinted load.
+            var hinted = false;
+            if (m_hinter is not null &&
+                CffHinter.TryGetTransform(xScale, yScale, m_source.m_face.Head.UnitsPerEm, out var scaleX, out var scaleY))
+            {
+                hinted = true;
+                m_interpreter.Run(glyphIndex, m_hinter, scaleX, scaleY);
+            }
+            else
+            {
+                m_interpreter.Run(glyphIndex);
+            }
 
             var b = m_builder;
             var count = b.PointCount;
@@ -162,14 +179,18 @@ internal sealed class CffOutlineSource : IOutlineSource
                 if (transform)
                     (x, y) = (CffFixed.MulFix(x, m.Xx) + CffFixed.MulFix(y, m.Xy), CffFixed.MulFix(x, m.Yx) + CffFixed.MulFix(y, m.Yy));
 
+                // The offset is in font units, added to hinted 26.6 pixels as well (FreeType does the same).
                 if (translate)
                 {
                     x += matrix.OffsetX;
                     y += matrix.OffsetY;
                 }
 
-                x = CffFixed.MulFix(x, xScale);
-                y = CffFixed.MulFix(y, yScale);
+                if (!hinted)
+                {
+                    x = CffFixed.MulFix(x, xScale);
+                    y = CffFixed.MulFix(y, yScale);
+                }
                 points[i] = new OutlinePoint((int)x, (int)y,
                     tags[i] == CffOutlineBuilder.OnCurve ? OutlinePointKind.OnCurve : OutlinePointKind.Cubic);
 
@@ -198,7 +219,11 @@ internal sealed class CffOutlineSource : IOutlineSource
             advance = CffFixed.MulFix(advance, xScale);
 
             var outline = count == 0 ? GlyphOutline.Empty : new GlyphOutline(points, b.Contours.ToArray());
-            var metrics = new GlyphMetrics((int)(xMax - xMin), (int)(yMax - yMin), (int)xMin, (int)yMax, (int)advance);
+
+            // FT_Load_Glyph grid-fits the metrics of every load without FT_LOAD_NO_HINTING (the unhinted retry included).
+            var metrics = m_hinter is not null
+                ? CffHinter.GridFit(xMax - xMin, yMax - yMin, xMin, yMax, advance)
+                : new GlyphMetrics((int)(xMax - xMin), (int)(yMax - yMin), (int)xMin, (int)yMax, (int)advance);
             return new LoadedGlyph(outline, metrics, false);
         }
 

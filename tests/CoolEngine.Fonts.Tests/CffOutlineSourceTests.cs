@@ -8,7 +8,7 @@ using static CoolEngine.Fonts.Tests.Reference.CraftedFonts;
 namespace CoolEngine.Fonts.Tests;
 
 [TestFixture]
-public sealed class CffOutlineSourceTests
+public sealed partial class CffOutlineSourceTests
 {
     private const int MaxReported = 5;
 
@@ -474,16 +474,7 @@ public sealed class CffOutlineSourceTests
         Assert.That(CompareOutlines(ours, reference, Enumerable.Range(0, ours.Face.GlyphCount)), Is.Empty);
     }
 
-    // ==== Native hinting is OT-4 WP6.
-
-    [Test]
-    public void CreateScaledFont_NativeHintingOnCff_ThrowsWp6Stub()
-    {
-        var face = FontCache.Face(TestFonts.CffFaces().First());
-
-        Assert.That(() => face.CreateScaledFont(new ScaledFontOptions(16)), Throws.TypeOf<NotSupportedException>()
-            .With.Message.EqualTo("CFF hinting: OT-4 WP6"));
-    }
+    // ==== Native hinting (OT-4 WP6): CffOutlineSourceTests.Hinting.cs.
 
     // ==== Strict rules (CffTable's remarks), one test each.
 
@@ -1212,10 +1203,11 @@ public sealed class CffOutlineSourceTests
     {
         long heaviest = 0;
         var where = "";
-        foreach (var path in new[] { TestFonts.SourceSans("SourceSans3-Regular.otf"), TestFonts.SourceSans("SourceSans3VF-Upright.otf"),
-                     TestFonts.Windows("ROGFonts-Regular_0.otf") })
+        // The Source Sans 3 files and every CFF face of C:\Windows\Fonts\*.otf (OT-4 WP6: no font is hard-coded from there).
+        foreach (var testFace in CffHintingTests.Faces())
         {
-            var face = FontLoader.Load(FontCache.Bytes(path)).Faces[0];
+            var path = testFace.Path;
+            var face = FontCache.Face(testFace);
             var interpreter = new Type2Interpreter(face.Data.Cff!, new CffOutlineBuilder());
             for (var glyph = 0; glyph < face.GlyphCount; glyph++)
             {
@@ -1559,9 +1551,10 @@ public sealed class CffOutlineSourceTests
 
     /// <summary>
     /// An OpenType CFF font of <paramref name="glyphs"/> glyphs from Arial's naming and metric tables (cut to the glyph count,
-    /// a small <c>cmap</c>, <c>post</c> 3.0) and the model's CFF table.
+    /// a small <c>cmap</c>, <c>post</c> 3.0) and the model's CFF table (or, with <paramref name="tag"/> <c>CFF2</c>, its CFF2
+    /// table).
     /// </summary>
-    private static byte[] SmallOtto(int glyphs, CffModel? model, byte[]? table = null)
+    private static byte[] SmallOtto(int glyphs, CffModel? model, byte[]? table = null, string tag = "CFF ")
     {
         var arial = Arial();
         var maxp = Table(arial, "maxp")[..6];
@@ -1581,7 +1574,7 @@ public sealed class CffOutlineSourceTests
             new("name", TinyName()),
             new("post", post),
             new("OS/2", Table(arial, "OS/2")),
-            new("CFF ", table ?? model!.Write()),
+            new(tag, table ?? model!.Write()),
         };
 
         return Build(OpenTypeCffVersion, tables);
