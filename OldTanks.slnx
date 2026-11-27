@@ -5,6 +5,7 @@
     <Project Path="tests/CoolEngine.Mathematics.Benchmarks/CoolEngine.Mathematics.Benchmarks.csproj" />
     <Project Path="tests/CoolEngine.Mathematics.Tests/CoolEngine.Mathematics.Tests.csproj" />
     <Project Path="tests/OldTanks.Docs.Tests/OldTanks.Docs.Tests.csproj" />
+    <Project Path="tests/OldTanks.Tests/OldTanks.Tests.csproj" />
     <Project Path="tests/OldTanks.UI.Tests/OldTanks.UI.Tests.csproj" />
   </Folder>
   <Project Path="Common/Common.csproj" />

@@ -53,6 +53,7 @@ You review one change against its plan. You are read-only; building, running the
 - **SIMD and math:** `System.Numerics` vector types where the plan asks; `MathF` for `float` math; no `double` round-trips in `float` loops.
 - **OpenGL:** state changes and buffer uploads batched; no per-object uniform upload where an instanced or uniform-buffer path exists; buffers resized geometrically, not per frame.
 - **Evidence:** a performance claim needs a benchmark run (BenchmarkDotNet with the memory diagnoser) against the baseline numbers in the plan. Without one the finding or the claim is PLAUSIBLE at best.
+- **Math library benchmarks (Denys, 2026-11-26):** for a change to `CoolEngine.Mathematics`, check the implementer's re-run of the affected categories of `tests/CoolEngine.Mathematics.Benchmarks` (pinned with `--affinity`, `--launchCount 3`, medians) against the reference figures in [MATHEMATICS §7](../../../docs/CoolEngine.Mathematics/MATHEMATICS.md). A median more than 5% slower than its reference is a finding (major on a hot member); a figure moved on purpose must be updated in §7 in the same change; a new or changed hot member without a benchmark category is a finding. A missing re-run is a finding too.
 
 ## 8. Rendering and shaders
 

@@ -1,11 +1,13 @@
 ﻿using System.Buffers;
 using System.Collections.ObjectModel;
+using System.Numerics;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
+using CoolEngine.Mathematics;
+using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
@@ -100,7 +102,7 @@ public class CollisionRenderer
                     var pos = element.Vertices[j];
                     textDrawInfo.SelfPosition = pos;
 
-                    TextRenderer.DrawText3D(font, $"{j % element.VerticesPerModel} {pos}", camera, textDrawInfo, true);
+                    TextRenderer.DrawText3D(font, $"{j % element.VerticesPerModel} {pos.ToDisplayString()}", camera, textDrawInfo, true);
                 }
             }
 
@@ -121,8 +123,8 @@ public class CollisionRenderer
             var normalsCount = 0;
             var mesh = collisionable.Collision.CollisionData.Faces[i];
 
-            normals[normalsCount] = new Vector3(new Vector4(mesh.Normal, 1) *
-                                                collisionable.Collision.CollisionData.PhysicObject.Transformation.ClearRotation());
+            normals[normalsCount] = collisionable.Collision.CollisionData.PhysicObject.Transformation.ClearRotation()
+                .TransformPosition(mesh.Normal);
             normals[normalsCount + 1] = normals[normalsCount] + mesh.Normal;
             normalsCount += 2;
 

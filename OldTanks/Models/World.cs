@@ -5,7 +5,7 @@ using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine;
 using CoolEngine.Services;
 using OldTanks.Services.Misc;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace OldTanks.Models;
 
@@ -111,7 +111,7 @@ public class World
                         continue;
                     }
                     
-                    var directionMove = (first.Position - second.Position).Normalized();
+                    var directionMove = Vector3.Normalize(first.Position - second.Position);
                     var directionType = Vector3.Dot(directionMove, normal);
                     var onGroundValue = Vector3.Dot(directionMove, PhysicsConstants.GravityDirection);
                     

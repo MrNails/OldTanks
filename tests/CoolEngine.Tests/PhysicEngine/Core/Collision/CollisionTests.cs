@@ -1,10 +1,11 @@
 namespace CoolEngine.Tests.PhysicEngine.Core.Collision;
 
 // Inside the namespace so that "Collision" names the engine class, not this test namespace's last segment.
+using System.Numerics;
+using CoolEngine.Mathematics;
 using CoolEngine.Models;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Tests.TestSupport;
-using OpenTK.Mathematics;
 
 [TestFixture]
 public sealed class CollisionTests
@@ -18,13 +19,13 @@ public sealed class CollisionTests
 
     // Q in the plan: a tilt that keeps the edge-to-edge arrangements off every world axis.
     private static readonly Matrix4 s_q =
-        Matrix4.CreateRotationX(MathHelper.DegreesToRadians(30)) * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(30));
+        Matrix4.CreateRotationY(MathHelper.DegreesToRadians(30)) * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(30));
 
     // M in the plan: uneven scale, three rotations and a translation.
     private static readonly Matrix4 s_rotationOfM =
-        Matrix4.CreateRotationX(0.3f) * Matrix4.CreateRotationY(0.7f) * Matrix4.CreateRotationZ(-0.4f);
+        Matrix4.CreateRotationZ(-0.4f) * (Matrix4.CreateRotationY(0.7f) * Matrix4.CreateRotationX(0.3f));
     private static readonly Matrix4 s_m =
-        Matrix4.CreateScale(2, 0.5f, 1) * s_rotationOfM * Matrix4.CreateTranslation(1, 2, 3);
+        Matrix4.CreateTranslation(1, 2, 3) * (s_rotationOfM * Matrix4.CreateScale(2, 0.5f, 1));
     private static readonly Vector3 s_positionOfM = new Vector3(1, 2, 3);
 
     [Test]
@@ -76,7 +77,7 @@ public sealed class CollisionTests
         {
             for (var i = 0; i < faces.Count; i++)
             {
-                var expected = Vector3.Normalize(original.Faces[i].Normal * rotation);
+                var expected = Vector3.Normalize(rotation * original.Faces[i].Normal);
                 AssertVector(faces[i].Normal, expected, 1e-5f, $"face {i} normal");
             }
         });
@@ -85,7 +86,7 @@ public sealed class CollisionTests
     [Test]
     public void UpdateCollision_CubeMirroredAlongX_NormalsPointOutward()
     {
-        var transformation = Matrix4.CreateScale(-2, 1, 1) * Matrix4.CreateRotationZ(0.5f);
+        var transformation = Matrix4.CreateRotationZ(0.5f) * Matrix4.CreateScale(-2, 1, 1);
 
         var cube = CreatePolygon(CollisionTestShapes.Cube(), transformation, Vector3.Zero);
 
@@ -101,7 +102,7 @@ public sealed class CollisionTests
                 centroid /= face.Indices.Length;
 
                 Assert.That(Vector3.Dot(face.Normal, centroid), Is.GreaterThan(0f), $"face {i} points inward");
-                Assert.That(face.Normal.Length, Is.EqualTo(1f).Within(1e-5f), $"face {i} normal length");
+                Assert.That(face.Normal.Length(), Is.EqualTo(1f).Within(1e-5f), $"face {i} normal length");
             }
         });
     }
@@ -112,7 +113,7 @@ public sealed class CollisionTests
         var a = CreatePolygon(CollisionTestShapes.Cube(), Matrix4.Identity, Vector3.Zero);
         var positionB = new Vector3(0, 1.9f, 0);
         var b = CreatePolygon(CollisionTestShapes.Cube(),
-            Matrix4.CreateRotationY(MathHelper.DegreesToRadians(30)) * Matrix4.CreateTranslation(positionB), positionB);
+            Matrix4.CreateTranslation(positionB) * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(30)), positionB);
 
         var collides = a.Collision!.CheckCollision(b.Collision!, out var normal, out var depth);
 
@@ -362,10 +363,10 @@ public sealed class CollisionTests
     public void CheckCollision_TetrahedronAndCubeEdgeToEdgeWithGap_ReturnsFalse()
     {
         var tetrahedron = CreatePolygon(CollisionTestShapes.Tetrahedron(), s_q, Vector3.Zero);
-        var positionB = Vector3.TransformPosition(new Vector3(0, 1 + s_sqrt2 + 0.1f, 0), s_q);
+        var positionB = s_q.TransformPosition(new Vector3(0, 1 + s_sqrt2 + 0.1f, 0));
         var cube = CreatePolygon(CollisionTestShapes.Cube(),
-            Matrix4.CreateRotationX(MathHelper.PiOver4) * Matrix4.CreateRotationY(MathHelper.PiOver4) * s_q *
-            Matrix4.CreateTranslation(positionB), positionB);
+            Matrix4.CreateTranslation(positionB) *
+            (s_q * (Matrix4.CreateRotationY(MathHelper.PiOver4) * Matrix4.CreateRotationX(MathHelper.PiOver4))), positionB);
 
         var collides = tetrahedron.Collision!.CheckCollision(cube.Collision!, out _, out _);
 
@@ -448,8 +449,8 @@ public sealed class CollisionTests
     public void CheckCollision_SpheresAroundShearedBox_CuboidAndTriangulatedShapesAgree()
     {
         // Rotating before an uneven scale shears the box: its current axes are no longer perpendicular.
-        var shear = Matrix4.CreateRotationZ(0.5f) * Matrix4.CreateScale(2, 0.5f, 1) * Matrix4.CreateRotationX(0.7f) *
-                    Matrix4.CreateTranslation(1, 2, 3);
+        var shear = Matrix4.CreateTranslation(1, 2, 3) *
+                    (Matrix4.CreateRotationX(0.7f) * (Matrix4.CreateScale(2, 0.5f, 1) * Matrix4.CreateRotationZ(0.5f)));
         var cuboid = CreatePolygon(CollisionTestShapes.Cube(), shear, s_positionOfM);
         var triangulated = CreatePolygon(CollisionTestShapes.TriangulatedCube(), shear, s_positionOfM);
         var random = new Random(1);
@@ -526,10 +527,10 @@ public sealed class CollisionTests
     // other across the given gap (negative: overlapping) along Q's Y.
     private static (CollisionTestPhysicObject First, CollisionTestPhysicObject Second) CreateCubesEdgeToEdge(CollisionData shape, float gap)
     {
-        var first = CreatePolygon(shape, Matrix4.CreateRotationZ(MathHelper.PiOver4) * s_q, Vector3.Zero);
-        var positionB = Vector3.TransformPosition(new Vector3(0, 2 * s_sqrt2 + gap, 0), s_q);
+        var first = CreatePolygon(shape, s_q * Matrix4.CreateRotationZ(MathHelper.PiOver4), Vector3.Zero);
+        var positionB = s_q.TransformPosition(new Vector3(0, 2 * s_sqrt2 + gap, 0));
         var second = CreatePolygon(shape,
-            Matrix4.CreateRotationX(MathHelper.PiOver4) * s_q * Matrix4.CreateTranslation(positionB), positionB);
+            Matrix4.CreateTranslation(positionB) * (s_q * Matrix4.CreateRotationX(MathHelper.PiOver4)), positionB);
 
         return (first, second);
     }

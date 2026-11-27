@@ -11,3 +11,41 @@ M:System.Numerics.Vector4.Transform(System.Numerics.Vector2,System.Numerics.Matr
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector3,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Vector4.Transform(System.Numerics.Vector4,System.Numerics.Matrix4x4);Row-vector transform: use CoolEngine.Mathematics.Matrix4 times the vector (column vectors)
 M:System.Numerics.Quaternion.CreateFromRotationMatrix(System.Numerics.Matrix4x4);Takes a row-vector matrix: use CoolEngine.Mathematics
+// OpenTK's math types (OT-5): engine and game math is System.Numerics and CoolEngine.Mathematics. Vector2 and Vector2i stay for the window boundary, Color4 for the GL clear colour.
+T:OpenTK.Mathematics.Matrix2;OpenTK math: use CoolEngine.Mathematics.Matrix2 (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix3;OpenTK math: use CoolEngine.Mathematics.Matrix3 (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix4;OpenTK math: use CoolEngine.Mathematics.Matrix4 (column vectors, column-major)
+T:OpenTK.Mathematics.Vector3;OpenTK math: use System.Numerics.Vector3
+T:OpenTK.Mathematics.Vector4;OpenTK math: use System.Numerics.Vector4
+T:OpenTK.Mathematics.Quaternion;OpenTK math: use System.Numerics.Quaternion (axis-angle with OpenTK's normalizing behaviour: CoolEngine.Services.Misc.QuaternionHelper.FromAxisAngle)
+T:OpenTK.Mathematics.MathHelper;OpenTK math: use CoolEngine.Mathematics.MathHelper (clamp and lerp: Math.Clamp, float.Lerp)
+T:OpenTK.Mathematics.Matrix2d;OpenTK math: use CoolEngine.Mathematics.Matrix2d
+T:OpenTK.Mathematics.Matrix3d;OpenTK math: use CoolEngine.Mathematics.Matrix3d
+T:OpenTK.Mathematics.Matrix4d;OpenTK math: use CoolEngine.Mathematics.Matrix4d
+T:OpenTK.Mathematics.Vector2d;OpenTK math: use CoolEngine.Mathematics.Vector2d
+T:OpenTK.Mathematics.Vector3d;OpenTK math: use CoolEngine.Mathematics.Vector3d
+T:OpenTK.Mathematics.Vector4d;OpenTK math: use CoolEngine.Mathematics.Vector4d
+T:OpenTK.Mathematics.Quaterniond;OpenTK math: use CoolEngine.Mathematics.Quaterniond
+T:OpenTK.Mathematics.Matrix2x3;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix2x3d;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix2x4;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix2x4d;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix3x2;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix3x2d;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix3x4;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix3x4d;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix4x2;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix4x2d;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix4x3;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Matrix4x3d;OpenTK math: use CoolEngine.Mathematics (column vectors, column-major)
+T:OpenTK.Mathematics.Box2;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Box2d;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Box2i;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Box3;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Box3d;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Box3i;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Vector3i;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Vector4i;OpenTK math: use System.Numerics / CoolEngine.Mathematics
+T:OpenTK.Mathematics.Vector2h;OpenTK math: use System.Numerics.Vector2
+T:OpenTK.Mathematics.Vector3h;OpenTK math: use System.Numerics.Vector3
+T:OpenTK.Mathematics.Vector4h;OpenTK math: use System.Numerics.Vector4

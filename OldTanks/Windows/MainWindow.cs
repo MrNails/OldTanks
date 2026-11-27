@@ -23,12 +23,18 @@ using OldTanks.Services;
 using OldTanks.UI.Services;
 using OldTanks.UI.Services.ImGUI;
 using OpenTK.Graphics.OpenGL4;
+// Window boundary: OpenTK's window and input types (Vector2i, MousePosition, Size); the math below is the engine's.
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Serilog;
 using EngineSettings = CoolEngine.Services.EngineSettings;
+using MathHelper = CoolEngine.Mathematics.MathHelper;
+using Matrix3 = CoolEngine.Mathematics.Matrix3;
+using Matrix4 = CoolEngine.Mathematics.Matrix4;
+using Vector2 = System.Numerics.Vector2;
+using Vector3 = System.Numerics.Vector3;
 
 namespace OldTanks.Windows;
 
@@ -51,6 +57,9 @@ public partial class MainWindow : GameWindow
     private readonly ObjectRenderer<WorldObject> m_objectRenderer;
 
     private Shader? m_primitivesShader;
+
+    // GL thread only: the 3D scene's offscreen target (float depth); created in OnLoad, disposed in OnUnload.
+    private RenderTarget? m_renderTarget;
 
     private bool m_exit;
     private volatile bool m_readyToHandle;
@@ -85,7 +94,7 @@ public partial class MainWindow : GameWindow
 
     private IMovable m_currentObject;
 
-    private Vector2 m_lastMousePos;
+    private OpenTK.Mathematics.Vector2 m_lastMousePos;
     private bool m_firstMouseMove;
 
     private Vector3 m_rotation;
@@ -164,6 +173,9 @@ public partial class MainWindow : GameWindow
         return new NativeWindowSettings
         {
             ClientSize = clientSize,
+            // The scene's depth lives in the render target (since M6): the window's framebuffer needs none.
+            DepthBits = 0,
+            StencilBits = 0,
             Title = caption,
             APIVersion = new Version(4, 6),
             Flags = ContextFlags.ForwardCompatible
@@ -181,6 +193,9 @@ public partial class MainWindow : GameWindow
         Title += $". OpenGL: {GL.GetString(StringName.Version)}";
 
         ApplyGLSettings();
+
+        // The same size as the viewport OnResize sets.
+        m_renderTarget = new RenderTarget(Size.X, Size.Y);
 
         m_gameManager.FontsLoaded += OnFontsLoaded;
         m_gameManager.ShadersLoaded += OnShadersLoaded;
@@ -385,16 +400,22 @@ public partial class MainWindow : GameWindow
         {
             m_fps = 1.0 / args.Time;
 
+            // Everything that uses depth goes into the float-depth target; the rest is drawn on the window after the blit.
+            var renderTarget = m_renderTarget!;
+            renderTarget.Bind();
+
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit |
                      ClearBufferMask.StencilBufferBit);
 
             GL.Enable(EnableCap.DepthTest);
             GL.Enable(EnableCap.CullFace);
 
-            GL.DepthFunc(DepthFunction.Lequal);
+            // Reversed Z: the target clears to depth 0 (far) and nearer is greater. The skybox writes depth 0, so it
+            // passes Gequal against the clear and stays behind everything drawn with Greater.
+            GL.DepthFunc(DepthFunction.Gequal);
             if (m_world.SkyBox.Texture != null)
                 ObjectRendererOld.DrawSkyBox(m_world.SkyBox, m_world.CurrentCamera);
-            GL.DepthFunc(DepthFunction.Less);
+            GL.DepthFunc(DepthFunction.Greater);
 
             var projection = EngineSettings.Current.Projection;
             if (!m_debugView)
@@ -407,6 +428,8 @@ public partial class MainWindow : GameWindow
 
             GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.DepthTest);
+
+            renderTarget.BlitColorToWindow();
 
             foreach (var control in m_controls)
                 control.Draw();
@@ -471,9 +494,9 @@ public partial class MainWindow : GameWindow
 
         m_tbFPS.Text = Math.Round(m_fps, MidpointRounding.ToEven).ToString();
         m_tbSubIterationAmount.Text = EngineSettings.Current.CollisionIterations.ToString();
-        m_tbCamRotation.Text = m_currentObject.Rotation.ToString();
-        m_tbPosition.Text = m_currentObject.Position.ToString();
-        m_tbRotation.Text = m_rotation.ToString();
+        m_tbCamRotation.Text = m_currentObject.Rotation.ToDisplayString();
+        m_tbPosition.Text = m_currentObject.Position.ToDisplayString();
+        m_tbRotation.Text = m_rotation.ToDisplayString();
 
         base.OnUpdateFrame(args);
     }
@@ -484,13 +507,20 @@ public partial class MainWindow : GameWindow
 
         GL.Viewport(0, 0, Size.X, Size.Y);
 
-        EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
-
         EngineSettings.Current.WindowWidth = Size.X;
         EngineSettings.Current.WindowHeight = Size.Y;
 
         if (Size.X == 0 || Size.Y == 0)
             return;
+
+        // After the zero-size check, which protects a minimised fullscreen window (the only case with size 0): the
+        // factory throws on an empty box, so the last projection is kept there.
+        EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
+
+        // Follows the viewport above. A minimised decorated window reports its frame size (OpenTK's Size is the client
+        // area plus the GLFW frame, e.g. 16x39), and the target follows it; only a minimised fullscreen window has size
+        // 0, which keeps the last one.
+        m_renderTarget?.Resize(Size.X, Size.Y);
 
         var aspect = (float)Size.X / Size.Y;
 
@@ -501,6 +531,15 @@ public partial class MainWindow : GameWindow
         m_imGuiController.WindowResized(Size.X, Size.Y);
 
         VSync = VSyncMode.On;
+    }
+
+    protected override void OnUnload()
+    {
+        // The context still exists here (OpenTK deletes it after OnUnload).
+        m_renderTarget?.Dispose();
+        m_renderTarget = null;
+
+        base.OnUnload();
     }
 
     protected override void Dispose(bool disposing)
@@ -551,6 +590,11 @@ public partial class MainWindow : GameWindow
     private void ApplyGLSettings()
     {
         GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+
+        // Reversed Z: clip depth [0, 1] (the projections map near to 1 and far to 0) and every depth clear to 0.
+        GL.ClipControl(ClipOrigin.LowerLeft, ClipDepthMode.ZeroToOne);
+        GL.ClearDepth(0.0);
+
         GL.Enable(EnableCap.Blend);
         GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
     }
@@ -805,7 +849,7 @@ public partial class MainWindow : GameWindow
                         
                         var isRayIntersected = worldObject.Collision.IntersectRay(m_ray, out tmpIntersectedPoint);
 
-                        var lengthToRayStart = Math.Abs((tmpIntersectedPoint - m_ray.Start).Length);
+                        var lengthToRayStart = Math.Abs((tmpIntersectedPoint - m_ray.Start).Length());
                         if (isRayIntersected && previousLength > lengthToRayStart)
                         {
                             m_rayIntersected = true;
@@ -860,7 +904,7 @@ public partial class MainWindow : GameWindow
             else
                 deltaY = MousePosition.Y - m_lastMousePos.Y;
             
-            m_lastMousePos = new Vector2(MousePosition.X, MousePosition.Y);
+            m_lastMousePos = new OpenTK.Mathematics.Vector2(MousePosition.X, MousePosition.Y);
 
             if (m_mouseDown)
             {
@@ -910,9 +954,9 @@ public partial class MainWindow : GameWindow
             if (worldObj.Visible)
             {
                 var scale = worldObj.Size / 2;
-                var rotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)) *
-                               Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
-                               Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z));
+                var rotation = Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z)) *
+                               (Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
+                                Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)));
 
                 for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Length; meshIdx++)
                 {
@@ -923,9 +967,9 @@ public partial class MainWindow : GameWindow
                         for (int l = 0; l < mesh.Faces[k].NormalsIndices.Length; l++)
                         {
                             arr[arrIdx] = worldObj.Position +
-                                          mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale * rotation;
+                                          rotation * (mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * scale);
                             arr[arrIdx + 1] =
-                                arr[arrIdx] + mesh.Normals[mesh.Faces[k].NormalsIndices[l]] * rotation;
+                                arr[arrIdx] + rotation * mesh.Normals[mesh.Faces[k].NormalsIndices[l]];
 
                             arrIdx += 2;
                         }

@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Headless tests of the game: no window, no OpenGL context and no game start; scenes are fakes put in the cache. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <!-- RS0030: a symbol from ..\..\BannedSymbols.txt (System.Numerics' row-vector matrix APIs) is an error. -->
+        <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="..\..\BannedSymbols.txt" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="NUnit" />
+        <PackageReference Include="NUnit.Analyzers">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="NUnit3TestAdapter" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\OldTanks\OldTanks.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="NUnit.Framework" />
+    </ItemGroup>
+
+</Project>

@@ -6,10 +6,12 @@ using CoolEngine.GraphicalEngine.Services;
 using CoolEngine.Services.Extensions;
 using ImGuiNET;
 using OpenTK.Graphics.OpenGL4;
+// Window boundary: OpenTK's window and input types (Vector2i, the scroll offset's Vector2).
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Serilog;
+using Matrix4 = CoolEngine.Mathematics.Matrix4;
 
 namespace OldTanks.UI.Services.ImGUI;
 
@@ -48,7 +50,7 @@ void main()
 
     private readonly ILogger m_logger;
     private readonly Queue<char> m_pressedChars = new Queue<char>();
-    private readonly Vector2 m_scaleFactor = Vector2.One;
+    private readonly System.Numerics.Vector2 m_scaleFactor = System.Numerics.Vector2.One;
     
     private bool m_frameBegun;
 
@@ -213,7 +215,7 @@ void main()
         io.DisplaySize = new System.Numerics.Vector2(
             m_windowWidth / m_scaleFactor.X,
             m_windowHeight / m_scaleFactor.Y);
-        io.DisplayFramebufferScale = VectorExtensions.ToSystemVector2(m_scaleFactor);
+        io.DisplayFramebufferScale = m_scaleFactor;
         io.DeltaTime = deltaSeconds; // DeltaTime is in seconds.
     }
 
@@ -327,7 +329,7 @@ void main()
         var io = ImGui.GetIO();
 
         m_shader.Use();
-        GL.UniformMatrix4(m_shader.GetUniformLocation("projection_matrix"), false, ref m_imGuiProjection);
+        GL.UniformMatrix4(m_shader.GetUniformLocation("projection_matrix"), 1, false, ref m_imGuiProjection.Column0.X);
         
         GL.BindVertexArray(m_drawObjectInfo.VertexArrayObject);
 

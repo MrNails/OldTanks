@@ -1,13 +1,14 @@
 ﻿using System.Collections.ObjectModel;
+using System.Numerics;
 using Common.Models;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Mathematics;
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using CoolEngine.Services.Exceptions;
 using CoolEngine.Services.Interfaces;
-using OpenTK.Mathematics;
 
 namespace OldTanks.Models;
 
@@ -244,11 +245,11 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         if (!m_haveTransformation)
             return;
         
-        m_transform = Matrix4.CreateScale(Width / 2, Height / 2, Length / 2) *
-                      Matrix4.CreateRotationX(Yaw) *
-                      Matrix4.CreateRotationY(-Pitch) *
-                      Matrix4.CreateRotationZ(Roll) *
-                      Matrix4.CreateTranslation(Position);
+        // Column vectors, the rightmost factor first: scale, then the rotations about X, Y, Z, then the translation.
+        m_transform = Matrix4.CreateTranslation(Position) *
+                      (Matrix4.CreateRotationZ(Roll) *
+                       (Matrix4.CreateRotationY(-Pitch) *
+                        (Matrix4.CreateRotationX(Yaw) * Matrix4.CreateScale(Width / 2, Height / 2, Length / 2))));
 
         Collision?.UpdateCollision();
 
@@ -266,7 +267,8 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
         EngineSettings.Current.GlobalLock.EnterWriteLock();
         
-        Position += rotation * RigidBody.Velocity * timeDelta;
+        // OpenTK's Matrix3 * Vector3 applied the transpose (the inverse rotation): kept exactly (KI-002 is separate).
+        Position += rotation.Transposed() * RigidBody.Velocity * timeDelta;
         
         // if (Camera != null)
         // {
@@ -284,10 +286,13 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         if (Camera == null)
             return;
 
-        var camOffset = Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(m_cameraOffsetAngle.Y)) * m_cameraOffset * 
-                        Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X));
+        // Ported exactly from OpenTK (KI-002 is separate): its Matrix3 * Vector3 applied the transpose, its
+        // Vector3 * Matrix3 the matrix itself.
+        var camOffset = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X)) *
+                        (Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(m_cameraOffsetAngle.Y)).Transposed() *
+                         m_cameraOffset);
 
         Camera.Position = m_position + new Vector3(0, m_size.Y / 2, 0) +
-                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y)) * camOffset;
+                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y)).Transposed() * camOffset;
     }
 }

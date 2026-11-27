@@ -1,6 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using CoolEngine.GraphicalEngine.Core;
-using OpenTK.Mathematics;
+using CoolEngine.Mathematics;
 
 namespace CoolEngine.Services.Interfaces;
 

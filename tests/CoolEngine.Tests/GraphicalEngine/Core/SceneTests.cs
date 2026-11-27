@@ -1,5 +1,5 @@
 using CoolEngine.GraphicalEngine.Core;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace CoolEngine.Tests.GraphicalEngine.Core;
 

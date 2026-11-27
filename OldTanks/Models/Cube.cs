@@ -2,7 +2,7 @@
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using OldTanks.Infrastructure;
-using OpenTK.Mathematics;
+using System.Numerics;
 using Face = CoolEngine.PhysicEngine.Core.Face;
 
 namespace OldTanks.Models;

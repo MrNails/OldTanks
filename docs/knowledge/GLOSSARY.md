@@ -16,7 +16,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **AABB** | Axis-aligned bounding box; the cheap first collision test | `CoolEngine.Models.BoundingBox` |
 | **Adam7** | PNG's seven-pass interlacing scheme | `CoolEngine.Imaging.Png.PngDecoder` |
 | **Asset** | A file under `OldTanks/Assets/` loaded at startup: shader, texture, skybox, model, font | [ASSET-PIPELINE](../CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
-| **Banned-API analyzer** | `Microsoft.CodeAnalysis.BannedApiAnalyzers` with `BannedSymbols.txt`: a use of System.Numerics' row-vector `Matrix4x4`, `Matrix3x2` or `Plane` (or a vector Transform overload taking them) is error RS0030 in `Common`, `CoolEngine`, `OldTanks.UI` and `OldTanks`; declarations are not flagged | [BUILD §2](../BUILD.md#2-build) |
+| **Banned-API analyzer** | `Microsoft.CodeAnalysis.BannedApiAnalyzers` with `BannedSymbols.txt`: a use of System.Numerics' row-vector `Matrix4x4`, `Matrix3x2` or `Plane` (or a vector Transform overload taking them) or an OpenTK math type other than `Vector2`, `Vector2i` and `Color4` is error RS0030 in `Common`, `CoolEngine`, `OldTanks.UI`, `OldTanks` and the two engine test projects; declarations are not flagged | [BUILD §2](../BUILD.md#2-build) |
 | **Cache key** | The name an asset is stored and fetched under | `CoolEngine.Services.GlobalCache<T>` |
 | **Central package management** | Every NuGet version set once in `Directory.Packages.props` (`ManagePackageVersionsCentrally`); project files list packages without a `Version` | [ARCHITECTURE §1](../ARCHITECTURE.md#1-solution-layout) |
 | **Closest point (sphere × box)** | The point of a box nearest the sphere centre, found by clamping the centre into the box along its axes; the exact sphere × cuboid test | `Collision.SphereCuboidCollisionCheck` |
@@ -33,6 +33,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Fused multiply-add (FMA)** | One instruction computing `a * b + c` with a single rounding; hardware-dependent, so results differ from separate multiply and add. The own math uses none | [MATHEMATICS §3](../CoolEngine.Mathematics/MATHEMATICS.md#3-the-same-bits-promise) |
 | **GL thread** | The main thread, which owns the OpenGL context | [ARCHITECTURE §2](../ARCHITECTURE.md#2-threads) |
 | **Instanced rendering** | Drawing many copies of a mesh in one call with per-copy data in a buffer; used from the 17th copy with one texture | `ObjectRenderer<T>` |
+| **Golden value** | A result recorded from the old code before a refactor and written into a test as literal numbers, so the new code must reproduce it within a tolerance (`1e-5 × max(1, abs(expected))` per element) | `CoolEngine.Tests.TestSupport.GoldenAssert`, `OldTanks.Tests.Models.WorldObjectTests` |
 | **Golden hash** | The recorded hash of every result bit of the math library's fixed loop; `CrossPathTests` must reproduce it under four instruction-set paths, and it is re-recorded only after a .NET update once the four paths agree | `CoolEngine.Mathematics.Tests.CrossPathTests` |
 | **Inverse-transpose** | The matrix that moves a normal so that it stays perpendicular to its face under uneven scale; the engine uses the cofactor matrix of the linear part (inverse-transpose times determinant) | `Collision.UpdateCollision` |
 | **MCU** | Minimum coded unit: the group of 8×8 blocks (all components) that a JPEG scan codes together; sets the restart-interval step | `CoolEngine.Imaging.Jpeg.JpegDecoder` |
@@ -43,6 +44,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Progressive JPEG** | A JPEG coded in several scans that refine the picture (DC first, then AC bands, then refinement bits); `Brick.jpg` is the one in the assets | `CoolEngine.Imaging.Jpeg.JpegDecoder` |
 | **Picking ray** | The ray cast from the free camera each physics step; its nearest hit is drawn | `CoolEngine.Models.Ray` |
 | **Player** | The world object the player camera follows; never set today | `OldTanks.Models.World.Player` |
+| **Render target** | An offscreen framebuffer (RGBA8 colour, 32-bit float depth) the 3D scene is drawn into before its colour is blitted to the window | `CoolEngine.GraphicalEngine.Core.RenderTarget` |
 | **Restart interval** | A JPEG's `DRI` setting: after every n MCUs the bit stream resets and an `RSTm` marker follows | `CoolEngine.Imaging.Jpeg.JpegDecoder` |
 | **Reversed Z** | Depth mapped so that the near plane is 1 and the far plane 0, for better float precision; built into the own math's projections (OT-5), not yet used by the renderer | [MATHEMATICS §1](../CoolEngine.Mathematics/MATHEMATICS.md#1-conventions), [plan D7](../plans/ENGINES-AND-TANK-GAME.md#5-open-decisions) |
 | **Rigid body** | Velocity, forces, limits and flags of a physical object | `CoolEngine.PhysicEngine.Core.RigidBody` |
@@ -80,8 +82,8 @@ Same short name, different types; write the namespace when it matters.
 | `Face` | `CoolEngine.GraphicalEngine.Core.Face` (render face: vertex, texture and normal indices) and `CoolEngine.PhysicEngine.Core.Face` (collision face: indices and a normal) |
 | `Rgba32` | `CoolEngine.Imaging.Rgba32` (the engine's pixel) and `SixLabors.ImageSharp.PixelFormats.Rgba32`; both are in scope in `tests/CoolEngine.Imaging.Tests`, which aliases them (`ReferenceDecoders` imports the second as `SixLaborsRgba32`) |
 | `EventHandler<TSender, TEventArgs>` | `System.EventHandler<TSender, TEventArgs>` (.NET 10) replaced `Common.Infrastructure.Delegates.EventHandler<TSender, TArg>` in OT-3 |
-| `MathHelper` | `OpenTK.Mathematics.MathHelper`, `Common.Helpers.MathHelper` (quadratic solver) and `CoolEngine.Mathematics.MathHelper` (OT-5; unused so far) |
-| `Matrix2`, `Matrix3`, `Matrix4` | `OpenTK.Mathematics.*` (row vectors; used everywhere today) and `CoolEngine.Mathematics.*` (column vectors; OT-5, unused so far). `Vector3` and `Quaternion` are OpenTK's in engine and game code and `System.Numerics`' in the ImGui controls and in the new library |
+| `MathHelper` | `OpenTK.Mathematics.MathHelper` (banned since OT-5), `Common.Helpers.MathHelper` (quadratic solver) and `CoolEngine.Mathematics.MathHelper` (the one the engine and game use) |
+| `Matrix2`, `Matrix3`, `Matrix4` | `CoolEngine.Mathematics.*` (column vectors, column-major; used everywhere since OT-5) and the banned `OpenTK.Mathematics.*` (row vectors). `Vector3` and `Quaternion` are `System.Numerics`' everywhere in engine and game code; OpenTK's of the same names are banned |
 | `ArrayExtensions`, `PrimitiveExtensions` | One each in `Common.Extensions` and `CoolEngine.Services.Extensions` |
 | `Rotation` | Euler angles on `WorldObject` ([KI-002](../KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another)), a unit look direction on `Camera` |
 | "Yaw", "Pitch", "Roll" | On `WorldObject`, rotation about X, Y and Z, in that order; not the usual aviation meaning |

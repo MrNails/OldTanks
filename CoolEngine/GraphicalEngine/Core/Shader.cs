@@ -1,6 +1,7 @@
 ﻿using CoolEngine.Services.Exceptions;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
+using System.Numerics;
+using CoolEngine.Mathematics;
 using Serilog;
 
 namespace CoolEngine.GraphicalEngine.Core;
@@ -55,31 +56,32 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
     public void SetMatrix4(string name, Matrix4 matrix)
     {
         GL.UseProgram(Handle);
-        GL.UniformMatrix4(GetUniformLocation(name), false, ref matrix);
+        // Column-major: the memory GL takes with transpose = false (the bytes OpenTK's row-vector matrix had).
+        GL.UniformMatrix4(GetUniformLocation(name), 1, false, ref matrix.Column0.X);
     }
 
     public void SetMatrix3(string name, Matrix3 matrix)
     {
         GL.UseProgram(Handle);
-        GL.UniformMatrix3(GetUniformLocation(name), false, ref matrix);
+        GL.UniformMatrix3(GetUniformLocation(name), 1, false, ref matrix.Column0.X);
     }
 
     public void SetMatrix2(string name, Matrix2 matrix)
     {
         GL.UseProgram(Handle);
-        GL.UniformMatrix2(GetUniformLocation(name), false, ref matrix);
+        GL.UniformMatrix2(GetUniformLocation(name), 1, false, ref matrix.Column0.X);
     }
 
     public void SetVector3(string name, Vector3 vector)
     {
         GL.UseProgram(Handle);
-        GL.Uniform3(GetUniformLocation(name), ref vector);
+        GL.Uniform3(GetUniformLocation(name), vector.X, vector.Y, vector.Z);
     }
 
     public void SetVector4(string name, Vector4 vector)
     {
         GL.UseProgram(Handle);
-        GL.Uniform4(GetUniformLocation(name), ref vector);
+        GL.Uniform4(GetUniformLocation(name), vector.X, vector.Y, vector.Z, vector.W);
     }
 
     public void SetBool(string name, bool boolean)

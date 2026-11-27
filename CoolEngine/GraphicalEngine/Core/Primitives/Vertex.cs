@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
-using OpenTK.Mathematics;
+using System.Numerics;
+using CoolEngine.Services.Extensions;
 
 namespace CoolEngine.GraphicalEngine.Core.Primitives;
 
@@ -34,7 +35,7 @@ public readonly struct Vertex : IEquatable<Vertex>
 
     public override string ToString()
     {
-        return $"Position: {m_position.ToString()}; Normal: {m_normal.ToString()}; TexturePosition: {TexturePosition.ToString()}";
+        return $"Position: {m_position.ToDisplayString()}; Normal: {m_normal.ToDisplayString()}; TexturePosition: {TexturePosition.ToDisplayString()}";
     }
 
     public bool Equals(Vertex other)

@@ -1,17 +1,19 @@
 ﻿using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Common.Extensions;
 using Common.Models;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Mathematics;
 using CoolEngine.Services.Delegates;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
@@ -388,8 +390,8 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
             Shader.SetVector4("color", Colors.White);
 
             Shader.SetMatrix2("textureTransform",
-                Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
-                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)));
+                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)) *
+                Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y));
 
             if (textureData.Texture.IsEmpty || !mesh.HasTextureCoords)
             {
@@ -459,8 +461,8 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
 
             var textureData = textureDatas[element];
             var haveTexture = !textureData.Texture.IsEmpty && meshHasTextureCoords;
-            var textTransform = Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y) *
-                                Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle));
+            var textTransform = Matrix2.CreateRotation(MathHelper.DegreesToRadians(textureData.RotationAngle)) *
+                                Matrix2.CreateScale(textureData.Scale.X, textureData.Scale.Y);
 
             records[visibleCount] = new ModelData(element.Transformation, 
                 haveTexture ? Colors.White : ObjectRendererConstants.DefaultEmptyTextureColor_, 
@@ -606,7 +608,7 @@ public sealed class ObjectRenderer<T> : ObservableObject, IRenderer<T>
         GL.BindVertexArray(vao);
 
         shader.SetAttributeData("iPos", 3, VertexAttribPointerType.Float, Vertex.SizeInBytes, 0);
-        shader.SetAttributeData("iTextureCoord", 2, VertexAttribPointerType.Float, Vertex.SizeInBytes, Vector3.SizeInBytes * 2);
+        shader.SetAttributeData("iTextureCoord", 2, VertexAttribPointerType.Float, Vertex.SizeInBytes, Unsafe.SizeOf<Vector3>() * 2);
 
         return new DrawObjectInfo(vao, vbo, 0)
         {

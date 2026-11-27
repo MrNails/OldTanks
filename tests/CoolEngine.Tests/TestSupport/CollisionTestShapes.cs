@@ -1,6 +1,6 @@
 using CoolEngine.PhysicEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace CoolEngine.Tests.TestSupport;
 

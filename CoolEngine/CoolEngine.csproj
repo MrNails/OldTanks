@@ -31,6 +31,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Common\Common.csproj" />
       <ProjectReference Include="..\CoolEngine.Imaging\CoolEngine.Imaging.csproj" />
+      <ProjectReference Include="..\CoolEngine.Mathematics\CoolEngine.Mathematics.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,6 +1,6 @@
 ﻿using OldTanks.UI.Services;
 using OldTanks.UI.Services.Interfaces;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace OldTanks.UI.Controls;
 

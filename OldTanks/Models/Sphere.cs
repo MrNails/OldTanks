@@ -3,7 +3,7 @@ using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Services;
 using OldTanks.Infrastructure;
-using OpenTK.Mathematics;
+using System.Numerics;
 
 namespace OldTanks.Models;
 

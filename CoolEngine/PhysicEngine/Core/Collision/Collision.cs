@@ -1,8 +1,9 @@
-﻿using Common.Extensions;
+﻿using System.Numerics;
+using Common.Extensions;
+using CoolEngine.Mathematics;
 using CoolEngine.Models;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.PhysicEngine.Core.Collision;
 
@@ -67,10 +68,12 @@ public class Collision
 
         // Normals go through the inverse-transpose of the linear part, not the rotation alone: under uneven scale a
         // rotated normal is no longer perpendicular to its face. The cofactor rows are that inverse-transpose times
-        // the determinant, so there is no division and no exception for a singular matrix.
-        var row0 = transformation.Row0.Xyz;
-        var row1 = transformation.Row1.Xyz;
-        var row2 = transformation.Row2.Xyz;
+        // the determinant, so there is no division and no exception for a singular matrix. row0..row2 are the images of
+        // the X, Y, Z axes: OpenTK's Row0..Row2, which are our Column0..Column2 (the same bytes).
+        var linear = new Matrix3(transformation);
+        var row0 = linear.Column0;
+        var row1 = linear.Column1;
+        var row2 = linear.Column2;
         var cofactor0 = Vector3.Cross(row1, row2);
         var cofactor1 = Vector3.Cross(row2, row0);
         var cofactor2 = Vector3.Cross(row0, row1);
@@ -78,8 +81,7 @@ public class Collision
         var sign = Vector3.Dot(row0, cofactor0) < 0 ? -1f : 1f;
 
         for (int i = 0; i < m_currentCollision.Vertices.Length; i++)
-            m_currentCollision.Vertices[i] =
-                new Vector3(new Vector4(m_originalCollision.Vertices[i], 1) * transformation);
+            m_currentCollision.Vertices[i] = transformation.TransformPosition(m_originalCollision.Vertices[i]);
 
         for (int i = 0; i < m_currentCollision.Faces.Count; i++)
         {
@@ -170,7 +172,7 @@ public class Collision
                 }
 
                 if (sharedCount != 2 ||
-                    Vector3.Cross(faces[i].Normal, faces[j].Normal).LengthSquared < ParallelEpsilon)
+                    Vector3.Cross(faces[i].Normal, faces[j].Normal).LengthSquared() < ParallelEpsilon)
                     continue;
 
                 var edge = (Math.Min(first, second), Math.Max(first, second));
@@ -198,7 +200,7 @@ public class Collision
                 var keptEdge = edges[keptIndex];
                 var keptDirection = Vector3.Normalize(shape.Vertices[keptEdge.B] - shape.Vertices[keptEdge.A]);
 
-                if (Vector3.Cross(direction, keptDirection).LengthSquared < ParallelEpsilon)
+                if (Vector3.Cross(direction, keptDirection).LengthSquared() < ParallelEpsilon)
                 {
                     isParallelToKept = true;
                     break;
@@ -255,8 +257,8 @@ public class Collision
 
         for (int i = 1; i < vertices.Length; i++)
         {
-            min = Vector3.ComponentMin(min, vertices[i]);
-            max = Vector3.ComponentMax(max, vertices[i]);
+            min = Vector3.Min(min, vertices[i]);
+            max = Vector3.Max(max, vertices[i]);
         }
 
         for (int axis = 0; axis < 3; axis++)
@@ -336,7 +338,7 @@ public class Collision
         var sphereRadius = CollisionData.PhysicObject.Width / 2;
         
         var rayToSphereDirectionalVector = ray.Start - sphereCenter;
-        var rayDirection = -ray.RayDelta.Normalized();
+        var rayDirection = -Vector3.Normalize(ray.RayDelta);
         var a = Vector3.Dot(rayDirection, rayDirection);
         var b = 2 * Vector3.Dot(rayDirection, rayToSphereDirectionalVector);
         var c = Vector3.Dot(rayToSphereDirectionalVector, rayToSphereDirectionalVector) - sphereRadius * sphereRadius;
@@ -364,10 +366,10 @@ public class Collision
         
         var directionalVector = physObj1.Position - physObj2.Position;
         
-        var distance = directionalVector.Length;
+        var distance = directionalVector.Length();
         var radii = (physObj1.Width + physObj2.Width) / 2;
 
-        normal = -directionalVector.Normalized();
+        normal = -Vector3.Normalize(directionalVector);
         
         var sphere1EndPoint = physObj1.Position + normal * (physObj1.Width / 2);
 
@@ -420,7 +422,7 @@ public class Collision
                 var axis = Vector3.Cross(direction1, direction2);
                 // Parallel edges span no axis; their face axes were tested already. Written as !(>=) so the NaN
                 // axis of an edge collapsed to a point is skipped too instead of always separating.
-                if (!(axis.LengthSquared >= ParallelEpsilon))
+                if (!(axis.LengthSquared() >= ParallelEpsilon))
                     continue;
 
                 axis = Vector3.Normalize(axis);
@@ -540,7 +542,7 @@ public class Collision
 
         if (isOutside)
         {
-            var distance = delta.Length;
+            var distance = delta.Length();
             if (distance >= radius)
                 return false;
 
@@ -605,7 +607,7 @@ public class Collision
         {
             var axis = center - vertices[i];
             // The centre is on the vertex: the shapes overlap anyway, and the axis has no direction.
-            if (axis.LengthSquared < ZeroAxisEpsilon)
+            if (axis.LengthSquared() < ZeroAxisEpsilon)
                 continue;
 
             axis = Vector3.Normalize(axis);
@@ -631,7 +633,7 @@ public class Collision
             var t = Math.Clamp(Vector3.Dot(center - start, edge) / Vector3.Dot(edge, edge), 0, 1);
             var axis = center - (start + t * edge);
             // The centre is on the edge: the shapes overlap anyway, and the axis has no direction.
-            if (axis.LengthSquared < ZeroAxisEpsilon)
+            if (axis.LengthSquared() < ZeroAxisEpsilon)
                 continue;
 
             axis = Vector3.Normalize(axis);

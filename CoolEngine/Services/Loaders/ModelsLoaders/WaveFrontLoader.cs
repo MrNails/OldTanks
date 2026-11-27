@@ -3,7 +3,7 @@ using System.Text;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.Services.Extensions;
 using CoolEngine.Services.Interfaces;
-using OpenTK.Mathematics;
+using System.Numerics;
 using Serilog;
 
 namespace CoolEngine.Services.Loaders.ModelsLoaders;

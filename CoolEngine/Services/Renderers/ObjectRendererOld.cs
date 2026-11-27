@@ -1,9 +1,11 @@
 ﻿using System.Buffers;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Primitives;
+using CoolEngine.Mathematics;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
@@ -278,7 +280,7 @@ public static class ObjectRendererOld
         GL.EnableVertexAttribArray(posIndex);
 
         var textureIndex = shader.GetAttribLocation("iTextureCoord");
-        GL.VertexAttribPointer(textureIndex, 2, VertexAttribPointerType.Float, false, Vertex.SizeInBytes, Vector3.SizeInBytes * 2);
+        GL.VertexAttribPointer(textureIndex, 2, VertexAttribPointerType.Float, false, Vertex.SizeInBytes, Unsafe.SizeOf<Vector3>() * 2);
         GL.EnableVertexAttribArray(textureIndex);
 
         if (indicesRentArr.Length != 0)
@@ -304,14 +306,16 @@ public static class ObjectRendererOld
 
         vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * 3 * Vector3.SizeInBytes, vertices,
+        // Exactly the array: DrawSkyBox draws its 36 vertices (stride one Vector3). The old size, three times the array,
+        // made the driver read past the managed array's end.
+        GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * Unsafe.SizeOf<Vector3>(), vertices,
             BufferUsageHint.StaticDraw);
 
         vao = GL.GenVertexArray();
         GL.BindVertexArray(vao);
 
         var posIndex = shader.GetAttribLocation("iPos");
-        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Vector3.SizeInBytes, 0);
+        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Unsafe.SizeOf<Vector3>(), 0);
         GL.EnableVertexAttribArray(posIndex);
 
         return new DrawObjectInfo(vao, vbo, ebo);
@@ -347,14 +351,14 @@ public static class ObjectRendererOld
 
         vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, m_currentPrimitivesIndices * Vector3.SizeInBytes, (Vector3[]?)null,
+        GL.BufferData(BufferTarget.ArrayBuffer, m_currentPrimitivesIndices * Unsafe.SizeOf<Vector3>(), (Vector3[]?)null,
             BufferUsageHint.StreamDraw);
 
         vao = GL.GenVertexArray();
         GL.BindVertexArray(vao);
 
         var posIndex = shader.GetAttribLocation("iPos");
-        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Vector3.SizeInBytes, 0);
+        GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Unsafe.SizeOf<Vector3>(), 0);
         GL.EnableVertexAttribArray(posIndex);
 
         return new DrawObjectInfo(vao, vbo, ebo);
@@ -365,6 +369,6 @@ public static class ObjectRendererOld
         GL.BindVertexArray(drawObjectInfo.VertexArrayObject);
 
         GL.BindBuffer(BufferTarget.ArrayBuffer, drawObjectInfo.VertexBufferObject);
-        GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, drawAmount * Vector3.SizeInBytes, vertices);
+        GL.BufferSubData(BufferTarget.ArrayBuffer, IntPtr.Zero, drawAmount * Unsafe.SizeOf<Vector3>(), vertices);
     }
 }

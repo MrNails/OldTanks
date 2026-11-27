@@ -1,11 +1,12 @@
 ﻿using System.Buffers;
+using System.Numerics;
 using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.GraphicalEngine.Core.Font;
 using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.GraphicalEngine.Core.Texture;
+using CoolEngine.Mathematics;
 using CoolEngine.Services.Misc;
 using OpenTK.Graphics.OpenGL4;
-using OpenTK.Mathematics;
 
 namespace CoolEngine.Services.Renderers;
 
@@ -104,8 +105,8 @@ public static class TextRenderer
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
-        var mRotation = Matrix3.CreateRotationX(MathHelper.DegreesToRadians(rotation.X)) *
-                        Matrix3.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y));
+        var mRotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(rotation.Y)) *
+                        Matrix3.CreateRotationX(MathHelper.DegreesToRadians(rotation.X));
 
         float x = position.X, y = position.Y;
         var setsAmount = text.Length / s_maxRenderAmount >= 1 ? text.Length / s_maxRenderAmount : 1;
@@ -172,36 +173,44 @@ public static class TextRenderer
         var sizeMultiplier = (font.FontSize / font.FontInformation.OriginalFontSize) * textDrawInformation.Scale;
 
         Shader.Use();
-        Shader.SetMatrix4("projection", camera.LookAt * EngineSettings.Current.Projection);
+        Shader.SetMatrix4("projection", EngineSettings.Current.Projection * camera.LookAt);
         Shader.SetVector4("color", textDrawInformation.Color);
 
+        // Column vectors: the rightmost factor applies first (X, then Y, then Z).
         Matrix4 mTransOrigin;
-        var mRotation = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)) *
-                        Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y)) *
-                        Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z));
+        var mRotation = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Z)) *
+                        (Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.Y)) *
+                         Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.SelfRotation.X)));
 
         if (useBillboardView)
         {
             var camLookAt = camera.LookAt;
-            var invertedMat = camLookAt.Inverted();
+            // OpenTK's Inverted() returned the matrix itself when its determinant was exactly 0; otherwise it called
+            // Invert, which could still throw "Matrix is singular" when its own determinant rounded to 0. Neither
+            // happens for a view matrix. TryInvert keeps exceptions out of the render loop.
+            if (!Matrix4.TryInvert(camLookAt, out var invertedMat) && camLookAt.Determinant == 0)
+                invertedMat = camLookAt;
 
-            var bMatrix = new Matrix4
-            (
-                camLookAt.M11, camLookAt.M21, camLookAt.M31, 0,
-                camLookAt.M12, camLookAt.M22, camLookAt.M32, 0,
-                invertedMat.M41, invertedMat.M42, invertedMat.M43, 0,
-                textDrawInformation.SelfPosition.X, textDrawInformation.SelfPosition.Y, textDrawInformation.SelfPosition.Z, 1
-            );
+            // OpenTK's element Mrc (row r, column c of its row-vector matrix) is component c - 1 of our Column{r - 1}
+            // (the same bytes), and its constructor's four rows are our four columns.
+            var bMatrix = Matrix4.FromColumns(
+                new Vector4(camLookAt.Column0.X, camLookAt.Column1.X, camLookAt.Column2.X, 0),
+                new Vector4(camLookAt.Column0.Y, camLookAt.Column1.Y, camLookAt.Column2.Y, 0),
+                new Vector4(invertedMat.Column3.X, invertedMat.Column3.Y, invertedMat.Column3.Z, 0),
+                new Vector4(textDrawInformation.SelfPosition.X, textDrawInformation.SelfPosition.Y,
+                    textDrawInformation.SelfPosition.Z, 1));
             mTransOrigin = bMatrix;
         }
         else
             mTransOrigin = Matrix4.CreateTranslation(textDrawInformation.SelfPosition);
-        
-        var mOriginTransform = mRotation * mTransOrigin *
-                               Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X)) *
-                               Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y)) *
-                               Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z)) *
-                               Matrix4.CreateTranslation(textDrawInformation.OriginPosition);
+
+        // The self rotation, the billboard or self translation, the origin rotation (X, Y, Z), then the origin
+        // translation; the parentheses keep the product order (and so the bits) of the port.
+        var mOriginTransform = Matrix4.CreateTranslation(textDrawInformation.OriginPosition) *
+                               (Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Z)) *
+                                (Matrix4.CreateRotationY(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.Y)) *
+                                 (Matrix4.CreateRotationX(MathHelper.DegreesToRadians(textDrawInformation.OriginRotation.X)) *
+                                  (mTransOrigin * mRotation))));
 
         font.FontInformation.Texture.Use(TextureUnit.Texture0);
 
@@ -245,7 +254,8 @@ public static class TextRenderer
                     characterInfo, font.FontInformation.Texture);
             }
 
-            Shader.SetMatrix4("model",  Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0) * mOriginTransform);
+            Shader.SetMatrix4("model",
+                mOriginTransform * Matrix4.CreateTranslation(-x / 2, -(y + font.FontSize * sizeMultiplier) / 2, 0));
             
             GL.BindVertexArray(s_drawObjectInfo.VertexArrayObject);
 
