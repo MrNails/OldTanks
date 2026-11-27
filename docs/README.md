@@ -8,7 +8,8 @@ Entry point for agents: [../AGENTS.md](../AGENTS.md) (Claude Code loads it throu
 |-----------|------------|------|
 | Threads, startup, the frame, locks, global state | [ARCHITECTURE](ARCHITECTURE.md) | [BUILD](BUILD.md) for settings and log files |
 | Drawing: renderers, batching and instancing, shaders, textures, the camera | [RENDERING](CoolEngine/Services/Renderers/RENDERING.md) | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) for shader files |
-| Loading shaders, textures, skyboxes, models and fonts; cache names | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) | [features §6](OldTanks/FEATURES-OVERVIEW.md#6-adding-a-world-object-type) for a new object type |
+| Loading shaders, textures, skyboxes, models and fonts (the glyph atlas, its failure rules); cache names | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) | [features §6](OldTanks/FEATURES-OVERVIEW.md#6-adding-a-world-object-type) for a new object type |
+| Fonts: loading TrueType, OpenType, WOFF and variable fonts, outlines, hinting identical to FreeType, the strict rules, limits and budgets, tests, credits | [FONTS](CoolEngine.Fonts/FONTS.md) | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) for the atlas |
 | Decoding PNG and JPEG: the API, the strict rules, limits, tests | [IMAGE-DECODERS](CoolEngine.Imaging/IMAGE-DECODERS.md) | [ASSET-PIPELINE](CoolEngine/Services/Loaders/ASSET-PIPELINE.md) for the loaders |
 | Math types, matrices, the conventions (column vectors, column-major, reversed Z), the same-bits promise, benchmarks | [MATHEMATICS](CoolEngine.Mathematics/MATHEMATICS.md) | [CODE-STYLE](CODE-STYLE.md#math-types), [plan D6 and D7](plans/ENGINES-AND-TANK-GAME.md#5-open-decisions) |
 | Gravity, movement, collision tests and resolution, rays, step mode | [PHYSICS-AND-COLLISIONS](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) | [KI-002](KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another) (closed), [KI-031](KNOWN-ISSUES.md#ki-031-the-collision-debug-view-transforms-objects-on-the-gl-thread-while-the-physics-thread-does) |
@@ -20,7 +21,7 @@ Entry point for agents: [../AGENTS.md](../AGENTS.md) (Claude Code loads it throu
 Records that cut across areas:
 
 - [PROJECT-KNOWLEDGE](PROJECT-KNOWLEDGE.md): mission, current state, conventions, rules of thumb; read first, about 10 KiB.
-- [KNOWN-ISSUES](KNOWN-ISSUES.md): the defect register, `KI-001` to `KI-031`; stable numbers that code and pages cite.
+- [KNOWN-ISSUES](KNOWN-ISSUES.md): the defect register, `KI-001` to `KI-039`; stable numbers that code and pages cite.
 - [BACKLOG](BACKLOG.md): open work, unwired features, debt.
 - [CODE-STYLE](CODE-STYLE.md) and [DOCUMENTATION-GUIDE](DOCUMENTATION-GUIDE.md): how code, commits and docs are written.
 - [knowledge/GLOSSARY](knowledge/GLOSSARY.md): terms, and the type names that clash.

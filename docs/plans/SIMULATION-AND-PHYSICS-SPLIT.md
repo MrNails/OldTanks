@@ -33,7 +33,7 @@ One owner for the simulation's state, so that the same simulation can run on a s
 | 4 | `WorldObject` and `RigidBody` raise `PropertyChanged` on the physics thread in every sub-step; `OldTanks.UI.ImGuiUI.MainWindow` subscribes its generated bindings to both | The selected object's control values are written from the physics thread while the GL thread draws them |
 | 5 | The step loop and the contact resolution are game code, `OldTanks.Models.World.CollideObjects` ([PHYSICS §3](../CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md#3-the-step-loop-worldcollideobjects)) | The engine has detection tests and a property bag, no step |
 | 6 | `CoolEngine.PhysicEngine.Core.RigidBody` carries game rules (`MaxSpeed`, `MaxBackSpeed`, `MaxSpeedMultiplier`, `DefaultJumpForce`, forward damping, velocity local to the object), derives from `Common.Models.ObservableObject` and reads the global `CoolEngine.Services.EngineSettings.Current.CollisionIterations` | Not project-agnostic ([requirements](ENGINES-AND-TANK-GAME.md#2-requirements)) |
-| 7 | Physics sits in the `CoolEngine` assembly (OpenTK, FreeTypeSharp, Serilog); a `Collision` reads its owner's render transform through `CollisionData.PhysicObject`; shapes are registered in `GlobalCache<CollisionData>` by static constructors | It cannot run headless as D2 requires |
+| 7 | Physics sits in the `CoolEngine` assembly (OpenTK, Serilog and, since OT-4, `CoolEngine.Fonts`; FreeTypeSharp is gone from the engine); a `Collision` reads its owner's render transform through `CollisionData.PhysicObject`; shapes are registered in `GlobalCache<CollisionData>` by static constructors | It cannot run headless as D2 requires |
 
 ## 3. Target shape
 

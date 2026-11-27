@@ -12,6 +12,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Renderers, batching and instancing, shader contract, GPU types | [RENDERING](../docs/CoolEngine/Services/Renderers/RENDERING.md) |
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
+| Font loading, glyph outlines and bitmaps (the library behind `Font`) | [FONTS](../docs/CoolEngine.Fonts/FONTS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
 | Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-024, KI-025, KI-030, KI-031, KI-035 |
 
@@ -29,7 +30,7 @@ Representative, by folder.
 
 | Folder | Types |
 |--------|-------|
-| `GraphicalEngine/Core/` | `Camera`, `Shader`, `Scene`, `Mesh`, `Face`, `SkyBox`, `Buffer<T>`, `DrawObjectInfo`, `RenderTarget` (offscreen framebuffer with a float depth buffer, GL thread only, no finalizer by design); `Texture/` (`Texture`, `TextureData`, `TexturedObjectInfo`); `Font/` (`Font`, `FontInformation`); `Primitives/` (`Vertex`, `FontVertex`) |
+| `GraphicalEngine/Core/` | `Camera`, `Shader`, `Scene`, `Mesh`, `Face`, `SkyBox`, `Buffer<T>`, `DrawObjectInfo`, `RenderTarget` (offscreen framebuffer with a float depth buffer, GL thread only, no finalizer by design); `Texture/` (`Texture`, `TextureData`, `TexturedObjectInfo`); `Font/` (`Font` with `BuildAtlasAsync`, the GL-free CPU part of `CreateFont`; `FontAtlas`, `FontInformation`, `CharacterInfo`); `Primitives/` (`Vertex`, `FontVertex`) |
 | `GraphicalEngine/Services/` | `GLSettings` (GL state snapshot and restore); `GLDeletionQueue`, `GLObjectKind` (the GL names of undisposed objects, queued from the finalizers of `Texture`, `Shader`, `Buffer<T>` and `DrawObjectInfo` and deleted by `DeletePending` on the GL thread; the host must call it every frame) |
 | `PhysicEngine/` | `PhysicsConstants`; `Core/RigidBody`, `Core/Face`; `Core/Collision/` (`Collision`, `CollisionData`) |
 | `Models/` | `Ray`, `BoundingBox`, `Level` (unused) |
@@ -45,15 +46,15 @@ Representative, by folder.
 | Dependency | Reason |
 |------------|--------|
 | `Common` (project) | `ObservableObject`, typed events, extensions |
+| `CoolEngine.Fonts` (project) | Font loading and glyph rasterising for `Font.CreateFont` (OT-4; replaced FreeTypeSharp) |
 | `CoolEngine.Imaging` (project) | PNG and JPEG decoding for the texture and skybox loaders |
 | `CoolEngine.Mathematics` (project) | `Matrix2`, `Matrix3`, `Matrix4` and `MathHelper`, with `System.Numerics` vectors and quaternions (OT-5) |
 | OpenTK 4.9.4 | OpenGL bindings and windowing types; its math types are banned except `Vector2`, `Vector2i` and `Color4` |
 | `Microsoft.CodeAnalysis.BannedApiAnalyzers` 5.6.0 (analyzer, `PrivateAssets=all`) | RS0030 is an error: `BannedSymbols.txt` at the repository root bans System.Numerics' row-vector `Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them, and OpenTK's math types (uses only) |
-| FreeTypeSharp 3.1.0 | Font rasterising, through its pointer API (`Font` wraps it in small `unsafe` helpers) |
 | Serilog 4.4.0 | Logging, GL debug output and the dispatcher's `Error` log of a throwing posted callback, through the static `Log.Logger` (core API only) |
 | `Serilog.Sinks.File` 7.0.0 | Not used by this project's code: the game's `LoggerService` uses the file sink through this reference |
 
-Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.FastConsole` and SixLabors.ImageSharp were removed in OT-3.
+Versions are set in `Directory.Packages.props`. MIConvexHull, `Serilog.Sinks.FastConsole` and SixLabors.ImageSharp were removed in OT-3, FreeTypeSharp in OT-4 (it stays in `tests/CoolEngine.Fonts.Tests`).
 
 ## Constraints
 

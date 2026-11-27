@@ -2,7 +2,7 @@
 
 A hobby 3D game in C# on its own OpenGL engine, **CoolEngine**. There are some simple physics and collisions: today the game is an engine sandbox, a small scene of walls, a floor, cubes and spheres that fall and collide, a free-fly camera, and ImGui debug windows to inspect and edit every object. Tanks are the goal; they are not built yet.
 
-**Engine features:** OpenGL 4.6 rendering with per-texture batching and instanced drawing, skybox, screen and world-space text (FreeType), Wavefront OBJ models, rigid bodies with gravity, separating-axis collision tests for boxes and spheres, ray picking, a dispatcher that keeps OpenGL work on the window thread, and a Roslyn source generator for two-way UI bindings.
+**Engine features:** OpenGL 4.6 rendering with per-texture batching and instanced drawing, skybox, screen and world-space text (own font library `CoolEngine.Fonts`), Wavefront OBJ models, rigid bodies with gravity, separating-axis collision tests for boxes and spheres, ray picking, a dispatcher that keeps OpenGL work on the window thread, and a Roslyn source generator for two-way UI bindings.
 
 ## Requirements
 
@@ -45,12 +45,14 @@ The game ignores keys while a debug window is being typed in, dragged or otherwi
 |---------|------|
 | `OldTanks` | The game: window, world, objects, debug windows, `Assets/` |
 | `CoolEngine` | Rendering, asset loading, physics, threading |
+| `CoolEngine.Fonts` | Font loading and hinted glyph bitmaps identical to FreeType 2.13.2, no dependencies |
 | `CoolEngine.Imaging` | PNG and JPEG decoders, no dependencies |
 | `OldTanks.UI` | HUD text, ImGui control wrappers, ImGui renderer |
 | `OldTanks.UI.SourceGenerators` | Source generator for the debug window's bindings |
 | `Common` | Shared helpers |
 | `tests/OldTanks.Docs.Tests` | Documentation checks (`dotnet test OldTanks.slnx`) |
 | `tests/CoolEngine.Tests` | Headless unit tests of the engine (today the `ObjectRenderer<T>` grouping and instancing, and the dispatcher) |
+| `tests/CoolEngine.Fonts.Tests` | The font library against FreeType 2.13.2 and DirectWrite (Windows only) |
 | `tests/CoolEngine.Imaging.Tests` | The image decoders against Windows and ImageSharp (Windows only; a Release build needs a Six Labors key, see [docs/BUILD.md](docs/BUILD.md#2-build)) |
 
 ## Documentation
