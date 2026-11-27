@@ -190,12 +190,18 @@ public static class ObjectRendererOld
     /// <param name="shader">Shader program</param>
     /// <param name="primitives">Primitives indices</param>
     /// <param name="drawAmount">Primitives draw amount. If it's default (-1) - draw primitives based on <paramref name="primitives"/> length</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="drawAmount"/> is greater than the length of
+    /// <paramref name="primitives"/>; thrown before any GL call.</exception>
     public static void DrawPrimitives(PrimitiveType type, Shader shader, Vector3[] primitives, int drawAmount = -1)
     {
         if (primitives == null || primitives.Length == 0)
             return;
 
         var requested = drawAmount <= 0 ? primitives.Length : drawAmount;
+
+        if (drawAmount > primitives.Length)
+            throw new ArgumentOutOfRangeException(nameof(drawAmount), drawAmount,
+                $"The draw amount exceeds the primitives array length ({primitives.Length}).");
 
         shader.Use();
 

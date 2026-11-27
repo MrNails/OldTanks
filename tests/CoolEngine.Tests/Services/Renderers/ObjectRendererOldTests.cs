@@ -1,4 +1,8 @@
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using CoolEngine.GraphicalEngine.Core;
 using CoolEngine.Services.Renderers;
+using OpenTK.Graphics.OpenGL4;
 
 namespace CoolEngine.Tests.Services.Renderers;
 
@@ -109,4 +113,28 @@ public sealed class ObjectRendererOldTests
     }
 
     #endregion
+
+    #region DrawPrimitives
+
+    [Test]
+    public void DrawPrimitives_DrawAmountAboveArrayLength_ThrowsArgumentOutOfRangeException()
+    {
+        var shader = CreateShaderWithoutGl();
+        var primitives = new Vector3[2];
+
+        Assert.That(() => ObjectRendererOld.DrawPrimitives(PrimitiveType.Lines, shader, primitives, 3),
+            Throws.TypeOf<ArgumentOutOfRangeException>()
+                .With.Property(nameof(ArgumentOutOfRangeException.ParamName)).EqualTo("drawAmount"));
+    }
+
+    #endregion
+
+    // Shader's constructor and finalizer call OpenGL (KI-017); the guard must throw before the shader is used.
+    private static Shader CreateShaderWithoutGl()
+    {
+        var shader = (Shader)RuntimeHelpers.GetUninitializedObject(typeof(Shader));
+        GC.SuppressFinalize(shader);
+
+        return shader;
+    }
 }
