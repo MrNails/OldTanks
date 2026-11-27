@@ -133,3 +133,116 @@ internal unsafe partial interface IDWriteFontFace
     void GetGdiCompatibleGlyphMetrics(float emSize, float pixelsPerDip, nint transform, int useGdiNatural, nint glyphIndices,
         uint glyphCount, nint glyphMetrics, int isSideways);
 }
+
+// IDWriteFactory1 to IDWriteFactory5 (dwrite_1.h, dwrite_2.h, dwrite_3.h, Windows SDK 10.0.26100.0): every method slot in header
+// order, except overloads, which MSVC lays out in reverse order, each interface deriving from the one before. Only UnpackFontFile is called; the other slots take raw pointers, and
+// methods that repeat a name in a later interface carry a numeric suffix (the names do not reach the vtable).
+
+/// <summary><c>DWRITE_CONTAINER_TYPE</c>.</summary>
+internal enum DWriteContainerType
+{
+    Unknown = 0,
+    Woff = 1,
+    Woff2 = 2,
+}
+
+[GeneratedComInterface]
+[Guid("30572f99-dac6-41db-a16e-0486307e606a")]
+internal partial interface IDWriteFactory1 : IDWriteFactory
+{
+    void GetEudcFontCollection(nint fontCollection, int checkForUpdates);
+
+    void CreateCustomRenderingParams1(float gamma, float enhancedContrast, float enhancedContrastGrayscale, float clearTypeLevel,
+        int pixelGeometry, int renderingMode, nint renderingParams);
+}
+
+[GeneratedComInterface]
+[Guid("0439fc60-ca44-4994-8dee-3a9af7b732ec")]
+internal partial interface IDWriteFactory2 : IDWriteFactory1
+{
+    void GetSystemFontFallback(nint fontFallback);
+
+    void CreateFontFallbackBuilder(nint fontFallbackBuilder);
+
+    void TranslateColorGlyphRun2(float baselineOriginX, float baselineOriginY, nint glyphRun, nint glyphRunDescription,
+        int measuringMode, nint worldToDeviceTransform, uint colorPaletteIndex, nint colorLayers);
+
+    void CreateCustomRenderingParams2(float gamma, float enhancedContrast, float grayscaleEnhancedContrast, float clearTypeLevel,
+        int pixelGeometry, int renderingMode, int gridFitMode, nint renderingParams);
+
+    void CreateGlyphRunAnalysis2(nint glyphRun, nint transform, int renderingMode, int measuringMode, int gridFitMode,
+        int antialiasMode, float baselineOriginX, float baselineOriginY, nint glyphRunAnalysis);
+}
+
+[GeneratedComInterface]
+[Guid("9A1B41C3-D3BB-466A-87FC-FE67556A3B65")]
+internal partial interface IDWriteFactory3 : IDWriteFactory2
+{
+    void CreateGlyphRunAnalysis3(nint glyphRun, nint transform, int renderingMode, int measuringMode, int gridFitMode,
+        int antialiasMode, float baselineOriginX, float baselineOriginY, nint glyphRunAnalysis);
+
+    void CreateCustomRenderingParams3(float gamma, float enhancedContrast, float grayscaleEnhancedContrast, float clearTypeLevel,
+        int pixelGeometry, int renderingMode, int gridFitMode, nint renderingParams);
+
+    // dwrite_3.h declares CreateFontFaceReference(filePath, ...) and then CreateFontFaceReference(fontFile, ...); MSVC puts the
+    // overloads of one interface in the vtable in reverse order of declaration, so the fontFile overload is the first slot.
+    void CreateFontFaceReferenceFromFile(nint fontFile, uint faceIndex, int fontSimulations, nint fontFaceReference);
+
+    void CreateFontFaceReferenceFromPath(nint filePath, nint lastWriteTime, uint faceIndex, int fontSimulations, nint fontFaceReference);
+
+    void GetSystemFontSet(nint fontSet);
+
+    void CreateFontSetBuilder3(nint fontSetBuilder);
+
+    void CreateFontCollectionFromFontSet(nint fontSet, nint fontCollection);
+
+    void GetSystemFontCollection3(int includeDownloadableFonts, nint fontCollection, int checkForUpdates);
+
+    void GetFontDownloadQueue(nint fontDownloadQueue);
+}
+
+[GeneratedComInterface]
+[Guid("4B0B5BD3-0797-4549-8AC5-FE915CC53856")]
+internal partial interface IDWriteFactory4 : IDWriteFactory3
+{
+    void TranslateColorGlyphRun4(float baselineOriginX, float baselineOriginY, nint glyphRun, nint glyphRunDescription,
+        int desiredGlyphImageFormats, int measuringMode, nint worldAndDpiTransform, uint colorPaletteIndex, nint colorLayers);
+
+    // dwrite_3.h declares ComputeGlyphOrigins(glyphRun, measuringMode, ...) and then ComputeGlyphOrigins(glyphRun, baselineOrigin,
+    // ...): reverse vtable order for the overloads of one interface (MSVC), so the shorter one is the first slot.
+    void ComputeGlyphOriginsNoMode(nint glyphRun, float baselineOriginX, float baselineOriginY, nint glyphOrigins);
+
+    void ComputeGlyphOrigins(nint glyphRun, int measuringMode, float baselineOriginX, float baselineOriginY,
+        nint worldAndDpiTransform, nint glyphOrigins);
+}
+
+[GeneratedComInterface]
+[Guid("958DB99A-BE2A-4F09-AF7D-65189803D1D3")]
+internal unsafe partial interface IDWriteFactory5 : IDWriteFactory4
+{
+    void CreateFontSetBuilder5(nint fontSetBuilder);
+
+    void CreateInMemoryFontFileLoader(nint newLoader);
+
+    void CreateHttpFontFileLoader(nint referrerUrl, nint extraHeaders, nint newLoader);
+
+    [PreserveSig]
+    int AnalyzeContainerType(byte* fileData, uint fileDataSize);
+
+    /// <summary>Unpacks a WOFF or WOFF2 container into an sfnt font file stream; a failed HRESULT throws.</summary>
+    void UnpackFontFile(int containerType, byte* fileData, uint fileDataSize, out IDWriteFontFileStream unpackedFontStream);
+}
+
+[GeneratedComInterface]
+[Guid("6d4865fe-0ab8-4d91-8f62-5dd6be34a3e0")]
+internal unsafe partial interface IDWriteFontFileStream
+{
+    void ReadFileFragment(out byte* fragmentStart, ulong fileOffset, ulong fragmentSize, out nint fragmentContext);
+
+    [PreserveSig]
+    void ReleaseFileFragment(nint fragmentContext);
+
+    void GetFileSize(out ulong fileSize);
+
+    void GetLastWriteTime(out ulong lastWriteTime);
+}

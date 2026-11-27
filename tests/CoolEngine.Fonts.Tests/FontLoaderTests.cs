@@ -52,15 +52,24 @@ public sealed class FontLoaderTests
     }
 
     [Test]
-    public void Load_WoffAndWoff2_ThrowNotSupportedUntilWp3()
+    public void Load_WoffAndWoff2_LoadWithTheirFormatAndTheirFonts()
     {
-        var woff = TestFonts.WoffFiles().First();
-        var woff2 = TestFonts.Woff2Files().First();
+        var files = TestFonts.WoffFiles().Select(path => (Path: path, Format: FontFormat.Woff))
+            .Concat(TestFonts.Woff2Files().Select(path => (Path: path, Format: FontFormat.Woff2))).ToList();
 
         Assert.Multiple(() =>
         {
-            Assert.That(() => FontLoader.Load(woff), Throws.TypeOf<NotSupportedException>().With.Message.Contains("WP3"));
-            Assert.That(() => FontLoader.Load(woff2), Throws.TypeOf<NotSupportedException>().With.Message.Contains("WP3"));
+            Assert.That(files, Has.Count.EqualTo(8));
+            foreach (var (path, format) in files)
+            {
+                var file = FontLoader.Load(path);
+                var original = FontCache.File(path[..path.LastIndexOf('.')]);
+
+                Assert.That(file.Format, Is.EqualTo(format), path);
+                Assert.That(file.Faces, Has.Count.EqualTo(1), path);
+                Assert.That(file.Faces[0].OutlineFormat, Is.EqualTo(original.Faces[0].OutlineFormat), path);
+                Assert.That(file.Faces[0].GlyphCount, Is.EqualTo(original.Faces[0].GlyphCount), path);
+            }
         });
     }
 

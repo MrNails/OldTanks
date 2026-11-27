@@ -45,6 +45,44 @@ internal sealed class DirectWriteReference : IDisposable
         }
     }
 
+    /// <summary>
+    /// <c>IDWriteFactory5::UnpackFontFile</c>: the sfnt (or collection) image DirectWrite makes of a WOFF or WOFF2 file, read from
+    /// the unpacked stream with <c>GetFileSize</c> and <c>ReadFileFragment</c>.
+    /// </summary>
+    /// <exception cref="COMException">DirectWrite refuses the file.</exception>
+    public unsafe byte[] UnpackFontFile(DWriteContainerType containerType, byte[] file)
+    {
+        var factory = (IDWriteFactory5)(m_factory ?? throw new ObjectDisposedException(nameof(DirectWriteReference)));
+
+        IDWriteFontFileStream stream;
+        fixed (byte* data = file)
+            factory.UnpackFontFile((int)containerType, data, (uint)file.Length, out stream);
+
+        try
+        {
+            stream.GetFileSize(out var size);
+            var result = new byte[size];
+            if (size == 0)
+                return result;
+
+            stream.ReadFileFragment(out var fragment, 0, size, out var context);
+            try
+            {
+                new ReadOnlySpan<byte>(fragment, (int)size).CopyTo(result);
+            }
+            finally
+            {
+                stream.ReleaseFileFragment(context);
+            }
+
+            return result;
+        }
+        finally
+        {
+            Release(stream);
+        }
+    }
+
     public void Dispose()
     {
         if (m_factory is null)
