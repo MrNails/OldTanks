@@ -66,19 +66,31 @@ internal sealed class TrueTypeHinter : ITrueTypeHinter
     private readonly int m_hdmxWidths;
     private readonly long m_glyphWorkBudget;
 
+    // cvar's deltas (26.6) for each cvt entry; null without a blend or without cvar.
+    private readonly int[]? m_cvtDeltas;
+
     private byte[] m_glyphCode = new byte[256];
     private GraphicsState m_sizeGS;
     private string? m_failure;
     private bool m_useHdmx;
 
-    public TrueTypeHinter(FaceData face, FontScale scale, TrueTypeInterpreterVersion version)
-        : this(face, scale, version, GlyphWorkBudget, SizeWorkBudget)
+    /// <param name="face">The face's tables.</param>
+    /// <param name="scale">The size.</param>
+    /// <param name="version">The interpreter mode.</param>
+    /// <param name="variation">
+    /// The variation coordinates, or null for none (OT-4 WP5). With them the face has a blend, as FreeType's has after
+    /// <c>FT_Set_Var_Design_Coordinates</c>: <c>cvar</c>'s deltas go into the cvt before <c>prep</c> runs (FreeType's
+    /// <c>tt_face_vary_cvt</c>, its 26.6 values kept in 32 bits), and GETINFO bit 10, GETVARIATION and GETDATA answer.
+    /// </param>
+    public TrueTypeHinter(FaceData face, FontScale scale, TrueTypeInterpreterVersion version,
+        Variations.VariationInstance? variation = null)
+        : this(face, scale, version, GlyphWorkBudget, SizeWorkBudget, variation)
     {
     }
 
     /// <summary>A hinter with other work budgets (to measure the work real fonts take, and in tests).</summary>
     internal TrueTypeHinter(FaceData face, FontScale scale, TrueTypeInterpreterVersion version, long glyphWorkBudget,
-        long sizeWorkBudget)
+        long sizeWorkBudget, Variations.VariationInstance? variation = null)
     {
         m_version = version;
         m_glyphWorkBudget = glyphWorkBudget;
@@ -120,6 +132,16 @@ internal sealed class TrueTypeHinter : ITrueTypeHinter
 
         m_interpreter.SetWorkBudget(sizeWorkBudget, "the size's set-up");
         m_interpreter.Charge(allocation);
+
+        // The blend (OT-4 WP5): the hooks, and cvar's deltas in the cvt (its work charged to the size's set-up).
+        if (variation is not null)
+        {
+            m_interpreter.HasBlend = true;
+            m_interpreter.AxisCount = variation.Normalized.Length;
+            m_interpreter.VariationCoordinates = variation.Normalized;
+            m_cvtDeltas = variation.Tables.Cvar?.ComputeDeltas(variation.Normalized, cvtEntries, new InterpreterWork(m_interpreter));
+        }
+
         Initialize(fpgm);
         SizeWork = m_interpreter.Work;
     }
@@ -307,13 +329,19 @@ internal sealed class TrueTypeHinter : ITrueTypeHinter
     {
         var interpreter = m_interpreter;
 
-        // Scale the cvt: the unscaled values are signed 16-bit, taken as 26.6.
+        // Scale the cvt: the unscaled values are signed 16-bit, taken as 26.6, plus cvar's deltas in FreeType's 32-bit face->cvt.
         var scale = m_scale >> 6;
         var cvt = interpreter.Cvt;
         var source = m_faceCvt.Span;
         interpreter.Charge(cvt.Length);
         for (var i = 0; i < cvt.Length; i++)
-            cvt[i] = FixedMath.MulFix((short)(source[2 * i] << 8 | source[2 * i + 1]) * 64L, scale);
+        {
+            var unscaled = (short)(source[2 * i] << 8 | source[2 * i + 1]) * 64;
+            if (m_cvtDeltas is not null)
+                unscaled = unchecked(unscaled + m_cvtDeltas[i]);
+
+            cvt[i] = FixedMath.MulFix(unscaled, scale);
+        }
 
         LoadContext();
         interpreter.SetCodeRange(CodeRange.Cvt, m_prep, m_prep.Length);
@@ -356,6 +384,12 @@ internal sealed class TrueTypeHinter : ITrueTypeHinter
         interpreter.DropWorkingCopies();
         interpreter.Pts = new HintZone();
         interpreter.ResetZones();
+    }
+
+    /// <summary>Charges work to the interpreter's current budget (the size's set-up while the hinter is made).</summary>
+    private sealed class InterpreterWork(Interpreter interpreter) : Variations.IWorkCounter
+    {
+        public void Charge(long units) => interpreter.Charge(units);
     }
 
     /// <summary><c>TT_Run_Context</c>: zones, vectors, rounding and loop reset for a glyph program.</summary>

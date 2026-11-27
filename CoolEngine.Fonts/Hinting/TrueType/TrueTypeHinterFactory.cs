@@ -12,6 +12,8 @@ internal static class TrueTypeHinterFactory
     /// Runs <c>fpgm</c> and <c>prep</c> at once; their failure is reported by every hinted glyph load
     /// (<see cref="ITrueTypeHinter.BeginGlyph"/>), as FreeType reports it.
     /// </remarks>
-    public static ITrueTypeHinter Create(FaceData face, FontScale scale, TrueTypeInterpreterVersion version) =>
-        new TrueTypeHinter(face, scale, version);
+    /// <param name="variation">The variation coordinates (the blend), or null for none (OT-4 WP5).</param>
+    public static ITrueTypeHinter Create(FaceData face, FontScale scale, TrueTypeInterpreterVersion version,
+        Variations.VariationInstance? variation = null) =>
+        new TrueTypeHinter(face, scale, version, variation);
 }

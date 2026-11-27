@@ -132,10 +132,29 @@ public sealed class Woff2DecoderTests
         AssertSameOutlines(face, expected);
     }
 
-    private static void AssertSameOutlines(FontFace face, FontFace expected)
+    /// <summary>
+    /// The CFF and CFF2 copies (OT-4 WP5, now that CFF outlines exist): every glyph's outline and metrics equal the matching
+    /// OTF's, and a variable one's at its last named instance too.
+    /// </summary>
+    [TestCaseSource(nameof(CffWoff2Files))]
+    public void Load_EveryCffWoff2_OutlinesEqualTheMatchingOtf(string path)
     {
-        var font = face.CreateScaledFont(new ScaledFontOptions(16) { Hinting = HintingMode.None });
-        var reference = expected.CreateScaledFont(new ScaledFontOptions(16) { Hinting = HintingMode.None });
+        var face = FontLoader.Load(FontCache.Bytes(path)).Faces[0];
+        var expected = FontCache.File(MatchingFont(path)).Faces[0];
+
+        AssertSameOutlines(face, expected);
+        if (expected.IsVariable)
+        {
+            var instance = expected.NamedInstances[^1];
+            AssertSameOutlines(face, expected, expected.Axes.Select((axis, i) => new VariationCoordinate(axis.Tag, instance.Coordinates[i])).ToArray());
+        }
+    }
+
+    private static void AssertSameOutlines(FontFace face, FontFace expected, VariationCoordinate[]? variation = null)
+    {
+        var options = new ScaledFontOptions(16) { Hinting = HintingMode.None, Variation = variation ?? [] };
+        var font = face.CreateScaledFont(options);
+        var reference = expected.CreateScaledFont(options);
 
         var mismatches = new List<string>();
         for (var glyph = 0; glyph < expected.GlyphCount; glyph++)

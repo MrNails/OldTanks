@@ -1,7 +1,8 @@
 // Follows FreeType 2.13.2 src/cff/cffobjs.c (cff_face_init: the font matrix normalisation and the concatenation of a
 // Font DICT's matrix with the Top DICT's) and src/cff/cffgload.c (cff_slot_load: the Font DICT's matrix and scale, the
-// matrix, offset and scale applied to the outline and the advance, the metrics from the control box) (FreeType Project
-// License; credit in docs).
+// matrix, offset and scale applied to the outline and the advance, the metrics from the control box) and src/sfnt/ttmtx.c
+// (tt_face_get_metrics: the HVAR step of the advance, through src/truetype/ttgxvar.c's tt_hvadvance_adjust) (FreeType
+// Project License; credit in docs).
 
 using CoolEngine.Fonts.Hinting.Cff;
 using CoolEngine.Fonts.Sfnt;
@@ -13,7 +14,8 @@ namespace CoolEngine.Fonts.Cff;
 /// 2.13.2's CFF driver loads them with <c>FT_LOAD_NO_HINTING</c>: the charstring run by <see cref="Type2Interpreter"/> in
 /// whole font units, then the font matrix and its offset (FreeType's, normalised per face), then the size's scale through
 /// <c>FT_MulFix</c>; the advance from <c>hmtx</c> through the same matrix, offset and scale; the other metrics from the
-/// outline's control box. CFF2 glyphs are at the default instance. A glyph whose charstrings pass
+/// outline's control box. CFF2 glyphs blend at the size's variation coordinates (the default instance without them), and their
+/// advance takes <c>HVAR</c>'s delta, as FreeType's <c>cff_slot_load</c> takes it through <c>tt_face_get_metrics</c>. A glyph whose charstrings pass
 /// <see cref="Type2Interpreter.GlyphWorkBudget"/> is <see cref="NotSupportedException"/> (a library limit; FreeType runs on).
 /// Immutable; safe on any thread.
 /// </summary>
@@ -70,12 +72,12 @@ internal sealed class CffOutlineSource : IOutlineSource
         }
     }
 
-    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale)
+    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale, Variations.VariationInstance? variation)
     {
         if (options.Hinting == HintingMode.Native)
             CffHinterFactory.Create(m_face, scale);
 
-        return new CffGlyphLoader(this, scale);
+        return new CffGlyphLoader(this, scale, variation);
     }
 
     /// <summary>
@@ -107,12 +109,14 @@ internal sealed class CffOutlineSource : IOutlineSource
         private readonly FontScale m_scale;
         private readonly CffOutlineBuilder m_builder = new();
         private readonly Type2Interpreter m_interpreter;
+        private readonly Variations.VariationInstance? m_variation;
 
-        public CffGlyphLoader(CffOutlineSource source, FontScale scale)
+        public CffGlyphLoader(CffOutlineSource source, FontScale scale, Variations.VariationInstance? variation)
         {
             m_source = source;
             m_scale = scale;
-            m_interpreter = new Type2Interpreter(source.m_table, m_builder);
+            m_variation = variation;
+            m_interpreter = new Type2Interpreter(source.m_table, m_builder, variation?.Normalized);
         }
 
         /// <summary>
@@ -182,8 +186,11 @@ internal sealed class CffOutlineSource : IOutlineSource
                 yMax = Math.Max(yMax, y);
             }
 
-            // The advance: hmtx's, through the matrix (xx), the offset and the scale.
+            // The advance: hmtx's (adjusted by HVAR with variation coordinates, in 16 bits as tt_face_get_metrics keeps it),
+            // through the matrix (xx), the offset and the scale.
             long advance = m_source.m_face.Hmtx.Get(glyphIndex).Advance;
+            if (m_variation?.Tables.Hvar is { } hvar)
+                advance = (ushort)(advance + hvar.AdvanceDelta(glyphIndex, m_variation.Normalized, new GlyphWork(m_interpreter)));
             if (transform)
                 advance = CffFixed.MulFix(advance, m.Xx);
 
@@ -193,6 +200,12 @@ internal sealed class CffOutlineSource : IOutlineSource
             var outline = count == 0 ? GlyphOutline.Empty : new GlyphOutline(points, b.Contours.ToArray());
             var metrics = new GlyphMetrics((int)(xMax - xMin), (int)(yMax - yMin), (int)xMin, (int)yMax, (int)advance);
             return new LoadedGlyph(outline, metrics, false);
+        }
+
+        /// <summary>Charges the advance's <c>HVAR</c> work to the glyph's charstring budget.</summary>
+        private sealed class GlyphWork(Type2Interpreter interpreter) : Variations.IWorkCounter
+        {
+            public void Charge(long units) => interpreter.ChargeWork(units);
         }
     }
 }

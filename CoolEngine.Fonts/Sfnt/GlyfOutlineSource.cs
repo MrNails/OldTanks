@@ -1,8 +1,10 @@
 // Follows FreeType 2.13.2 src/truetype/ttgload.c (load_truetype_glyph, tt_get_metrics, TT_Process_Simple_Glyph,
-// TT_Process_Composite_Component, TT_Process_Composite_Glyph, tt_loader_set_pp, compute_glyph_metrics) and
-// src/truetype/ttmtx.c (TT_Get_VMetrics) (FreeType Project License; credit in docs).
+// TT_Process_Composite_Component, TT_Process_Composite_Glyph, tt_loader_set_pp, compute_glyph_metrics, and their variation
+// paths), src/truetype/ttmtx.c (TT_Get_VMetrics) and src/sfnt/ttmtx.c (tt_face_get_metrics with the HVAR and VVAR advance
+// adjustments) (FreeType Project License; credit in docs).
 
 using CoolEngine.Fonts.Hinting.TrueType;
+using CoolEngine.Fonts.Variations;
 
 namespace CoolEngine.Fonts.Sfnt;
 
@@ -10,6 +12,7 @@ namespace CoolEngine.Fonts.Sfnt;
 /// TrueType outlines from <c>glyf</c>, scaled to 26.6 exactly as FreeType 2.13.2's <c>ttgload.c</c> scales them: each point and
 /// each phantom point through <c>FT_MulFix</c>, composite components transformed with <c>FT_MulFix</c> on 16.16 matrices and
 /// offset in pixels, the outline shifted so the first phantom point (x minimum minus the left side bearing) is the origin.
+/// With variation coordinates, the glyph's <c>gvar</c> deltas apply before scaling, as FreeType applies them.
 /// </summary>
 internal sealed class GlyfOutlineSource : IOutlineSource
 {
@@ -17,19 +20,42 @@ internal sealed class GlyfOutlineSource : IOutlineSource
 
     public GlyfOutlineSource(FaceData face) => m_face = face;
 
-    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale)
+    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale, VariationInstance? variation)
     {
         var hinter = options.Hinting == HintingMode.Native
-            ? TrueTypeHinterFactory.Create(m_face, scale, options.Interpreter)
+            ? TrueTypeHinterFactory.Create(m_face, scale, options.Interpreter, variation)
             : null;
 
-        return new GlyfGlyphLoader(m_face, scale, hinter);
+        return new GlyfGlyphLoader(m_face, scale, hinter, variation);
     }
 }
 
 /// <summary>Loads glyphs of one face at one size; reuses its buffers, so not thread-safe.</summary>
-internal sealed class GlyfGlyphLoader : IGlyphLoader
+/// <remarks>
+/// With variation coordinates (FreeType's face after <c>FT_Set_Var_Design_Coordinates</c>, not its default instance), each
+/// glyph load follows FreeType's variation paths: the <c>hmtx</c> advance adjusted by <c>HVAR</c> (and a <c>vmtx</c> one by
+/// <c>VVAR</c>), the vertical metrics emulated from <c>MVAR</c>'s typographic ascender and descender; the glyph's <c>gvar</c>
+/// deltas (<see cref="GvarTable.ComputeDeltas"/>) added to its points and phantom points (a composite's: to its component
+/// offsets and phantom points) in font units, rounded (<c>FT_fixedToInt</c>) and unrounded (<c>FT_fixedToFdot6</c>); a simple
+/// glyph scaled from the unrounded 26.6 points (<c>(FT_MulFix(u, scale) + 32) &gt;&gt; 6</c>), even at the defaults; with
+/// <c>HVAR</c> (<c>VVAR</c>) the phantom points' deltas dropped, and a hinted simple glyph's horizontal (vertical) phantom
+/// points scaled from the unvaried ones, as FreeType does to avoid adjusting an advance twice. The variation work of one glyph
+/// load (the deltas read, the tuples' scalars, the interpolation) is charged to the hinter's glyph budget when hinting, else to
+/// <see cref="VariationWorkBudget"/>: past it, <see cref="NotSupportedException"/> (a library limit; Denys's "Glyph and size
+/// budgets", 2026-11-27).
+/// </remarks>
+internal sealed class GlyfGlyphLoader : IGlyphLoader, IWorkCounter
 {
+    /// <summary>
+    /// The variation work one unhinted glyph load may charge (see the remarks). Measured on 2026-11-27 over every variable
+    /// TrueType face of <c>C:\Windows\Fonts</c> (bahnschrift.ttf, CascadiaCode.ttf, CascadiaMono.ttf, SegUIVar.ttf, SitkaVF.ttf,
+    /// SitkaVF-Italic.ttf) and SourceSans3VF-Upright.ttf, every glyph at every named instance and each axis's extremes: the
+    /// largest was 2,539 units (SitkaVF-Italic.ttf glyph 560 at its second instance). About 100 times that is 253,900, below
+    /// Denys's floor of 1,000,000 units: so 1,000,000. (Hinted loads charge the hinter's glyph budget instead, the programs and
+    /// the variations together: at most 4,299 units measured, SitkaVF.ttf glyph 217, v40.)
+    /// </summary>
+    internal const long VariationWorkBudget = 1_000_000;
+
     private const int PhantomCount = 4;
 
     // The point arrays one composite program run copies: x, y and tags in the loader, original and unscaled x and y in the
@@ -41,6 +67,16 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
     private readonly FontScale m_scale;
     private readonly ITrueTypeHinter? m_hinter;
     private readonly SimpleGlyph m_simple = new();
+
+    // The variation coordinates, and what of them the loads read; null without coordinates.
+    private readonly VariationInstance? m_variation;
+    private readonly GvarTable? m_gvar;
+    private readonly HvarTable? m_hvar;
+    private readonly HvarTable? m_vvar;
+    private readonly DeltaScratch? m_scratch;
+    private readonly long m_variationBudget;
+    private long m_variationWork;
+    private int m_glyph;
 
     // The outline being built (FreeType's gloader base): 26.6 points, on-curve tags and contour ends.
     private long[] m_x = new long[64];
@@ -58,26 +94,40 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
     // turned hinting off with INSTCTRL.
     private bool m_hinted;
 
-    // The x minimum and y maximum of the last glyph header read in this load (FreeType's loader->bbox), which an empty
-    // glyph (no data, so no header) keeps for its phantom points.
-    private int m_bboxXMin;
-    private int m_bboxYMax;
+    public GlyfGlyphLoader(FaceData face, FontScale scale, ITrueTypeHinter? hinter, VariationInstance? variation = null)
+        : this(face, scale, hinter, variation, VariationWorkBudget)
+    {
+    }
 
-    public GlyfGlyphLoader(FaceData face, FontScale scale, ITrueTypeHinter? hinter)
+    /// <summary>A loader with another variation work budget (to measure the work real fonts take, and in tests).</summary>
+    internal GlyfGlyphLoader(FaceData face, FontScale scale, ITrueTypeHinter? hinter, VariationInstance? variation,
+        long variationBudget)
     {
         m_face = face;
         m_glyf = face.Glyf!;
         m_scale = scale;
         m_hinter = hinter;
+        m_variation = variation;
+        m_variationBudget = variationBudget;
+        if (variation is not null)
+        {
+            m_gvar = variation.Tables.Gvar;
+            m_hvar = variation.Tables.Hvar;
+            m_vvar = face.Vmtx is null ? null : variation.Tables.Vvar;
+            m_scratch = new DeltaScratch();
+        }
     }
+
+    /// <summary>The variation work the last load charged to the loader's own budget (unhinted loads; for measurements).</summary>
+    internal long VariationWork => m_variationWork;
 
     public LoadedGlyph Load(int glyphIndex)
     {
         m_pointCount = 0;
         m_contourCount = 0;
         m_overlap = false;
-        m_bboxXMin = 0;
-        m_bboxYMax = 0;
+        m_variationWork = 0;
+        m_glyph = glyphIndex;
 
         // tt_loader_init: throws when fpgm or prep failed, as FreeType fails every hinted load then.
         m_hinted = m_hinter?.BeginGlyph() ?? false;
@@ -120,6 +170,25 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         return new LoadedGlyph(outline, metrics, m_overlap);
     }
 
+    /// <summary>
+    /// Charges the load's variation work: to the hinter's glyph budget when hinting (shared with the programs), else to this
+    /// loader's own.
+    /// </summary>
+    public void Charge(long units)
+    {
+        if (m_hinter is not null)
+        {
+            m_hinter.ChargeWork(units);
+            return;
+        }
+
+        m_variationWork += units;
+        if (m_variationWork > m_variationBudget)
+            throw new NotSupportedException(
+                $"Glyph {m_glyph}'s variations take more work than this library allows for one glyph load ({m_variationBudget} " +
+                $"units; charged {m_variationWork}).");
+    }
+
     /// <summary>FreeType's <c>load_truetype_glyph</c>: appends the glyph's points and leaves its phantom points in <see cref="m_phantoms"/>.</summary>
     private void LoadGlyph(int glyphIndex, bool isTopLevel)
     {
@@ -128,17 +197,20 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         var contourCount = data.Length == 0 ? 0 : r.I16(0);
         var empty = contourCount == 0;
 
-        // A glyph with data has a header (even with 0 contours); one without keeps the box of the last header read.
-        if (data.Length > 0)
-        {
-            m_bboxXMin = r.I16(2);
-            m_bboxYMax = r.I16(8);
-        }
-
-        SetPhantoms(glyphIndex, m_bboxXMin, m_bboxYMax);
+        // load_truetype_glyph (loader->bbox): an empty glyph (no data, or a header of 0 contours) has a zero box ("a space
+        // glyph"), whatever an earlier glyph of the load or its own header says; any other takes its header's.
+        SetPhantoms(glyphIndex, empty ? 0 : r.I16(2), empty ? 0 : r.I16(8));
 
         if (empty)
         {
+            // An empty glyph varies its phantom points only (no outline, no contours).
+            if (m_variation is not null)
+            {
+                Span<long> x = [m_phantoms.X1, m_phantoms.X2, m_phantoms.X3, m_phantoms.X4];
+                Span<long> y = [m_phantoms.Y1, m_phantoms.Y2, m_phantoms.Y3, m_phantoms.Y4];
+                VaryRounded(glyphIndex, x, y, 0, []);
+            }
+
             m_phantoms = ScalePhantoms(m_phantoms);
             return;
         }
@@ -149,10 +221,16 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
             LoadComposite(data, glyphIndex, isTopLevel);
     }
 
-    /// <summary>FreeType's <c>tt_loader_set_pp</c>, in font units, with the vertical metrics emulated from <c>OS/2</c> or <c>hhea</c>.</summary>
+    /// <summary>
+    /// FreeType's <c>tt_get_metrics</c> and <c>tt_loader_set_pp</c>, in font units, with the vertical metrics emulated from
+    /// <c>OS/2</c> or <c>hhea</c>; with variation coordinates, the advances adjusted by <c>HVAR</c> and <c>VVAR</c> and the emulated
+    /// vertical metrics read from <c>MVAR</c>'s values.
+    /// </summary>
     private void SetPhantoms(int glyphIndex, int xMin, int yMax)
     {
         var (advance, bearing) = m_face.Hmtx.Get(glyphIndex);
+        if (m_hvar is not null)
+            advance = (ushort)(advance + m_hvar.AdvanceDelta(glyphIndex, m_variation!.Normalized, this));
 
         // TT_Get_VMetrics: vmtx when the face has vertical metrics, else the typographic (or hhea) ascender and descender.
         short topBearing;
@@ -160,12 +238,16 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         if (m_face.Vmtx is { } vmtx)
         {
             (advanceHeight, topBearing) = vmtx.Get(glyphIndex);
+            if (m_vvar is not null)
+                advanceHeight = (ushort)(advanceHeight + m_vvar.AdvanceDelta(glyphIndex, m_variation!.Normalized, this));
         }
         else
         {
             short ascender, descender;
             if (m_face.Os2 is { } os2)
-                (ascender, descender) = (os2.TypoAscender, os2.TypoDescender);
+                (ascender, descender) = m_variation is null
+                    ? (os2.TypoAscender, os2.TypoDescender)
+                    : (m_variation.TypoAscender, m_variation.TypoDescender);
             else
                 (ascender, descender) = (m_face.Hhea.Ascender, m_face.Hhea.Descender);
 
@@ -181,16 +263,80 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
             x3 = advance / 2;
 
         long y3 = yMax + topBearing;
-        m_phantoms = new Phantoms(x1, x1 + advance, x3, y3, x3, y3 - advanceHeight);
+        m_phantoms = new Phantoms(x1, 0, x1 + advance, 0, x3, y3, x3, y3 - advanceHeight);
     }
 
-    private Phantoms ScalePhantoms(Phantoms p) => new(
-        FixedMath.MulFix(p.X1, m_scale.XScale),
-        FixedMath.MulFix(p.X2, m_scale.XScale),
-        FixedMath.MulFix(p.X3, m_scale.XScale),
-        FixedMath.MulFix(p.Y3, m_scale.YScale),
-        FixedMath.MulFix(p.X4, m_scale.XScale),
-        FixedMath.MulFix(p.Y4, m_scale.YScale));
+    /// <summary>The phantom points scaled as <c>load_truetype_glyph</c> scales them: pp1.y and pp2.y are left as they are.</summary>
+    private Phantoms ScalePhantoms(Phantoms p) => p with
+    {
+        X1 = FixedMath.MulFix(p.X1, m_scale.XScale),
+        X2 = FixedMath.MulFix(p.X2, m_scale.XScale),
+        X3 = FixedMath.MulFix(p.X3, m_scale.XScale),
+        Y3 = FixedMath.MulFix(p.Y3, m_scale.YScale),
+        X4 = FixedMath.MulFix(p.X4, m_scale.XScale),
+        Y4 = FixedMath.MulFix(p.Y4, m_scale.YScale),
+    };
+
+    /// <summary>
+    /// <c>TT_Vary_Apply_Glyph_Deltas</c> for an empty or composite glyph: the rounded deltas added to the points in font units,
+    /// the phantom points (the last four) taken as the glyph's unless <c>HVAR</c> (<c>VVAR</c>) varies its advances.
+    /// </summary>
+    /// <param name="glyphIndex">The glyph.</param>
+    /// <param name="x">The points' x in font units, the phantom points last; changed in place.</param>
+    /// <param name="y">The points' y.</param>
+    /// <param name="pointCount">The points before the phantom points.</param>
+    /// <param name="contourEnds">The contours of those points.</param>
+    private void VaryRounded(int glyphIndex, Span<long> x, Span<long> y, int pointCount, ReadOnlySpan<int> contourEnds)
+    {
+        if (!ComputeDeltas(glyphIndex, x, y, pointCount, contourEnds))
+            return;
+
+        var scratch = m_scratch!;
+        for (var i = 0; i < pointCount + PhantomCount; i++)
+        {
+            x[i] += FixedMath.FixedToInt(scratch.DeltaX[i]);
+            y[i] += FixedMath.FixedToInt(scratch.DeltaY[i]);
+        }
+
+        TakeVariedPhantoms(x, y, pointCount);
+    }
+
+    /// <summary>The deltas of the glyph's points (phantom points last), with those of the phantom points <c>HVAR</c> or <c>VVAR</c> vary dropped.</summary>
+    private bool ComputeDeltas(int glyphIndex, ReadOnlySpan<long> x, ReadOnlySpan<long> y, int pointCount, ReadOnlySpan<int> contourEnds)
+    {
+        if (m_gvar is null)
+            return false;
+
+        var count = pointCount + PhantomCount;
+        var scratch = m_scratch!;
+        if (!m_gvar.ComputeDeltas(glyphIndex, m_variation!.Normalized, x, y, count, contourEnds, scratch, this))
+            return false;
+
+        if (m_hvar is not null)
+        {
+            scratch.DeltaX[count - 4] = scratch.DeltaY[count - 4] = 0;
+            scratch.DeltaX[count - 3] = scratch.DeltaY[count - 3] = 0;
+        }
+
+        if (m_vvar is not null)
+        {
+            scratch.DeltaX[count - 2] = scratch.DeltaY[count - 2] = 0;
+            scratch.DeltaX[count - 1] = scratch.DeltaY[count - 1] = 0;
+        }
+
+        return true;
+    }
+
+    /// <summary>The end of <c>TT_Vary_Apply_Glyph_Deltas</c>: the loader's phantom points from the varied points, unless HVAR or VVAR.</summary>
+    private void TakeVariedPhantoms(ReadOnlySpan<long> x, ReadOnlySpan<long> y, int pointCount)
+    {
+        var n = pointCount;
+        if (m_hvar is null)
+            m_phantoms = m_phantoms with { X1 = x[n], Y1 = y[n], X2 = x[n + 1], Y2 = y[n + 1] };
+
+        if (m_vvar is null)
+            m_phantoms = m_phantoms with { X3 = x[n + 2], Y3 = y[n + 2], X4 = x[n + 3], Y4 = y[n + 3] };
+    }
 
     /// <summary>FreeType's <c>TT_Load_Simple_Glyph</c> and <c>TT_Process_Simple_Glyph</c>.</summary>
     private void LoadSimple(ReadOnlySpan<byte> data, int glyphIndex)
@@ -200,7 +346,7 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         var n = glyph.PointCount;
         var total = n + PhantomCount;
 
-        // Scale every point and the phantom points (pp1.y and pp2.y are 0).
+        // The points and the phantom points in font units.
         var x = new long[total];
         var y = new long[total];
         long[]? unscaledX = m_hinted ? new long[total] : null;
@@ -212,10 +358,37 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         }
 
         var p = m_phantoms;
-        (x[n], y[n]) = (p.X1, 0);
-        (x[n + 1], y[n + 1]) = (p.X2, 0);
+        (x[n], y[n]) = (p.X1, p.Y1);
+        (x[n + 1], y[n + 1]) = (p.X2, p.Y2);
         (x[n + 2], y[n + 2]) = (p.X3, p.Y3);
         (x[n + 3], y[n + 3]) = (p.X4, p.Y4);
+
+        // Deltas apply to the unscaled data: rounded to the points, unrounded (26.6) to what is scaled.
+        long[]? unroundedX = null, unroundedY = null;
+        if (m_variation is not null)
+        {
+            unroundedX = new long[total];
+            unroundedY = new long[total];
+            for (var i = 0; i < total; i++)
+            {
+                unroundedX[i] = x[i] * 64;
+                unroundedY[i] = y[i] * 64;
+            }
+
+            if (ComputeDeltas(glyphIndex, x, y, n, glyph.ContourEnds.AsSpan(0, glyph.ContourCount)))
+            {
+                var scratch = m_scratch!;
+                for (var i = 0; i < total; i++)
+                {
+                    unroundedX[i] += FixedMath.FixedToFdot6(scratch.DeltaX[i]);
+                    unroundedY[i] += FixedMath.FixedToFdot6(scratch.DeltaY[i]);
+                    x[i] += FixedMath.FixedToInt(scratch.DeltaX[i]);
+                    y[i] += FixedMath.FixedToInt(scratch.DeltaY[i]);
+                }
+
+                TakeVariedPhantoms(x, y, n);
+            }
+        }
 
         if (unscaledX is not null)
         {
@@ -223,18 +396,46 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
             Array.Copy(y, unscaledY!, total);
         }
 
-        for (var i = 0; i < total; i++)
+        // Scale every point and the phantom points: a varied glyph from its unrounded 26.6 coordinates.
+        if (unroundedX is not null)
         {
-            x[i] = FixedMath.MulFix(x[i], m_scale.XScale);
-            y[i] = FixedMath.MulFix(y[i], m_scale.YScale);
+            for (var i = 0; i < total; i++)
+            {
+                x[i] = (FixedMath.MulFix(unroundedX[i], m_scale.XScale) + 32) >> 6;
+                y[i] = (FixedMath.MulFix(unroundedY![i], m_scale.YScale) + 32) >> 6;
+            }
+        }
+        else
+        {
+            for (var i = 0; i < total; i++)
+            {
+                x[i] = FixedMath.MulFix(x[i], m_scale.XScale);
+                y[i] = FixedMath.MulFix(y[i], m_scale.YScale);
+            }
         }
 
         var tags = new byte[total];
         for (var i = 0; i < n; i++)
             tags[i] = (byte)(glyph.Flags[i] & GlyfTable.OnCurvePoint);
 
-        var scaled = new Phantoms(x[n], x[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
-        m_phantoms = scaled;
+        // The phantom points: the scaled ones, except that with HVAR (VVAR) a hinted load scales the unvaried pp1 and pp2 (pp3
+        // and pp4) instead.
+        var phantoms = new Phantoms(x[n], y[n], x[n + 1], y[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
+        if (m_hinted && m_hvar is not null)
+            phantoms = phantoms with
+            {
+                X1 = FixedMath.MulFix(m_phantoms.X1, m_scale.XScale), Y1 = m_phantoms.Y1,
+                X2 = FixedMath.MulFix(m_phantoms.X2, m_scale.XScale), Y2 = m_phantoms.Y2,
+            };
+
+        if (m_hinted && m_vvar is not null)
+            phantoms = phantoms with
+            {
+                X3 = FixedMath.MulFix(m_phantoms.X3, m_scale.XScale), Y3 = FixedMath.MulFix(m_phantoms.Y3, m_scale.YScale),
+                X4 = FixedMath.MulFix(m_phantoms.X4, m_scale.XScale), Y4 = FixedMath.MulFix(m_phantoms.Y4, m_scale.YScale),
+            };
+
+        m_phantoms = phantoms;
 
         if (m_hinted)
         {
@@ -242,7 +443,7 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
                 glyph.ContourCount);
             var instructions = data.Slice(glyph.InstructionOffset, glyph.InstructionLength);
             if (m_hinter!.HintGlyph(zone, instructions, isComposite: false))
-                m_phantoms = new Phantoms(x[n], x[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
+                m_phantoms = new Phantoms(x[n], y[n], x[n + 1], y[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
         }
 
         if ((glyph.Flags[0] & GlyfTable.OverlapSimple) != 0)
@@ -272,6 +473,9 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         if (isTopLevel && (components[0].Flags & GlyfTable.OverlapCompound) != 0)
             m_overlap = true;
 
+        if (m_variation is not null)
+            VaryComposite(glyphIndex, components);
+
         m_phantoms = ScalePhantoms(m_phantoms);
 
         var startPoint = m_pointCount;
@@ -298,6 +502,39 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         if (m_hinted && (last.Flags & GlyfTable.WeHaveInstructions) != 0 && instructionBytes.Length > 0 &&
             m_pointCount > startPoint)
             HintComposite(startPoint, startContour, instructionBytes);
+    }
+
+    /// <summary>
+    /// The variation step of <c>load_truetype_glyph</c>'s composite branch: one point per component record (its two arguments)
+    /// and the phantom points, each component a contour of its own; the deltas give each offset component (ARGS_ARE_XY_VALUES)
+    /// new arguments, kept in 16 bits as FreeType keeps them, and the glyph new phantom points.
+    /// </summary>
+    private void VaryComposite(int glyphIndex, List<GlyphComponent> components)
+    {
+        var limit = components.Count;
+        var x = new long[limit + PhantomCount];
+        var y = new long[limit + PhantomCount];
+        var contours = new int[limit];
+        for (var i = 0; i < limit; i++)
+        {
+            x[i] = components[i].Argument1;
+            y[i] = components[i].Argument2;
+            contours[i] = i;
+        }
+
+        var p = m_phantoms;
+        (x[limit], y[limit]) = (p.X1, p.Y1);
+        (x[limit + 1], y[limit + 1]) = (p.X2, p.Y2);
+        (x[limit + 2], y[limit + 2]) = (p.X3, p.Y3);
+        (x[limit + 3], y[limit + 3]) = (p.X4, p.Y4);
+
+        VaryRounded(glyphIndex, x, y, limit, contours);
+
+        for (var i = 0; i < limit; i++)
+        {
+            if ((components[i].Flags & GlyfTable.ArgsAreXyValues) != 0)
+                components[i] = components[i] with { Argument1 = (short)x[i], Argument2 = (short)y[i] };
+        }
     }
 
     /// <summary>FreeType's <c>TT_Process_Composite_Component</c>: transform, then offset, the points of the component just loaded.</summary>
@@ -384,8 +621,8 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
             tags[i] &= unchecked((byte)~0x18);
 
         var p = m_phantoms;
-        (x[n], y[n]) = (p.X1, 0);
-        (x[n + 1], y[n + 1]) = (p.X2, 0);
+        (x[n], y[n]) = (p.X1, p.Y1);
+        (x[n + 1], y[n + 1]) = (p.X2, p.Y2);
         (x[n + 2], y[n + 2]) = (p.X3, p.Y3);
         (x[n + 3], y[n + 3]) = (p.X4, p.Y4);
 
@@ -401,7 +638,7 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
         Array.Copy(y, 0, m_y, startPoint, n);
         Array.Copy(tags, 0, m_tags, startPoint, n);
         if (takePhantoms)
-            m_phantoms = new Phantoms(x[n], x[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
+            m_phantoms = new Phantoms(x[n], y[n], x[n + 1], y[n + 1], x[n + 2], y[n + 2], x[n + 3], y[n + 3]);
     }
 
     private void EnsurePoints(int count)
@@ -421,6 +658,9 @@ internal sealed class GlyfGlyphLoader : IGlyphLoader
             Array.Resize(ref m_contours, Math.Max(count, m_contours.Length * 2));
     }
 
-    /// <summary>pp1 = (X1, 0), pp2 = (X2, 0), pp3 = (X3, Y3), pp4 = (X4, Y4).</summary>
-    private readonly record struct Phantoms(long X1, long X2, long X3, long Y3, long X4, long Y4);
+    /// <summary>
+    /// pp1 = (X1, Y1), pp2 = (X2, Y2), pp3 = (X3, Y3), pp4 = (X4, Y4); pp1.y and pp2.y are 0 unless a <c>gvar</c> delta moves
+    /// them (FreeType keeps them, unscaled, as it keeps them).
+    /// </summary>
+    private readonly record struct Phantoms(long X1, long Y1, long X2, long Y2, long X3, long Y3, long X4, long Y4);
 }

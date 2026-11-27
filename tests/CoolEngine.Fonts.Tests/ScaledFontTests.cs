@@ -443,6 +443,76 @@ public sealed class ScaledFontTests
     private static byte[] NotdefOnly(byte[] font) =>
         CraftedFonts.WithGlyphs(font, CraftedFonts.ReadGlyphs(font).Select((glyph, index) => index == 0 ? glyph : []).ToList());
 
+    /// <summary>
+    /// FreeType zeroes the loader's box for an empty glyph (no data, or a header of 0 contours: "a space glyph"), so an empty
+    /// USE_MY_METRICS component sets pp1 at minus its left side bearing whatever box came before: three layouts (an empty
+    /// glyph after another component; a 0-contour glyph whose header has a box; an empty component first, in a composite with
+    /// its own box), unhinted and hinted (v40), at many sizes, equal to FreeType.
+    /// </summary>
+    [Test]
+    public void GetOutline_EmptyUseMyMetricsComponents_BoxZeroedAsFreeType()
+    {
+        var arial = CraftedFonts.Arial();
+        var face0 = FontLoader.Load(arial).Faces[0];
+        var h = face0.GetGlyphIndex('H');
+        var space = face0.GetGlyphIndex(' ');
+        var count = face0.GlyphCount;
+        var zeroContours = new BigEndianWriter().U16(0).U16(37).U16(-5 & 0xFFFF).U16(480).U16(700).U16(0).ToArray();
+        var afterOther = Composite(0, (0x0001 | 0x0002, h), (0x0002 | 0x0200, space));
+        var withHeader = Composite(0, (0x0001 | 0x0002, h), (0x0002 | 0x0200, count));
+        var emptyFirst = Composite(77, (0x0002 | 0x0200, space), (0x0001 | 0x0002, h));
+        var (font, first) = CraftedFonts.AppendGlyphs(arial, 2, 0, zeroContours, afterOther, withHeader, emptyFirst);
+        var face = FontLoader.Load(font).Faces[0];
+        var reports = new List<string>();
+        var compared = 0;
+        using var freeType = new FreeTypeVariations();
+        foreach (var hinting in new[] { false, true })
+        {
+            foreach (var size in new[] { 7, 9, 11, 12, 13, 16, 17, 23, 32, 41, 72 })
+            {
+                using var reference = freeType.Open(font, 0, null, size);
+                var ours = face.CreateScaledFont(new ScaledFontOptions(size) { Hinting = hinting ? HintingMode.Native : HintingMode.None });
+                for (var g = first; g < first + 4; g++)
+                {
+                    var error = reference.TryLoad(g, hinting, render: false, out var expected);
+                    var outline = ours.GetOutline(g);
+                    var metrics = ours.GetMetrics(g);
+                    var difference = error != FreeTypeSharp.FT_Error.FT_Err_Ok ? $"FreeType {error}" : Compare(outline, expected!.Outline);
+                    if (difference is null && metrics != expected!.Metrics)
+                        difference = $"{metrics}, FreeType {expected.Metrics}";
+
+                    compared++;
+                    if (difference is not null)
+                        reports.Add($"{(hinting ? "hinted" : "unhinted")} {size}px glyph {g - first}: {difference}");
+                }
+            }
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reports, Is.Empty);
+            Assert.That(compared, Is.EqualTo(2 * 11 * 4));
+        });
+
+        // A composite (box 0, 0 to 1400, 1400) of the components (flags, glyph), each at offset (0, 0).
+        static byte[] Composite(int xMin, params (int Flags, int Glyph)[] components)
+        {
+            var w = new BigEndianWriter().U16(0xFFFF).U16(xMin).U16(0).U16(1400).U16(1400);
+            for (var i = 0; i < components.Length; i++)
+            {
+                var (flags, glyph) = components[i];
+                flags |= i < components.Length - 1 ? 0x0020 : 0;
+                w.U16(flags).U16(glyph);
+                if ((flags & 0x0001) != 0)
+                    w.U16(0).U16(0);
+                else
+                    w.U8(0).U8(0);
+            }
+
+            return w.ToArray();
+        }
+    }
+
     [TestCase(0)]
     [TestCase(4097)]
     public void CreateScaledFont_PixelSizeOutOfRange_Throws(int size)

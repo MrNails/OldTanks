@@ -17,6 +17,8 @@ internal static class Tags
     public const uint Cff2 = 0x43464632;  // CFF2
     public const uint Svg = 0x53564720;   // SVG
     public const uint Fvar = 0x66766172;  // fvar
+    public const uint Avar = 0x61766172;  // avar
+    public const uint Cvt = 0x63767420;   // cvt
     public const uint Ebdt = 0x45424454;  // EBDT
     public const uint Eblc = 0x45424C43;  // EBLC
     public const uint Cbdt = 0x43424454;  // CBDT

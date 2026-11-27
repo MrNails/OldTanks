@@ -47,5 +47,11 @@ internal sealed class FaceData
     /// </summary>
     public Hinting.TrueType.HdmxTable? Hdmx { get; init; }
 
+    /// <summary>
+    /// The variation tables, when the face has an <c>fvar</c> whose header FreeType accepts (the face is variable); null
+    /// otherwise. OT-4 WP5.
+    /// </summary>
+    public Variations.FaceVariations? Variations { get; init; }
+
     public int GlyphCount => Maxp.NumGlyphs;
 }

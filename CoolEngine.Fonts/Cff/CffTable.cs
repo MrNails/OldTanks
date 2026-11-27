@@ -1,5 +1,6 @@
 // What the load reads follows FreeType 2.13.2 src/cff/cffload.c (cff_font_load, cff_subfont_load, cff_charset_load,
-// cff_encoding_load, CFF_Load_FD_Select, cff_index_init, cff_vstore_load) (FreeType Project License; credit in docs).
+// cff_encoding_load, CFF_Load_FD_Select, cff_index_init, cff_vstore_load), and PrivateDictAt its cff_load_private_dict as
+// src/psaux/psfont.c (cf2_font_setup) calls it when a blend vector changes (FreeType Project License; credit in docs).
 
 using CoolEngine.Fonts.Sfnt;
 using CoolEngine.Fonts.Variations;
@@ -156,6 +157,27 @@ internal sealed class CffTable
 
     /// <summary>FreeType's <c>cff_compute_bias</c> for Type 2 charstrings.</summary>
     public static int Bias(int count) => count < 1240 ? 107 : count < 33900 ? 1131 : 32768;
+
+    /// <summary>
+    /// A CFF2 Private DICT's entries at normalized coordinates (OT-4 WP5), as FreeType's <c>cff_load_private_dict</c> parses it
+    /// again when a size's blend vector changes: each <c>blend</c> result weighed at <paramref name="coords"/> (a 16.16 value
+    /// kept in 32 bits, <see cref="DictOperandKind.Blended"/>). Only the stem-hint values change (for OT-4 WP6): the local
+    /// subroutines and <c>vsindex</c> stay those read at load, as FreeType keeps them. Empty for a Font DICT without a Private DICT.
+    /// </summary>
+    /// <param name="fontDictIndex">The Font DICT (an index of <see cref="FontDicts"/>).</param>
+    /// <param name="coords">The normalized coordinates, one per axis of the variation store.</param>
+    public List<DictEntry> PrivateDictAt(int fontDictIndex, ReadOnlySpan<long> coords)
+    {
+        var fontDict = FontDicts.Length == 0 ? Top : FontDicts[fontDictIndex];
+        if (!IsCff2 || fontDict.PrivateSize == 0)
+            return [];
+
+        // The DICT was checked at load with the same blends; its work is bounded by its size times the store's axes (each blend
+        // builds a vector of its regions over every axis).
+        var bytes = Data.Span.Slice(fontDict.PrivateOffset, fontDict.PrivateSize);
+        return CffDict.Parse(bytes, true, $"Private DICT at {fontDict.PrivateOffset}", new ParsedTables(bytes.Length, unlimited: true),
+            VariationStore, coords);
+    }
 
     /// <summary>Parses and checks the table.</summary>
     /// <param name="data">The <c>CFF </c> or <c>CFF2</c> table.</param>
@@ -385,7 +407,7 @@ internal sealed class CffTable
             }
 
             // FreeType's state is the seed's low 32 bits (FT_UInt32).
-            shared = new CffFontDict(localSubrs, vsindex, (uint)seed);
+            shared = new CffFontDict(localSubrs, vsindex, (uint)seed) { PrivateOffset = offset, PrivateSize = size };
             privates.Add((offset, size), shared);
         }
 
@@ -843,4 +865,10 @@ internal sealed record CffFontDict(CffIndex LocalSubrs, uint Vsindex, uint Rando
 
     /// <summary>The units per em the FontMatrix implies (0 without one).</summary>
     public long UnitsPerEm { get; init; }
+
+    /// <summary>Where the Private DICT lies in the table (0 with <see cref="PrivateSize"/> 0: none).</summary>
+    public int PrivateOffset { get; init; }
+
+    /// <summary>The Private DICT's length; 0 for none.</summary>
+    public int PrivateSize { get; init; }
 }

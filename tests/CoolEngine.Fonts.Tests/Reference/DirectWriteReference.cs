@@ -20,6 +20,9 @@ internal sealed class DirectWriteReference : IDisposable
         m_factory = Wrap<IDWriteFactory>(factory);
     }
 
+    /// <summary>The factory, for the variation reference (<see cref="DirectWriteVariations"/>).</summary>
+    internal IDWriteFactory Factory => m_factory ?? throw new ObjectDisposedException(nameof(DirectWriteReference));
+
     /// <summary>Opens a face of a font file (by path; DirectWrite reads it in place).</summary>
     public DirectWriteFace OpenFace(string path, int faceIndex)
     {
@@ -99,7 +102,7 @@ internal sealed class DirectWriteReference : IDisposable
     }
 
     /// <summary>Wraps a raw interface pointer; the wrapper holds its own reference, and ours is released unless <paramref name="keepCallerReference"/>.</summary>
-    private static T Wrap<T>(nint pointer, bool keepCallerReference = false)
+    internal static T Wrap<T>(nint pointer, bool keepCallerReference = false)
     {
         var wrapper = (T)s_wrappers.GetOrCreateObjectForComInstance(pointer, CreateObjectFlags.UniqueInstance);
         if (!keepCallerReference)

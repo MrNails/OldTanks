@@ -63,6 +63,8 @@ internal sealed class Type2Interpreter
     /// glyph 2299; 532 in SourceSans3-Regular.otf, 179 in ROGFonts-Regular_0.otf; the means 311, 148 and 54). About 100 times
     /// that is 114,000, below the floor of 1,000,000 units kept because the CFF corpus here is small and holds no heavy CJK
     /// glyph: so 1,000,000. A glyph refused at it has run about a million operators (about 15 ms on the test machine).
+    /// Re-measured by OT-4 WP5 at every named instance and axis extreme of SourceSans3VF-Upright.otf (the blend vector built at
+    /// the coordinates charged too; the loader's <c>HVAR</c> advance adds a few units more): the largest is still 1,140.
     /// </summary>
     internal const long GlyphWorkBudget = 1_000_000;
 
@@ -105,10 +107,22 @@ internal sealed class Type2Interpreter
     private bool m_usedBlend;
     private string? m_error;
 
-    public Type2Interpreter(CffTable table, CffOutlineBuilder builder)
+    // The normalized design vector (FreeType's NDV, 16.16) of the size's variation coordinates; null for none (the default
+    // instance: every region weighs 0). And the vsindex the cached blend vector was built for (-1: none yet).
+    private readonly long[]? m_coords;
+    private int m_builtVsindex = -1;
+
+    /// <param name="table">The checked table.</param>
+    /// <param name="builder">Receives the outline.</param>
+    /// <param name="coords">
+    /// The normalized coordinates of a variable face's size (OT-4 WP5): <c>blend</c> then weighs each region as FreeType's
+    /// <c>cff_blend_build_vector</c> does with them; null without coordinates.
+    /// </param>
+    public Type2Interpreter(CffTable table, CffOutlineBuilder builder, long[]? coords = null)
     {
         m_table = table;
         m_builder = builder;
+        m_coords = coords;
         var stackSize = table.IsCff2 ? Cff2StackSize : CffStackSize;
         m_frames = [new Frame(stackSize), new Frame(stackSize)];
 
@@ -962,7 +976,8 @@ internal sealed class Type2Interpreter
 
     /// <summary>
     /// The CFF2 <c>blend</c> operator (<c>cf2_doBlend</c>): each of the last <c>n</c> values plus its deltas weighted by the
-    /// blend vector (at the default instance every weight is 0); false when the run must stop.
+    /// blend vector (at the default instance every weight is 0; at variation coordinates, <see cref="BlendVector"/>'s); false
+    /// when the run must stop.
     /// </summary>
     private bool Blend(Frame f)
     {
@@ -1018,20 +1033,34 @@ internal sealed class Type2Interpreter
 
     /// <summary>
     /// The blend vector of a <c>vsindex</c> (FreeType's <c>cff_blend_build_vector</c>): 1 for the default master, then one
-    /// weight per region. At the default instance, which is all WP2 loads, every region weighs 0 (FreeType's vector without
-    /// design coordinates). One buffer, as FreeType keeps one vector, so memory stays at the largest vector used.
+    /// weight per region. Without variation coordinates every region weighs 0 (FreeType's vector without design coordinates);
+    /// with them, each region's scalar at the coordinates (built once per <c>vsindex</c> change, as FreeType's
+    /// <c>cff_blend_check_vector</c> rebuilds it, its work charged). One buffer, as FreeType keeps one vector, so memory stays
+    /// at the largest vector used.
     /// </summary>
     private ReadOnlySpan<int> BlendVector(uint vsindex)
     {
-        var length = m_table.VariationStore.RegionIndexCount((int)vsindex) + 1;
+        var store = m_table.VariationStore;
+        var length = store.RegionIndexCount((int)vsindex) + 1;
         if (m_blendVector.Length < length)
         {
             m_blendVector = new int[length];
             m_blendVector[0] = CffFixed.One;
+            m_builtVsindex = -1;
+        }
+
+        if (m_coords is not null && m_builtVsindex != (int)vsindex)
+        {
+            Charge((long)length * (1 + store.AxisCount));
+            store.BuildBlendVector((int)vsindex, m_coords, m_blendVector.AsSpan(0, length));
+            m_builtVsindex = (int)vsindex;
         }
 
         return m_blendVector.AsSpan(0, length);
     }
+
+    /// <summary>Charges work the glyph loader does after the run (the <c>HVAR</c> advance) to the same glyph budget.</summary>
+    internal void ChargeWork(long units) => Charge(units);
 
     /// <summary>
     /// <c>cf2_getSeacComponent</c> and the component run: the glyph whose charset SID is the Standard Encoding's for

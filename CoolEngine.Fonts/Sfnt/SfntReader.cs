@@ -111,6 +111,19 @@ namespace CoolEngine.Fonts.Sfnt;
 /// faces measured in <c>C:\Windows\Fonts</c>, both repository fonts among them, set bit 4; bits 13 to 15 are set nowhere.)
 /// </para>
 /// <para>
+/// Variations (OT-4 WP5). A face is variable when its <c>fvar</c> header passes FreeType's check (<see cref="Variations.FvarTable"/>;
+/// otherwise the face is not variable and its variation tables are not read, as in FreeType); its axis tags must be printable
+/// ASCII and distinct (<see cref="InvalidDataException"/>). A variable face's tables are then checked at load, each with its
+/// own rules and its accepted, ours-works and not-checked lists: <see cref="Variations.AvarTable"/> (version 2.0 with
+/// <c>fvar</c>'s axis count is <see cref="NotSupportedException"/>), <see cref="Variations.GvarTable"/> and
+/// <see cref="Variations.CvarTable"/> through <see cref="Variations.TupleVariations"/>; a CFF2 table's variation store must
+/// have <c>fvar</c>'s axis count. <see cref="Variations.HvarTable"/> (<c>HVAR</c>, and <c>VVAR</c> beside <c>vhea</c> and
+/// <c>vmtx</c>) and <see cref="Variations.MvarTable"/>, with their <see cref="Variations.ItemVariationStore"/> and
+/// <see cref="Variations.DeltaSetIndexMap"/>, are treated as absent when broken, as FreeType ignores them. Not checked, as
+/// nothing reads them: <c>STAT</c>, the side-bearing maps of <c>HVAR</c> and <c>VVAR</c>, the <c>MVAR</c> values this library
+/// does not apply.
+/// </para>
+/// <para>
 /// The load's work. The rules: each table record is parsed once per file (faces that share it read it with the same inputs
 /// and share one parsed copy, <see cref="ParsedTables"/>); each <c>cmap</c> subtable is checked once per offset, however
 /// many records point at it; each distinct <c>SVG </c> document is inflated once per file; and distinct tables, distinct
@@ -410,6 +423,7 @@ internal static class SfntReader
         // CFF table) or is bitmap-only.
         OutlineFormat format;
         GlyfTable? glyf = null;
+        TableRecord? glyfTableRecord = null;
         Cff.CffTable? cff = null;
         if (tables.SfntVersion == OpenTypeCffTag)
         {
@@ -438,6 +452,7 @@ internal static class SfntReader
             glyf = parsed.Get(glyfRecord,
                 new TableInputs(GlyphCount: glyphCount, IndexToLocFormat: head.IndexToLocFormat, Companion: locaRecord), faceIndex,
                 () => GlyfTable.Parse(tables.Get(Tags.Loca), tables.Get(Tags.Glyf), head.IndexToLocFormat, glyphCount, parsed));
+            glyfTableRecord = glyfRecord;
             format = OutlineFormat.TrueType;
         }
         else if (tables.Contains(Tags.Hvgl))
@@ -474,6 +489,22 @@ internal static class SfntReader
                 faceIndex, () => VmtxTable.Parse(tables.Get(VmtxTable.Tag), vhea.NumberOfLongMetrics, glyphCount));
         }
 
+        // A face is variable when its fvar header passes FreeType's check (OT-4 WP5); its variation tables are then checked.
+        // The fvar's structure is parsed once per file (no input besides its bytes); its public axes and instances, which read
+        // the face's name table, once per distinct (fvar record, name record) pair, shared by the faces with that pair.
+        Variations.FaceVariations? variations = null;
+        if (tables.TryGetRecord(Tags.Fvar, out var fvarRecord))
+        {
+            var fvar = parsed.Get(fvarRecord, none, faceIndex,
+                () => new Variations.Optional<Variations.FvarTable>(Variations.FvarTable.Parse(tables.Get(Tags.Fvar), parsed))).Value;
+            if (fvar is not null)
+            {
+                var names = parsed.GetPair(fvarRecord, nameRecord, () => fvar.BuildNames(name, parsed));
+                variations = ReadVariations(tables, faceIndex, parsed, fvar, names, format, glyf, glyfTableRecord, glyphCount, cff,
+                    vmtx is not null);
+            }
+        }
+
         return new FaceData
         {
             FaceIndex = faceIndex,
@@ -492,6 +523,80 @@ internal static class SfntReader
             OutlineFormat = format,
             Vmtx = vmtx,
             Hdmx = hdmx,
+            Variations = variations,
+        };
+    }
+
+    /// <summary>
+    /// The variation tables of a variable face (OT-4 WP5), each parsed once per file through <see cref="ParsedTables"/> with
+    /// its inputs (the axis count; <c>gvar</c> the glyph count and the <c>glyf</c> record; <c>cvar</c> the cvt size and the
+    /// <c>gvar</c> record). Read as FreeType reads them: <c>gvar</c>, <c>cvar</c> (beside a <c>cvt </c> table) and <c>VVAR</c>
+    /// (beside <c>vhea</c> and <c>vmtx</c>) only for TrueType outlines; <c>avar</c>, <c>HVAR</c> and <c>MVAR</c> for any face.
+    /// A CFF2 table's variation store must have <c>fvar</c>'s axis count (else FreeType fails every glyph that blends).
+    /// </summary>
+    private static Variations.FaceVariations ReadVariations(TableDirectory tables, int faceIndex, ParsedTables parsed,
+        Variations.FvarTable fvar, Variations.FvarNames names, OutlineFormat format, GlyfTable? glyf, TableRecord? glyfRecord, int glyphCount,
+        Cff.CffTable? cff, bool hasVerticalMetrics)
+    {
+        var axes = fvar.AxisCount;
+        var axisInputs = new TableInputs(AxisCount: axes);
+
+        if (cff is { IsCff2: true } && cff.VariationStore.DataCount > 0 && cff.VariationStore.AxisCount != axes)
+            throw new InvalidDataException(
+                $"The CFF2 variation store has {cff.VariationStore.AxisCount} axes, but 'fvar' has {axes}.");
+
+        Variations.AvarTable? avar = null;
+        if (tables.TryGetRecord(Tags.Avar, out var avarRecord))
+            avar = parsed.Get(avarRecord, axisInputs, faceIndex,
+                () => new Variations.Optional<Variations.AvarTable>(Variations.AvarTable.Parse(tables.Get(Tags.Avar).Span, axes, parsed))).Value;
+
+        Variations.GvarTable? gvar = null;
+        TableRecord? gvarRecord = null;
+        if (format == OutlineFormat.TrueType && tables.TryGetRecord(Variations.GvarTable.Tag, out var record))
+        {
+            gvarRecord = record;
+            gvar = parsed.Get(record, new TableInputs(GlyphCount: glyphCount, AxisCount: axes, Companion: glyfRecord), faceIndex,
+                () => Variations.GvarTable.Parse(tables.Get(Variations.GvarTable.Tag), axes, glyf, glyphCount, parsed));
+        }
+
+        Variations.CvarTable? cvar = null;
+        if (format == OutlineFormat.TrueType && tables.Contains(Tags.Cvt) &&
+            tables.TryGetRecord(Variations.CvarTable.Tag, out var cvarRecord))
+        {
+            var cvtEntries = tables.Get(Tags.Cvt).Length / 2;
+            cvar = parsed.Get(cvarRecord, new TableInputs(AxisCount: axes, CvtEntries: cvtEntries, Companion: gvarRecord), faceIndex,
+                () => new Variations.Optional<Variations.CvarTable>(
+                    Variations.CvarTable.Parse(tables.Get(Variations.CvarTable.Tag), axes, gvar, cvtEntries, parsed))).Value;
+        }
+
+        Variations.HvarTable? hvar = null;
+        if (tables.TryGetRecord(Variations.HvarTable.HvarTag, out var hvarRecord))
+            hvar = parsed.Get(hvarRecord, axisInputs, faceIndex,
+                () => new Variations.Optional<Variations.HvarTable>(
+                    Variations.HvarTable.Parse(tables.Get(Variations.HvarTable.HvarTag), Variations.HvarTable.HvarTag, axes, parsed))).Value;
+
+        Variations.HvarTable? vvar = null;
+        if (format == OutlineFormat.TrueType && hasVerticalMetrics && tables.TryGetRecord(Variations.HvarTable.VvarTag, out var vvarRecord))
+            vvar = parsed.Get(vvarRecord, axisInputs, faceIndex,
+                () => new Variations.Optional<Variations.HvarTable>(
+                    Variations.HvarTable.Parse(tables.Get(Variations.HvarTable.VvarTag), Variations.HvarTable.VvarTag, axes, parsed))).Value;
+
+        Variations.MvarTable? mvar = null;
+        if (tables.TryGetRecord(Variations.MvarTable.Tag, out var mvarRecord))
+            mvar = parsed.Get(mvarRecord, axisInputs, faceIndex,
+                () => new Variations.Optional<Variations.MvarTable>(
+                    Variations.MvarTable.Parse(tables.Get(Variations.MvarTable.Tag), axes, parsed))).Value;
+
+        return new Variations.FaceVariations
+        {
+            Fvar = fvar,
+            Names = names,
+            Avar = avar,
+            Gvar = gvar,
+            Cvar = cvar,
+            Hvar = hvar,
+            Vvar = vvar,
+            Mvar = mvar,
         };
     }
 }

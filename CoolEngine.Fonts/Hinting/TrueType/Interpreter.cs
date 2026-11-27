@@ -217,14 +217,17 @@ internal sealed partial class Interpreter
     public bool IsComposite { get; set; }
 
     /// <summary>
-    /// A hook for OT-4 WP5 (variations): whether the face has a blend, which turns on GETINFO bit 10, GETVARIATION and GETDATA.
-    /// Nothing sets it yet, so every face runs as FreeType 2.13.2 runs a face without a blend (measured identical on every
-    /// variable font of the corpus at its default instance).
+    /// Whether the face has a blend (FreeType's <c>face->blend</c>), which turns on GETINFO bit 10, GETVARIATION and GETDATA:
+    /// set when the size has variation coordinates (OT-4 WP5), as FreeType has a blend once they are set; without them every
+    /// face runs as FreeType runs a face without a blend.
     /// </summary>
     public bool HasBlend { get; set; }
 
-    /// <summary>A hook for OT-4 WP5: the number of variation axes GETVARIATION pushes when <see cref="HasBlend"/>.</summary>
+    /// <summary>The number of variation axes GETVARIATION pushes when <see cref="HasBlend"/>.</summary>
     public int AxisCount { get; set; }
+
+    /// <summary>The normalized coordinates (16.16) GETVARIATION pushes in 2.14 when <see cref="HasBlend"/>.</summary>
+    public long[] VariationCoordinates { get; set; } = [];
 
     /// <summary>The work charged since <see cref="SetWorkBudget"/>: see <see cref="Charge"/>.</summary>
     public long Work => m_work;

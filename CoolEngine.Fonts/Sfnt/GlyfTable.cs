@@ -86,6 +86,27 @@ internal sealed class GlyfTable
         m_glyf.Span[m_offsets[glyphIndex]..m_offsets[glyphIndex + 1]];
 
     /// <summary>
+    /// The points a <c>gvar</c> tuple of this glyph varies before its four phantom points (OT-4 WP5): a simple glyph's points, a
+    /// composite's component records, none for an empty glyph. The glyph was checked at load.
+    /// </summary>
+    public int VariationPointCount(int glyphIndex)
+    {
+        var data = GetGlyph(glyphIndex);
+        if (data.Length == 0)
+            return 0;
+
+        var contourCount = BinaryPrimitives.ReadInt16BigEndian(data);
+        if (contourCount > 0)
+            return BinaryPrimitives.ReadUInt16BigEndian(data[(HeaderLength + 2 * contourCount - 2)..]) + 1;
+
+        if (contourCount == 0)
+            return 0;
+
+        ReadComposite(data, glyphIndex, m_offsets.Length - 1, null, out var count);
+        return count;
+    }
+
+    /// <summary>
     /// Reads a simple glyph (<c>numberOfContours</c> &gt; 0). With <paramref name="buffer"/> null it only checks the structure.
     /// </summary>
     /// <returns>The number of points.</returns>

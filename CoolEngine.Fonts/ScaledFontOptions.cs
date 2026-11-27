@@ -15,6 +15,10 @@ public sealed record ScaledFontOptions(int PixelSize)
     /// <summary>The TrueType interpreter mode used with <see cref="HintingMode.Native"/>; ignored for CFF faces.</summary>
     public TrueTypeInterpreterVersion Interpreter { get; init; } = TrueTypeInterpreterVersion.V40;
 
-    /// <summary>User-space axis values; an axis not listed stays at its default.</summary>
+    /// <summary>
+    /// User-space axis values; an axis not listed stays at its default. Empty (the default): the face's default instance
+    /// without a blend, as FreeType's face before any variation call; any value, even a default one, gives the face a blend, as
+    /// <c>FT_Set_Var_Design_Coordinates</c> does (see <see cref="FontFace.CreateScaledFont"/>).
+    /// </summary>
     public IReadOnlyList<VariationCoordinate> Variation { get; init; } = [];
 }

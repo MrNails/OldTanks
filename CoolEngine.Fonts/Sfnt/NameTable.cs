@@ -109,9 +109,22 @@ internal sealed class NameTable
 
     /// <summary>
     /// The name with this ID, chosen and converted as FreeType does; null when there is none. Only the family and subfamily IDs
-    /// a face reads (1, 2, 16, 17, 21, 22) are kept; any other ID gives null.
+    /// a face reads (1, 2, 16, 17, 21, 22) and those <see cref="DecodeMore"/> added are kept; any other ID gives null.
     /// </summary>
     public string? Get(ushort nameId) => m_names.GetValueOrDefault(nameId);
+
+    /// <summary>
+    /// Decodes more name IDs at load (OT-4 WP5: the axis and instance names of a variable face's <c>fvar</c>), each once,
+    /// however many faces of the file ask for it.
+    /// </summary>
+    public void DecodeMore(IEnumerable<ushort> nameIds, ParsedTables parsed)
+    {
+        foreach (var nameId in nameIds)
+        {
+            if (!m_names.ContainsKey(nameId))
+                m_names[nameId] = Decode(nameId, parsed);
+        }
+    }
 
     private string? Decode(ushort nameId, ParsedTables parsed)
     {

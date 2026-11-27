@@ -24,7 +24,8 @@ public sealed class ScaledFont
 
     private readonly IGlyphLoader m_loader;
 
-    internal ScaledFont(FontFace face, ScaledFontOptions options, FontScale scale, IGlyphLoader loader)
+    internal ScaledFont(FontFace face, ScaledFontOptions options, FontScale scale, IGlyphLoader loader,
+        Variations.VariationInstance? variation = null)
     {
         Face = face;
         Options = options;
@@ -32,10 +33,15 @@ public sealed class ScaledFont
         m_loader = loader;
 
         // FreeType's ft_recompute_scaled_metrics with GRID_FIT_METRICS: the size metrics are the same with and without hinting.
+        // With variation coordinates, the face's ascender, descender and height after MVAR (tt_apply_mvar), as FreeType's face
+        // has them when FT_Set_Pixel_Sizes follows FT_Set_Var_Design_Coordinates.
+        var (ascender, descender, height) = variation is null
+            ? (face.Ascender, face.Descender, face.Height)
+            : (variation.Ascender, variation.Descender, variation.Height);
         LineMetrics = new LineMetrics(
-            (int)FixedMath.PixCeil(FixedMath.MulFix(face.Ascender, scale.YScale)),
-            (int)FixedMath.PixFloor(FixedMath.MulFix(face.Descender, scale.YScale)),
-            (int)FixedMath.PixRound(FixedMath.MulFix(face.Height, scale.YScale)),
+            (int)FixedMath.PixCeil(FixedMath.MulFix(ascender, scale.YScale)),
+            (int)FixedMath.PixFloor(FixedMath.MulFix(descender, scale.YScale)),
+            (int)FixedMath.PixRound(FixedMath.MulFix(height, scale.YScale)),
             (int)FixedMath.PixRound(FixedMath.MulFix(face.MaxAdvanceWidth, scale.XScale)));
     }
 

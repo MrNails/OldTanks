@@ -1,5 +1,5 @@
-// ReadNames and ReadLineMetrics follow FreeType 2.13.2 src/sfnt/sfobjs.c (sfnt_load_face) (FreeType Project License;
-// credit in docs).
+// ReadNames and ReadLineMetrics follow FreeType 2.13.2 src/sfnt/sfobjs.c (sfnt_load_face); Axes and NamedInstances are
+// src/truetype/ttgxvar.c's TT_Get_MM_Var, as Variations/FvarTable.cs reads it (FreeType Project License; credit in docs).
 
 using CoolEngine.Fonts.Cff;
 using CoolEngine.Fonts.Sfnt;
@@ -30,6 +30,7 @@ public sealed class FontFace
         (FamilyName, StyleName) = ReadNames(data);
         (Ascender, Descender, Height) = ReadLineMetrics(data);
         MaxAdvanceWidth = (short)data.Hhea.AdvanceWidthMax;
+        (Axes, NamedInstances) = ReadVariations(data);
     }
 
     /// <summary>The face's index in its file (0 unless the file is a collection).</summary>
@@ -65,8 +66,11 @@ public sealed class FontFace
     /// <summary>The line height in font units: ascender minus descender plus the line gap, chosen like <see cref="Ascender"/>.</summary>
     public short Height { get; }
 
-    /// <summary>The face has an <c>fvar</c> table.</summary>
-    public bool IsVariable => Data.Tables.Contains(Tags.Fvar);
+    /// <summary>
+    /// The face is variable: it has an <c>fvar</c> table whose header FreeType accepts (FreeType's
+    /// <c>FT_FACE_FLAG_MULTIPLE_MASTERS</c>).
+    /// </summary>
+    public bool IsVariable => Data.Variations is not null;
 
     /// <summary>
     /// FreeType 2.13.2's <c>FT_Load_Glyph</c> with default flags would hand this face to its auto-hinter: a TrueType face
@@ -81,15 +85,21 @@ public sealed class FontFace
         && Data.Tables.Get(0x70726570).Length == 0   // prep
         && !Hinting.TrueType.TrickyFonts.IsTricky(Data);
 
-    /// <summary>The variation axes; empty for a face that is not variable.</summary>
-    /// <exception cref="NotSupportedException">The face is variable: the axes come with OT-4 WP5.</exception>
-    public IReadOnlyList<VariationAxis> Axes =>
-        IsVariable ? throw new NotSupportedException("Variations: OT-4 WP5") : [];
+    /// <summary>
+    /// The variation axes from <c>fvar</c>, in its order (FreeType's <c>FT_MM_Var</c> axes: an axis whose minimum, default and
+    /// maximum are out of order has its default as all three); empty for a face that is not variable. The name is chosen and
+    /// converted as <see cref="FamilyName"/> is (empty when the <c>name</c> table has none).
+    /// </summary>
+    public IReadOnlyList<VariationAxis> Axes { get; }
 
-    /// <summary>The named instances; empty for a face that is not variable.</summary>
-    /// <exception cref="NotSupportedException">The face is variable: the instances come with OT-4 WP5.</exception>
-    public IReadOnlyList<NamedInstance> NamedInstances =>
-        IsVariable ? throw new NotSupportedException("Variations: OT-4 WP5") : [];
+    /// <summary>
+    /// The named instances from <c>fvar</c>, in its order; empty for a face that is not variable. Unlike FreeType, which adds
+    /// a synthesized default instance when no named instance lies at the defaults, only the table's instances are listed. The
+    /// name is chosen and converted as <see cref="FamilyName"/> is (empty when the <c>name</c> table has none). For a face with
+    /// CFF (not CFF2) outlines, these are listed though FreeType exposes none (it resets the count, and then fails
+    /// <c>FT_Get_MM_Var</c> and <c>FT_Set_Var_Design_Coordinates</c> for such a face).
+    /// </summary>
+    public IReadOnlyList<NamedInstance> NamedInstances { get; }
 
     internal FaceData Data { get; }
 
@@ -132,13 +142,25 @@ public sealed class FontFace
 
     /// <summary>Makes a sized font. Each <see cref="ScaledFont"/> holds hinting state: use one per thread.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is null.</exception>
+    /// <remarks>
+    /// With <see cref="ScaledFontOptions.Variation"/> empty the face is at its default instance without a blend, as a FreeType
+    /// face on which no variation function was called. With coordinates (even the defaults) it behaves as FreeType's face after
+    /// <c>FT_Set_Var_Design_Coordinates</c> with every axis given (each axis not listed at its default) and then
+    /// <c>FT_Set_Pixel_Sizes</c>: see <see cref="Variations.VariationInstance"/>.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">
     /// The pixel size is outside 1..4096, the hinting mode or interpreter version is undefined, or a variation coordinate names
-    /// an axis the face does not have.
+    /// an axis the face does not have, names one twice or has a value that is not finite.
     /// </exception>
     /// <exception cref="NotSupportedException">
-    /// The face is variable and coordinates are given (OT-4 WP5), or <see cref="HintingMode.Native"/> is asked of a TrueType
-    /// face (OT-4 WP4).
+    /// <see cref="HintingMode.Native"/> is asked of a CFF or CFF2 face (OT-4 WP6); variation coordinates are given for a variable
+    /// face with CFF (not CFF2) outlines, a library limit (FreeType varies only such a face's <c>HVAR</c> advances and
+    /// <c>MVAR</c> metrics, its outlines staying the default's, and refuses the coordinates when its <c>fvar</c> has named
+    /// instances); a work budget of the library is passed.
+    /// </exception>
+    /// <exception cref="InvalidDataException">
+    /// The face's <c>avar</c> maps the coordinates outside -1..1, which FreeType refuses (<c>FT_Set_Var_Design_Coordinates</c>
+    /// fails).
     /// </exception>
     public ScaledFont CreateScaledFont(ScaledFontOptions options)
     {
@@ -155,18 +177,23 @@ public sealed class FontFace
             throw new ArgumentOutOfRangeException(nameof(options), options.Interpreter, "Unknown interpreter version.");
 
         ArgumentNullException.ThrowIfNull(options.Variation, nameof(options.Variation));
+        Variations.VariationInstance? variation = null;
         if (options.Variation.Count > 0)
         {
-            if (!IsVariable)
+            if (Data.Variations is not { } tables)
                 throw new ArgumentOutOfRangeException(nameof(options), options.Variation[0].Tag,
                     "The face is not variable, so it has no variation axes.");
 
-            throw new NotSupportedException("Variations: OT-4 WP5");
+            variation = Variations.VariationInstance.Create(this, tables, options.Variation);
+            if (OutlineFormat == OutlineFormat.Cff)
+                throw new NotSupportedException(
+                    "Variation coordinates for a face with CFF (not CFF2) outlines are not supported: FreeType varies only its " +
+                    "HVAR advances and MVAR metrics, and refuses the coordinates when its 'fvar' has named instances.");
         }
 
         var scale = FontScale.FromPixelSize(options.PixelSize, UnitsPerEm);
 
-        return new ScaledFont(this, options, scale, m_outlines.CreateLoader(options, scale));
+        return new ScaledFont(this, options, scale, m_outlines.CreateLoader(options, scale, variation), variation);
     }
 
     internal void CheckGlyphIndex(int glyphIndex)
@@ -195,6 +222,14 @@ public sealed class FontFace
 
         return (family ?? "", style ?? "");
     }
+
+    /// <summary>
+    /// The axes and named instances of a variable face's <c>fvar</c>, as FreeType's <c>TT_Get_MM_Var</c> reads them: the
+    /// read-only lists the file's load built once for the face's (<c>fvar</c>, <c>name</c>) records, shared by every face
+    /// reading the same pair.
+    /// </summary>
+    private static (IReadOnlyList<VariationAxis>, IReadOnlyList<NamedInstance>) ReadVariations(FaceData data) =>
+        data.Variations is { } variations ? (variations.Names.Axes, variations.Names.Instances) : ([], []);
 
     /// <summary>FreeType's <c>sfnt_load_face</c> choice of ascender, descender and height (each a signed 16-bit value).</summary>
     private static (short Ascender, short Descender, short Height) ReadLineMetrics(FaceData data)

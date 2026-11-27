@@ -290,11 +290,12 @@ internal sealed partial class Interpreter
 
             case 0x8E: InsInstCtrl(a); break;
 
-            case 0x91:              // GETVARIATION: the default instance's normalised coordinates are all 0
+            case 0x91:              // GETVARIATION: the normalised coordinates, 16.16 to 2.14
                 if (HasBlend)
                 {
+                    Charge(AxisCount);
                     for (var i = 0; i < AxisCount; i++)
-                        s[a + i] = 0;
+                        s[a + i] = i < VariationCoordinates.Length ? VariationCoordinates[i] >> 2 : 0;
                 }
                 else
                 {

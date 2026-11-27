@@ -135,6 +135,44 @@ public sealed class WoffDecoderTests
         });
     }
 
+    /// <summary>
+    /// The CFF and CFF2 copies (OT-4 WP5, now that CFF outlines exist): every glyph's outline and metrics equal the matching
+    /// OTF's loaded here (itself compared with FreeType glyph by glyph) and FreeType's from the same bytes.
+    /// </summary>
+    [TestCaseSource(nameof(CffWoffFiles))]
+    public void Load_EveryCffWoff_OutlinesEqualTheMatchingOtfAndFreeType(string path)
+    {
+        var file = FontCache.Bytes(path);
+        var face = FontLoader.Load(file).Faces[0];
+        var otf = FontCache.File(path[..path.LastIndexOf('.')]).Faces[0];
+        using var reference = m_freeType.OpenFace(file, 0);
+        reference.SetPixelSize(16);
+        var options = new ScaledFontOptions(16) { Hinting = HintingMode.None };
+        var font = face.CreateScaledFont(options);
+        var matching = otf.CreateScaledFont(options);
+
+        var mismatches = new List<string>();
+        for (var glyph = 0; glyph < face.GlyphCount; glyph++)
+        {
+            var expected = reference.LoadGlyph(glyph, hinting: false, render: false);
+            var outline = font.GetOutline(glyph);
+            if (!outline.Points.Span.SequenceEqual(expected.Outline.Points) || !outline.ContourEndPoints.Span.SequenceEqual(expected.Outline.ContourEnds))
+                mismatches.Add($"glyph {glyph}: outline differs from FreeType's");
+
+            if (!outline.Points.Span.SequenceEqual(matching.GetOutline(glyph).Points.Span))
+                mismatches.Add($"glyph {glyph}: outline differs from the OTF's");
+
+            if (font.GetMetrics(glyph) != expected.Metrics || font.GetMetrics(glyph) != matching.GetMetrics(glyph))
+                mismatches.Add($"glyph {glyph}: metrics {font.GetMetrics(glyph)}, FreeType {expected.Metrics}, OTF {matching.GetMetrics(glyph)}");
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(mismatches, Is.Empty, string.Join("; ", mismatches.Take(10)));
+            Assert.That(face.GlyphCount, Is.EqualTo(otf.GlyphCount));
+        });
+    }
+
     [TestCaseSource(nameof(CffWoffFiles))]
     public void Load_EveryCffWoff_PropertiesAndCharacterMapEqualFreeTypeFromSameBytes(string path)
     {

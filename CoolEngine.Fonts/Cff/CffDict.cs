@@ -35,12 +35,19 @@ internal interface IBlendRegions
 
     /// <summary>The regions entry <paramref name="vsindex"/> blends.</summary>
     int RegionIndexCount(int vsindex);
+
+    /// <summary>
+    /// FreeType's <c>cff_blend_build_vector</c> at normalized coordinates (OT-4 WP5): 1 for the default master, then each
+    /// region's weight, 16.16.
+    /// </summary>
+    void BuildBlendVector(int vsindex, ReadOnlySpan<long> coords, Span<int> weights);
 }
 
 /// <summary>
 /// The CFF and CFF2 DICT tokenizer: operands and operators as FreeType's <c>cff_parser_run</c> tokenizes them, with the CFF2
 /// <c>blend</c> of a Private DICT applied at the default instance (every delta weighted 0, as FreeType's blend vector is
-/// without design coordinates).
+/// without design coordinates) or, given normalized coordinates, at those (FreeType's <c>cff_load_private_dict</c> when a
+/// size's vector changes, OT-4 WP5).
 /// </summary>
 internal static class CffDict
 {
@@ -68,8 +75,10 @@ internal static class CffDict
     /// <param name="what">The DICT, for messages ("the Top DICT", "the Private DICT of Font DICT 3").</param>
     /// <param name="parsed">The file's load state: the DICT's bytes are charged, its entries reserved.</param>
     /// <param name="blend">For a CFF2 Private DICT, the variation data its <c>vsindex</c> and <c>blend</c> read; else null.</param>
+    /// <param name="coords">The normalized coordinates (16.16) <c>blend</c> weighs its deltas at; empty for the default instance.</param>
     /// <exception cref="InvalidDataException">The DICT breaks a rule (listed on <see cref="CffTable"/>).</exception>
-    public static List<DictEntry> Parse(ReadOnlySpan<byte> dict, bool isCff2, string what, ParsedTables parsed, IBlendRegions? blend)
+    public static List<DictEntry> Parse(ReadOnlySpan<byte> dict, bool isCff2, string what, ParsedTables parsed, IBlendRegions? blend,
+        ReadOnlySpan<long> coords = default)
     {
         parsed.Charge(dict.Length, "a CFF DICT of", dict.Length);
         parsed.Reserve(64 + (long)BytesPerDictByte * dict.Length, "a CFF DICT of", dict.Length);
@@ -158,7 +167,7 @@ internal static class CffDict
             }
             else if (blend is not null && code == OpBlend)
             {
-                Blend(dict, stack, vsindex, blend, what);
+                Blend(dict, stack, vsindex, blend, what, coords);
                 usedBlend = true;
                 continue; // The blended values stay on the stack.
             }
@@ -192,10 +201,12 @@ internal static class CffDict
     };
 
     /// <summary>
-    /// FreeType's <c>cff_parse_blend</c> and <c>cff_blend_doBlend</c> at the default instance: the last operand counts the
-    /// blended values; each value's deltas (one per region of the current <c>vsindex</c>) are weighted 0 and removed.
+    /// FreeType's <c>cff_parse_blend</c> and <c>cff_blend_doBlend</c>: the last operand counts the blended values; each value's
+    /// deltas (one per region of the current <c>vsindex</c>) are weighted by the blend vector (all 0 at the default instance:
+    /// <paramref name="coords"/> empty), summed with <c>FT_MulFix</c> in 64 bits, kept in 32 bits, and removed.
     /// </summary>
-    private static void Blend(ReadOnlySpan<byte> dict, List<DictOperand> stack, uint vsindex, IBlendRegions blend, string what)
+    private static void Blend(ReadOnlySpan<byte> dict, List<DictOperand> stack, uint vsindex, IBlendRegions blend, string what,
+        ReadOnlySpan<long> coords)
     {
         if (vsindex >= (uint)blend.DataCount)
             throw new InvalidDataException(
@@ -220,10 +231,18 @@ internal static class CffDict
                 $"The CFF2 table's {what} blends {numBlends} values of {lenBv} operands each, but has only {count} operands.");
 
         var first = count - (int)numOperands;
+        Span<int> weights = coords.IsEmpty ? [] : new int[(int)lenBv];
+        if (!coords.IsEmpty)
+            blend.BuildBlendVector((int)vsindex, coords, weights);
+
+        var delta = first + (int)numBlends;
         for (var i = 0; i < (int)numBlends; i++)
         {
             // At the default instance every delta weighs 0, so the blended value is the default one (in 16.16).
             var sum = CffNumbers.ParseFixed(dict, stack[first + i]);
+            for (var j = 1; j < weights.Length; j++)
+                sum += FixedMath.MulFix(CffNumbers.ParseFixed(dict, stack[delta++]), weights[j]);
+
             // FreeType stores the 16.16 sum back as a 5-byte operand: 32 bits.
             stack[first + i] = new DictOperand(DictOperandKind.Blended, stack[first + i].Position, (int)sum);
         }

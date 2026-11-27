@@ -34,7 +34,11 @@ internal interface IOutlineSource
     /// </summary>
     /// <param name="options">The size, hinting mode and interpreter version (already checked).</param>
     /// <param name="scale">The scales <paramref name="options"/> gives this face.</param>
-    IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale);
+    /// <param name="variation">
+    /// The variation coordinates of a variable face, when <see cref="ScaledFontOptions.Variation"/> gives any (FreeType's face
+    /// after <c>FT_Set_Var_Design_Coordinates</c>); null for none, as FreeType's face without a blend.
+    /// </param>
+    IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale, Variations.VariationInstance? variation);
 }
 
 /// <summary>Loads glyphs at one size; one per <see cref="ScaledFont"/>, not thread-safe.</summary>

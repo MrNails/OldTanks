@@ -1,5 +1,6 @@
-// Follows FreeType 2.13.2 src/base/ftcalc.c (FT_MulFix, FT_DivFix), src/base/fttrigon.c (FT_Vector_Length, behind
-// FT_Hypot) and the FT_PIX_* macros of include/freetype/internal/ftobjs.h (FreeType Project License; credit in docs).
+// Follows FreeType 2.13.2 src/base/ftcalc.c (FT_MulFix, FT_DivFix, FT_MulDiv), src/base/fttrigon.c (FT_Vector_Length, behind
+// FT_Hypot), the FT_PIX_* macros of include/freetype/internal/ftobjs.h and the FT_fixedToInt and FT_fixedToFdot6 macros of
+// src/truetype/ttgxvar.c (FreeType Project License; credit in docs).
 
 namespace CoolEngine.Fonts.Sfnt;
 
@@ -33,6 +34,27 @@ internal static class FixedMath
 
         return negative ? -(long)q : (long)q;
     }
+
+    /// <summary>
+    /// <c>FT_MulDiv</c> with FreeType's 64-bit <c>FT_Long</c>: <c>a * b / c</c> on the magnitudes, rounded half away from zero,
+    /// with the sign of the product; <c>0x7FFFFFFF</c> with that sign for c = 0.
+    /// </summary>
+    public static long MulDiv(long a, long b, long c)
+    {
+        var negative = (a < 0) ^ (b < 0) ^ (c < 0);
+        var ua = a < 0 ? unchecked((ulong)-a) : (ulong)a;
+        var ub = b < 0 ? unchecked((ulong)-b) : (ulong)b;
+        var uc = c < 0 ? unchecked((ulong)-c) : (ulong)c;
+        var d = uc > 0 ? unchecked(ua * ub + (uc >> 1)) / uc : 0x7FFFFFFFUL;
+
+        return negative ? -(long)d : (long)d;
+    }
+
+    /// <summary><c>FT_fixedToInt</c> of <c>ttgxvar.c</c>: a 16.16 value rounded to an integer, kept in 16 bits.</summary>
+    public static short FixedToInt(long x) => (short)((x + 0x8000) >> 16);
+
+    /// <summary><c>FT_fixedToFdot6</c> of <c>ttgxvar.c</c>: a 16.16 value rounded to 26.6.</summary>
+    public static long FixedToFdot6(long x) => (x + 0x200) >> 10;
 
     /// <summary><c>FT_PIX_ROUND</c> of a 26.6 value.</summary>
     public static long PixRound(long x) => (x + 32) & ~63L;

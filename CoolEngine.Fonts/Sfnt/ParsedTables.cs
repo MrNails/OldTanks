@@ -64,6 +64,7 @@ internal sealed class ParsedTables
 
     private readonly Dictionary<TableRecord, (TableInputs Inputs, int Face, object? Table)> m_parsed = [];
     private readonly Dictionary<(long Offset, long Length), ReadOnlyMemory<byte>> m_svgDocuments = [];
+    private readonly Dictionary<(TableRecord, TableRecord), object> m_pairs = [];
     private readonly long m_parsedLimit;
     private readonly long m_workLimit;
 
@@ -134,9 +135,25 @@ internal sealed class ParsedTables
             throw new InvalidDataException(
                 $"Faces {entry.Face} and {faceIndex} share the '{Tags.ToString(record.Tag)}' table ({record.Length} bytes at " +
                 $"{record.Offset}) but read it with different inputs ({entry.Inputs}, then {inputs}): faces that share a table " +
-                "must read it with the same glyph count, 'loca' format, number of metrics and companion table.");
+                "must read it with the same glyph count, 'loca' format, number of metrics, axis count, cvt size and companion table.");
 
         return entry.Table;
+    }
+
+    /// <summary>
+    /// What one pair of table records builds together (OT-4 WP5: a face's public axes and instances from its <c>fvar</c> and
+    /// <c>name</c>), built on first use and shared by every face reading the same pair. Unlike <see cref="Get{T}"/>, a record
+    /// may meet different partners: each distinct pair is built once.
+    /// </summary>
+    public T GetPair<T>(TableRecord first, TableRecord second, Func<T> build)
+        where T : class
+    {
+        if (m_pairs.TryGetValue((first, second), out var built))
+            return (T)built;
+
+        var result = build();
+        m_pairs.Add((first, second), result);
+        return result;
     }
 
     /// <summary>Accounts memory a parser is about to allocate; throws when the file's budget would be passed.</summary>

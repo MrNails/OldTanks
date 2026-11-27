@@ -2,7 +2,8 @@ namespace CoolEngine.Fonts.Sfnt;
 
 /// <summary>
 /// The outline source of a face with no outline table (only bitmaps or SVG documents): every glyph is empty, with the
-/// <c>hmtx</c> advance scaled as for an empty TrueType glyph.
+/// <c>hmtx</c> advance scaled as for an empty TrueType glyph. Variation coordinates change nothing here (FreeType does not scale
+/// such a face at all).
 /// </summary>
 internal sealed class EmptyOutlineSource : IOutlineSource
 {
@@ -10,7 +11,8 @@ internal sealed class EmptyOutlineSource : IOutlineSource
 
     public EmptyOutlineSource(FaceData face) => m_face = face;
 
-    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale) => new Loader(m_face, scale);
+    public IGlyphLoader CreateLoader(ScaledFontOptions options, FontScale scale, Variations.VariationInstance? variation) =>
+        new Loader(m_face, scale);
 
     private sealed class Loader : IGlyphLoader
     {
