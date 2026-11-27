@@ -1,4 +1,5 @@
-﻿using CoolEngine.Services.Exceptions;
+﻿using CoolEngine.GraphicalEngine.Services;
+using CoolEngine.Services.Exceptions;
 using OpenTK.Graphics.OpenGL4;
 using System.Numerics;
 using CoolEngine.Mathematics;
@@ -297,10 +298,15 @@ public sealed class Shader : IDisposable, IEquatable<Shader>
         GC.SuppressFinalize(this);
     }
 
+    // Runs on the finalizer thread, which has no GL context: no GL call here; the GL thread deletes the program.
+    // Logs through the static Log: m_logger may be null on an object that was never constructed.
     ~Shader()
     {
-        Log.Fatal("Abandoned Shader {ShaderName} ({ShaderId})", Name, Handle);
-        ReleaseUnmanagedResources();
+        Log.Warning("Shader {ShaderName} (GL program {ShaderHandle}) was never disposed; its deletion is queued for the GL thread",
+            Name, Handle);
+
+        if (!Disposed)
+            GLDeletionQueue.Enqueue(GLObjectKind.Program, Handle);
     }
 
     /// <summary>
