@@ -9,7 +9,9 @@ namespace OldTanks.Tests.Models;
 /// <summary>
 /// Golden values of <see cref="WorldObject"/>'s transforms, recorded on today's code (OT-5, before the move onto
 /// CoolEngine.Mathematics) and compared within <c>1e-5 × max(1, |expected|)</c> per element: the move may round
-/// differently in the last bits, while a transposed or reordered product misses by far more.
+/// differently in the last bits, while a transposed or reordered product misses by far more. Since OT-14 (KI-002) the
+/// Move and SetCameraData inputs are given in radians (the recorded degree values, converted); the expected values are
+/// unchanged.
 /// </summary>
 [TestFixture]
 public sealed class WorldObjectTests
@@ -78,10 +80,11 @@ public sealed class WorldObjectTests
     [Test]
     public void Move_FixedVelocityAndRotation_MatchesGolden()
     {
-        // Only Rotation.Y turns the velocity (read as degrees, KI-002); the first set checks X and Z do not.
+        // Only Rotation.Y turns the velocity, in radians since OT-14 (KI-002); the recorded degree inputs are
+        // converted here, so the expected values are the recorded ones.
         var first = MoveOnce(new Vector3(0.3f, 0, -0.2f));
-        var second = MoveOnce(new Vector3(0, 30, 0));
-        var third = MoveOnce(new Vector3(0.1f, -135, 0.4f));
+        var second = MoveOnce(new Vector3(0, MathHelper.DegreesToRadians(30), 0));
+        var third = MoveOnce(new Vector3(0.1f, MathHelper.DegreesToRadians(-135), 0.4f));
 
         // Recorded on 2026-11-26 at 3d22d58 with OpenTK.Mathematics, before the move onto CoolEngine.Mathematics.
         float[] expectedFirst = [1.2820001f, 2.0019336f, 2.8f];
@@ -99,9 +102,13 @@ public sealed class WorldObjectTests
     [Test]
     public void SetCameraData_FixedOffset_MatchesGolden()
     {
-        var first = CameraPositionAfterSettingPosition(new Vector3(2, 4, 6), new Vector3(0, 40, 0),
+        // Only Rotation.Y turns the camera offset, in radians since OT-14 (KI-002); the recorded degree inputs are
+        // converted here, so the expected values are the recorded ones.
+        var first = CameraPositionAfterSettingPosition(new Vector3(2, 4, 6),
+            new Vector3(0, MathHelper.DegreesToRadians(40), 0),
             new Vector3(-3, 2, 0.5f), new Vector2(25, 10), new Vector3(1, 2, 3));
-        var second = CameraPositionAfterSettingPosition(new Vector3(1, 1, 1), new Vector3(0.2f, -75, 0.1f),
+        var second = CameraPositionAfterSettingPosition(new Vector3(1, 1, 1),
+            new Vector3(0.2f, MathHelper.DegreesToRadians(-75), 0.1f),
             new Vector3(-1, 1, 0), new Vector2(-130, 35), new Vector3(-4, 0.5f, 9));
         var third = CameraPositionAfterSettingPosition(new Vector3(3, 0.5f, 2), new Vector3(0, 0, 0),
             new Vector3(2, -1, 4), new Vector2(90, -15), new Vector3(0.5f, -2, 1));
@@ -116,6 +123,51 @@ public sealed class WorldObjectTests
             AssertGolden(expectedFirst, Floats(first), "first");
             AssertGolden(expectedSecond, Floats(second), "second");
             AssertGolden(expectedThird, Floats(third), "third");
+        });
+    }
+
+    [TestCase(30f)]
+    [TestCase(90f)]
+    [TestCase(-135f)]
+    public void Move_RotationAboutY_MovesAlongDrawnForwardAxis(float degrees)
+    {
+        var radians = MathHelper.DegreesToRadians(degrees);
+        var cube = CreateCube(new Vector3(2, 2, 2), new Vector3(0, radians, 0), new Vector3(1, 2, 3));
+        cube.RigidBody.MaxSpeed = 10;
+        cube.RigidBody.MaxSpeedMultiplier = 1;
+        cube.RigidBody.MaxBackSpeed = 10;
+        cube.RigidBody.Velocity = new Vector3(2, 0, 0);
+        cube.ApplyTransformation();
+        // The drawn local X axis, projected onto the ground plane.
+        var forward = Vector2.Normalize(new Vector2(cube.Transformation.Column0.X, cube.Transformation.Column0.Z));
+        var start = cube.Position;
+
+        cube.Move(0.1f);
+
+        var delta = cube.Position - start;
+        var moved = Vector2.Normalize(new Vector2(delta.X, delta.Z));
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved.X, Is.EqualTo(forward.X).Within(1e-5f), "moved X against the drawn forward X");
+            Assert.That(moved.Y, Is.EqualTo(forward.Y).Within(1e-5f), "moved Z against the drawn forward Z");
+            Assert.That(moved.X, Is.EqualTo(MathF.Cos(radians)).Within(1e-5f), "moved X against cos");
+            Assert.That(moved.Y, Is.EqualTo(MathF.Sin(radians)).Within(1e-5f), "moved Z against sin");
+        });
+    }
+
+    [Test]
+    public void SetCameraData_QuarterTurnAboutY_PlacesCameraBehindDrawnFacing()
+    {
+        // Position + half the height + 1 up - the drawn forward (0, 0, 1) at a quarter turn.
+        var cameraPosition = CameraPositionAfterSettingPosition(new Vector3(1, 1, 1),
+            new Vector3(0, MathHelper.DegreesToRadians(90), 0), new Vector3(-1, 1, 0), new Vector2(0, 0),
+            new Vector3(1, 2, 3));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(cameraPosition.X, Is.EqualTo(1f).Within(1e-5f), "X");
+            Assert.That(cameraPosition.Y, Is.EqualTo(3.5f).Within(1e-5f), "Y");
+            Assert.That(cameraPosition.Z, Is.EqualTo(2f).Within(1e-5f), "Z");
         });
     }
 

@@ -35,7 +35,7 @@ Exhaustive: every `AGENTS.md` in the repository.
 | `Common` — `ObservableObject`, `SettingsService`, typed events, helpers; no dependencies | This root guide |
 | `tests/OldTanks.Docs.Tests` — the documentation checks | This root guide; its rules are [DOCUMENTATION-GUIDE §9](docs/DOCUMENTATION-GUIDE.md#9-checks) |
 | `tests/CoolEngine.Tests` — the engine's headless unit tests (today `ObjectRenderer<T>`, the dispatcher, `Scene`, `Collision` and the golden values of the camera, the collision transforms and the texture transform) | This root guide and [BUILD §2](docs/BUILD.md#2-build) |
-| `tests/OldTanks.Tests` — golden values of `WorldObject`'s transform and movement, headless | This root guide and [BUILD §2](docs/BUILD.md#2-build) |
+| `tests/OldTanks.Tests` — golden values and behaviour tests of `WorldObject`'s transform and movement, headless | This root guide and [BUILD §2](docs/BUILD.md#2-build) |
 | `tests/OldTanks.UI.Tests` — control names and item width, headless ImGui | This root guide and [UI-CONTROLS](docs/OldTanks.UI/UI-CONTROLS.md) |
 | `tests/CoolEngine.Imaging.Tests` — the decoders against Windows and ImageSharp | This root guide and [IMAGE-DECODERS §6](docs/CoolEngine.Imaging/IMAGE-DECODERS.md#6-how-it-is-tested) |
 | `tests/CoolEngine.Mathematics.Tests` and `tests/CoolEngine.Mathematics.Benchmarks` — the math library against System.Numerics and OpenTK, and its benchmarks | The [Mathematics guide](CoolEngine.Mathematics/AGENTS.md) and [MATHEMATICS §6](docs/CoolEngine.Mathematics/MATHEMATICS.md#6-how-it-is-tested) |
@@ -50,7 +50,7 @@ Exhaustive for the repository root.
 | `Directory.Packages.props` | Every NuGet version, once (central package management); project files list packages without a `Version` |
 | `BannedSymbols.txt` | The symbols the banned-API analyzer rejects (RS0030) in `Common`, `CoolEngine`, `OldTanks.UI`, `OldTanks` and the two engine test projects: System.Numerics' row-vector `Matrix4x4`, `Matrix3x2`, `Plane` and the vector Transform overloads that take them, and OpenTK's math types except `Vector2`, `Vector2i` and `Color4` ([BUILD §2](docs/BUILD.md#2-build)) |
 | `OldTanks/Assets/` | Shaders, textures, skyboxes, models, fonts; copied to the output on build ([asset pipeline](docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md)) |
-| `tests/` | Six NUnit test projects and a benchmark project: `OldTanks.Docs.Tests` (`net10.0`), the documentation checks; `CoolEngine.Tests` (`net10.0`), the engine's unit tests, headless (no OpenGL context, so only code that makes no GL call): `ObjectRenderer<T>`, the dispatcher, `Scene` and `Collision`, and the golden values of the camera, the collision transforms and the texture transform; `OldTanks.Tests` (`net10.0`), headless golden values of `OldTanks.Models.WorldObject`; `OldTanks.UI.Tests` (`net10.0`), the UI layer's control handler and ImGui controls; `CoolEngine.Imaging.Tests` (`net10.0-windows`), the decoder tests; `CoolEngine.Mathematics.Tests` (`net10.0`), the math library's tests; `CoolEngine.Mathematics.Benchmarks` (`net10.0`, an exe, BenchmarkDotNet), its benchmarks |
+| `tests/` | Six NUnit test projects and a benchmark project: `OldTanks.Docs.Tests` (`net10.0`), the documentation checks; `CoolEngine.Tests` (`net10.0`), the engine's unit tests, headless (no OpenGL context, so only code that makes no GL call): `ObjectRenderer<T>`, the dispatcher, `Scene` and `Collision`, and the golden values of the camera, the collision transforms and the texture transform; `OldTanks.Tests` (`net10.0`), headless golden values and behaviour tests of `OldTanks.Models.WorldObject`; `OldTanks.UI.Tests` (`net10.0`), the UI layer's control handler and ImGui controls; `CoolEngine.Imaging.Tests` (`net10.0-windows`), the decoder tests; `CoolEngine.Mathematics.Tests` (`net10.0`), the math library's tests; `CoolEngine.Mathematics.Benchmarks` (`net10.0`, an exe, BenchmarkDotNet), its benchmarks |
 | `docs/` | The knowledge base; index [docs/README.md](docs/README.md) |
 | `.claude/skills/` | Project skills for Claude Code: [mentor-pipeline](.claude/skills/mentor-pipeline/SKILL.md) (agent tiers by risk, plan and brief templates, the review checklist, the calibration table). Personal settings and worktrees under `.claude/` stay git-ignored |
 | `OldTanks.slnx` | The solution |
@@ -58,7 +58,7 @@ Exhaustive for the repository root.
 
 ## Build and run
 
-`dotnet build OldTanks.slnx` (0 errors, 131 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks, the `CoolEngine` tests, the UI tests, the decoder tests, the math tests and the `OldTanks.Tests` golden values (798 tests; nothing else tests the game project yet). Details: [docs/BUILD.md](docs/BUILD.md).
+`dotnet build OldTanks.slnx` (0 errors, 131 warnings baseline). Run `OldTanks.exe` from `OldTanks\bin\Debug\net10.0\`: assets resolve against the working directory, and a .NET 10 runtime is needed. `dotnet test OldTanks.slnx` runs the documentation checks, the `CoolEngine` tests, the UI tests, the decoder tests, the math tests and the `OldTanks.Tests` golden values and behaviour tests (802 tests; nothing else tests the game project yet). Details: [docs/BUILD.md](docs/BUILD.md).
 
 ## Constraints
 

@@ -263,11 +263,13 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
 
         RigidBody.OnTick(timeDelta, collisionIteration);
 
-        var rotation = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y));
+        var rotation = Matrix3.CreateRotationY(Rotation.Y);
 
         EngineSettings.Current.GlobalLock.EnterWriteLock();
         
-        // OpenTK's Matrix3 * Vector3 applied the transpose (the inverse rotation): kept exactly (KI-002 is separate).
+        // Rotation.Y is in radians. The transpose turns by -Rotation.Y, the turn ApplyTransformation draws with
+        // CreateRotationY(-Pitch), so Velocity.X follows the drawn forward axis's heading (heading only: Roll tilts
+        // the drawn axis, OT-14 Q3).
         Position += rotation.Transposed() * RigidBody.Velocity * timeDelta;
         
         // if (Camera != null)
@@ -286,13 +288,13 @@ public abstract class WorldObject : ObservableObject, IDrawable, IPhysicObject, 
         if (Camera == null)
             return;
 
-        // Ported exactly from OpenTK (KI-002 is separate): its Matrix3 * Vector3 applied the transpose, its
-        // Vector3 * Matrix3 the matrix itself.
+        // CameraOffsetAngle is in degrees (see its setter), Rotation in radians. CreateRotationY(a).Transposed() turns
+        // by -a, as ApplyTransformation draws; the offset-angle factors keep the forms ported from OpenTK.
         var camOffset = Matrix3.CreateRotationY(MathHelper.DegreesToRadians(m_cameraOffsetAngle.X)) *
                         (Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(m_cameraOffsetAngle.Y)).Transposed() *
                          m_cameraOffset);
 
         Camera.Position = m_position + new Vector3(0, m_size.Y / 2, 0) +
-                          Matrix3.CreateRotationY(MathHelper.DegreesToRadians(Rotation.Y)).Transposed() * camOffset;
+                          Matrix3.CreateRotationY(Rotation.Y).Transposed() * camOffset;
     }
 }
