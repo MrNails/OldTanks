@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-13 rebased on master at 8ded8f4; §4 and §5 against `Collision` and its 29 tests (`dotnet test`: 67 in `CoolEngine.Tests`), the thread notes reasoned from code; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Last updated | 2026-11-27 |
+| Verified against | 2026-11-27; bug/OT-14 at da7db97; §2's `Move` bullet against the code and its behaviour test (reasoned from code and tested, not seen in the game); 2026-11-25; bug/OT-13 rebased on master at 8ded8f4; §4 and §5 against `Collision` and its 29 tests (`dotnet test`: 67 in `CoolEngine.Tests`), the thread notes reasoned from code; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -26,7 +26,7 @@ Unused today: `CoolEngine.PhysicEngine.Core.WorldSettings` and `CoolEngine.Physi
 
 ## 2. The rigid body
 
-- **Velocity is local to the object.** `OldTanks.Models.WorldObject.Move` rotates it about Y by the object's `Rotation.Y` before adding it to the position, so `X` is "forward".
+- **Velocity is local to the object.** `OldTanks.Models.WorldObject.Move` rotates it about Y by the object's `Rotation.Y` (the heading, in radians, as the object is stored and drawn; [KI-002](../../KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another), closed on `bug/OT-14`, 2026-11-27) before adding it to the position, so `X` is "forward" along the drawn forward axis. Only the heading turns the velocity, so gravity (in the local Y) stays world-down; with `Roll` not 0 the drawn forward axis's ground projection differs a little from the heading (measured 4.1° at heading 45°, roll 30°).
 - **Forward speed is clamped:** `Velocity.X` stays within `-MaxBackSpeed .. MaxSpeed × MaxSpeedMultiplier`. All three default to 0, so a dynamic body that never sets them cannot move forward or back (the default scene sets 2, 2 and 1). Y and Z are not clamped, except the fall speed (below).
 - **One tick** (`OnTick`): damp forward speed at a rate of 0.6 × speed per second (about 45 % lost per second; snap to 0 below 0.01); add `(Force / Weight + gravity) × dt`; if the speed along the gravity axis exceeds 9 × g in either direction, set it to falling at 9 × g (so a very fast upward speed is flipped); clear `Force` on the last collision sub-iteration, or every tick when called with `-1`.
 - **Static bodies** ignore velocity and force writes and are skipped by `Move`.

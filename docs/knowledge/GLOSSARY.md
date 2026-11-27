@@ -3,7 +3,7 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-26 |
+| Last updated | 2026-11-27 |
 
 ---
 
@@ -85,5 +85,5 @@ Same short name, different types; write the namespace when it matters.
 | `MathHelper` | `OpenTK.Mathematics.MathHelper` (banned since OT-5), `Common.Helpers.MathHelper` (quadratic solver) and `CoolEngine.Mathematics.MathHelper` (the one the engine and game use) |
 | `Matrix2`, `Matrix3`, `Matrix4` | `CoolEngine.Mathematics.*` (column vectors, column-major; used everywhere since OT-5) and the banned `OpenTK.Mathematics.*` (row vectors). `Vector3` and `Quaternion` are `System.Numerics`' everywhere in engine and game code; OpenTK's of the same names are banned |
 | `ArrayExtensions`, `PrimitiveExtensions` | One each in `Common.Extensions` and `CoolEngine.Services.Extensions` |
-| `Rotation` | Euler angles on `WorldObject` ([KI-002](../KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another)), a unit look direction on `Camera` |
+| `Rotation` | Euler angles on `WorldObject`, in radians everywhere since OT-14 (the debug window shows degrees; [KI-002](../KNOWN-ISSUES.md#ki-002-worldobjectrotation-is-read-as-radians-in-one-place-and-degrees-in-another)), a unit look direction on `Camera` |
 | "Yaw", "Pitch", "Roll" | On `WorldObject`, rotation about X, Y and Z, in that order; not the usual aviation meaning |
