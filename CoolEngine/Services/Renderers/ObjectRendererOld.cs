@@ -6,19 +6,25 @@ using CoolEngine.GraphicalEngine.Core.Primitives;
 using CoolEngine.Mathematics;
 using CoolEngine.Services.Interfaces;
 using OpenTK.Graphics.OpenGL4;
+using Serilog;
 
 namespace CoolEngine.Services.Renderers;
 
 public static class ObjectRendererOld
 {
-    private static readonly int s_maxPrimitivesIndices = 6900;
-    
+    /// <summary>The smallest capacity, in vertices, of a primitives buffer.</summary>
+    internal const int MinPrimitivesCapacity = 128;
+
+    /// <summary>The largest capacity, in vertices, of a primitives buffer; a longer draw is cut to it.</summary>
+    internal const int MaxPrimitivesCapacity = 1 << 20;
+
     private static readonly Dictionary<Type, DrawSceneInfoOld> m_sceneBuffers = new();
     private static readonly Dictionary<PrimitiveType, DrawObjectInfo> m_primitives = new();
 
-    private static readonly uint[] s_quadIndices = new uint[] { 0, 1, 3, 1, 2, 3 };
+    // The primitive types whose cut to MaxPrimitivesCapacity has been logged.
+    private static readonly HashSet<PrimitiveType> s_truncatedPrimitiveTypes = new();
 
-    private static int m_currentPrimitivesIndices = 100;
+    private static readonly uint[] s_quadIndices = new uint[] { 0, 1, 3, 1, 2, 3 };
 
     public static bool RegisterScene(Type type, Shader shader)
     {
@@ -174,7 +180,11 @@ public static class ObjectRendererOld
     }
 
     /// <summary>
-    /// Draws primitives
+    /// Draws primitives. Each primitive type keeps one buffer, created on its first draw and grown to the next power
+    /// of two at or above the draw (at least <see cref="MinPrimitivesCapacity"/>, at most
+    /// <see cref="MaxPrimitivesCapacity"/> vertices); it never shrinks. A draw longer than
+    /// <see cref="MaxPrimitivesCapacity"/> is cut to its first <see cref="MaxPrimitivesCapacity"/> vertices, with one
+    /// Warning per type for the process. GL thread only.
     /// </summary>
     /// <param name="type">Primitive type</param>
     /// <param name="shader">Shader program</param>
@@ -185,45 +195,63 @@ public static class ObjectRendererOld
         if (primitives == null || primitives.Length == 0)
             return;
 
+        var requested = drawAmount <= 0 ? primitives.Length : drawAmount;
+
         shader.Use();
 
-        var tmpDrawLength = drawAmount <= 0 ? primitives.Length : drawAmount;
-        var needRecreate = false;
+        m_primitives.TryGetValue(type, out var drawObjectInfo);
+        var currentCapacity = drawObjectInfo?.VerticesLength ?? 0;
 
-        DrawObjectInfo drawObjectInfo;
+        var (capacity, drawCount) = GetPrimitivesUpload(currentCapacity, requested);
 
-        if (tmpDrawLength > m_currentPrimitivesIndices && tmpDrawLength <= s_maxPrimitivesIndices &&
-            tmpDrawLength * 2 <= s_maxPrimitivesIndices)
+        if (drawObjectInfo == null)
         {
-            m_currentPrimitivesIndices = tmpDrawLength * 2;
-            needRecreate = true;
-        }
-        else if (tmpDrawLength > m_currentPrimitivesIndices)
-        {
-            m_currentPrimitivesIndices = s_maxPrimitivesIndices;
-            needRecreate = true;
-        }
-
-        if (needRecreate)
-        {
-            m_primitives.Remove(type, out drawObjectInfo);
-
-            drawObjectInfo?.Dispose();
-            
-            drawObjectInfo = CreateDrawVerticesInfo(shader);
+            drawObjectInfo = CreateDrawVerticesInfo(shader, capacity);
             m_primitives.Add(type, drawObjectInfo);
+
+            Log.Logger.Information("Primitives buffer for {PrimitiveType} created for {Capacity} vertices.", type,
+                capacity);
         }
-        else if (!m_primitives.TryGetValue(type, out drawObjectInfo))
+        else if (capacity != currentCapacity)
         {
-            drawObjectInfo = CreateDrawVerticesInfo(shader);
-            m_primitives.Add(type, drawObjectInfo);
+            GrowDrawVerticesInfo(drawObjectInfo, capacity);
+
+            Log.Logger.Information("Primitives buffer for {PrimitiveType} grown from {OldCapacity} to {Capacity} vertices.",
+                type, currentCapacity, capacity);
         }
 
-        PrepareVerticesToDraw(drawObjectInfo, primitives, tmpDrawLength);
-        
-        GL.DrawArrays(type, 0, tmpDrawLength);
+        if (drawCount < requested && s_truncatedPrimitiveTypes.Add(type))
+        {
+            Log.Logger.Warning(
+                "A {PrimitiveType} draw of {Requested} vertices exceeds the primitives buffer limit of {Capacity}; only the first {Capacity} are drawn (logged once per type).",
+                type, requested, capacity, capacity);
+        }
+
+        PrepareVerticesToDraw(drawObjectInfo, primitives, drawCount);
+
+        GL.DrawArrays(type, 0, drawCount);
     }
-    
+
+    /// <summary>
+    /// Decides the capacity of a primitive type's buffer and the number of vertices to upload and draw. The capacity
+    /// never shrinks: a request that fits keeps it; a larger one grows it to the next power of two at or above the
+    /// request, at least <see cref="MinPrimitivesCapacity"/> and at most <see cref="MaxPrimitivesCapacity"/>. The draw
+    /// count is the request cut to the capacity. Pure: no GL call, no state.
+    /// </summary>
+    /// <param name="currentCapacity">The buffer's capacity in vertices; 0 means no buffer yet.</param>
+    /// <param name="requestedVertices">The vertices to draw; at least 1 (<see cref="DrawPrimitives"/> returns before
+    /// for an empty array).</param>
+    internal static (int Capacity, int DrawCount) GetPrimitivesUpload(int currentCapacity, int requestedVertices)
+    {
+        if (requestedVertices <= currentCapacity)
+            return (currentCapacity, requestedVertices);
+
+        var capacity = (int)BitOperations.RoundUpToPowerOf2((uint)Math.Min(requestedVertices, MaxPrimitivesCapacity));
+        capacity = Math.Max(capacity, MinPrimitivesCapacity);
+
+        return (capacity, Math.Min(requestedVertices, capacity));
+    }
+
     private static DrawObjectInfo CreateDrawMeshInfo(Mesh mesh, Shader shader)
     {
         int vao = 0, vbo = 0, ebo = 0;
@@ -345,13 +373,13 @@ public static class ObjectRendererOld
     //     }
     // }
     
-    private static DrawObjectInfo CreateDrawVerticesInfo(Shader shader)
+    private static DrawObjectInfo CreateDrawVerticesInfo(Shader shader, int capacity)
     {
         int vao = 0, vbo = 0, ebo = 0;
 
         vbo = GL.GenBuffer();
         GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, m_currentPrimitivesIndices * Unsafe.SizeOf<Vector3>(), (Vector3[]?)null,
+        GL.BufferData(BufferTarget.ArrayBuffer, capacity * Unsafe.SizeOf<Vector3>(), (Vector3[]?)null,
             BufferUsageHint.StreamDraw);
 
         vao = GL.GenVertexArray();
@@ -361,7 +389,20 @@ public static class ObjectRendererOld
         GL.VertexAttribPointer(posIndex, 3, VertexAttribPointerType.Float, false, Unsafe.SizeOf<Vector3>(), 0);
         GL.EnableVertexAttribArray(posIndex);
 
-        return new DrawObjectInfo(vao, vbo, ebo);
+        return new DrawObjectInfo(vao, vbo, ebo)
+        {
+            VerticesLength = capacity
+        };
+    }
+
+    private static void GrowDrawVerticesInfo(DrawObjectInfo drawObjectInfo, int capacity)
+    {
+        // The VAO's attribute refers to the buffer object, not its store, so a new store keeps the VAO valid.
+        GL.BindBuffer(BufferTarget.ArrayBuffer, drawObjectInfo.VertexBufferObject);
+        GL.BufferData(BufferTarget.ArrayBuffer, capacity * Unsafe.SizeOf<Vector3>(), (Vector3[]?)null,
+            BufferUsageHint.StreamDraw);
+
+        drawObjectInfo.VerticesLength = capacity;
     }
 
     private static void PrepareVerticesToDraw(DrawObjectInfo drawObjectInfo, Vector3[] vertices, int drawAmount)
