@@ -70,6 +70,8 @@ void main()
     /// <summary>
     /// Constructs a new ImGuiController.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The client size or the framebuffer size is empty (a component
+    /// below 1).</exception>
     public ImGuiController(Vector2i clientSize, Vector2i framebufferSize, ILogger logger)
     {
         m_logger = logger;
@@ -77,10 +79,11 @@ void main()
         if (!ImGuiDisplayMetrics.TryCreate(clientSize, framebufferSize, out var metrics))
         {
             throw new ArgumentOutOfRangeException(nameof(clientSize),
-                $"The window has no drawable area: client size {clientSize}, framebuffer size {framebufferSize}.");
+                $"The client size or the framebuffer size is empty: client size {clientSize}, framebuffer size {framebufferSize}.");
         }
 
-        WindowResized(clientSize, framebufferSize);
+        m_display = metrics;
+        m_imGuiProjection = metrics.CreateProjection();
 
         m_imGuiContext = ImGui.CreateContext();
         ImGui.SetCurrentContext(m_imGuiContext);

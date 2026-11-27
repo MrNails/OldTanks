@@ -378,9 +378,13 @@ public partial class MainWindow : GameWindow
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
-        // Nothing is drawn while the framebuffer is empty; the next ImGuiController.Update ends the ImGui frame.
+        // Nothing is drawn while the framebuffer is empty. The swap keeps the loop paced by VSync as before (without it
+        // the minimised loop spins a whole core); the next ImGuiController.Update ends the ImGui frame.
         if (m_framebufferEmpty)
+        {
+            Context.SwapBuffers();
             return;
+        }
 
         if (m_startupError != null && m_startupErrorWindow != null)
         {
@@ -898,10 +902,10 @@ public partial class MainWindow : GameWindow
     private void HandleMouseMove()
     {
         const int leftMargin = 10;
-        // Today's effective right margin at 100 % in a window (27 against the outer size).
+        // 11: what 27 against the outer size gave in a 100 % window before OT-16 (Q3 (a)).
         const int rightMargin = 11;
         const int topMargin = 20;
-        // Today's effective bottom margin at 100 % in a window (50 against the outer size).
+        // 11: what 50 against the outer size gave in a 100 % window before OT-16 (Q3 (a)).
         const int bottomMargin = 11;
         const int defaultDeltaX = 3;
         const int defaultDeltaY = 2;
