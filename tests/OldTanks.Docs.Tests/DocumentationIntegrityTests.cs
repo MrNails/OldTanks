@@ -141,9 +141,19 @@ public sealed class DocumentationIntegrityTests
             Write("OldTanks", "bin", "Debug", "NOTICE.md");
             Write(".claude", "worktrees", "other", ".git");
             Write(".claude", "worktrees", "other", "README.md");
+            // A plain folder there (an agent run's working files) is no checkout, and is skipped all the same.
+            Write(".claude", "worktrees", "run-notes", "plan.md");
+            // The rest of .claude, and a folder that only shares the name, are still walked.
+            Write(".claude", "skills", "x", "SKILL.md");
+            Write("docs", "worktrees", "NOTES.md");
 
             Assert.That(Checkout.FilesUnder(root).Select(file => Path.GetRelativePath(root, file)),
-                Is.EqualTo(new[] { "README.md" }));
+                Is.EquivalentTo(new[]
+                {
+                    "README.md",
+                    Path.Combine(".claude", "skills", "x", "SKILL.md"),
+                    Path.Combine("docs", "worktrees", "NOTES.md"),
+                }));
         }
         finally
         {

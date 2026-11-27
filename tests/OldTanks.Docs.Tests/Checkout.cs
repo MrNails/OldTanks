@@ -8,6 +8,10 @@ internal sealed class Checkout
 {
     public const string SolutionFileName = "OldTanks.slnx";
 
+    // .claude/worktrees: git-ignored; only this folder is skipped, the rest of .claude (the skills) is checked
+    private const string ClaudeFolderName = ".claude";
+    private const string ClaudeWorktreesFolderName = "worktrees";
+
     // Build output, tool state and test results hold no docs; skipping .git keeps its objects out of the walk
     private static readonly HashSet<string> s_skippedFolders =
         [".git", ".vs", ".idea", "bin", "obj", "publish", "TestResults", "node_modules"];
@@ -73,12 +77,22 @@ internal sealed class Checkout
 
     /// <summary>
     /// Files below a folder, skipping build output and tool state. A folder with its own .git is another checkout
-    /// (a Claude Code worktree under .claude/worktrees, a clone): its docs are checked from there.
+    /// (a clone, a worktree): its docs are checked from there. Everything under .claude/worktrees is skipped, checkout
+    /// or not: the folder is git-ignored and holds Claude Code's worktrees and the working files of agent runs.
     /// </summary>
     public static IEnumerable<string> FilesUnder(string folder)
         => Directory.EnumerateFiles(folder).Concat(Directory.EnumerateDirectories(folder)
-            .Where(sub => !s_skippedFolders.Contains(Path.GetFileName(sub)) && !Path.Exists(Path.Combine(sub, ".git")))
+            .Where(sub => !IsSkipped(sub))
             .SelectMany(FilesUnder));
+
+    private static bool IsSkipped(string folder)
+    {
+        var name = Path.GetFileName(folder);
+
+        return s_skippedFolders.Contains(name)
+               || Path.Exists(Path.Combine(folder, ".git"))
+               || (name == ClaudeWorktreesFolderName && Path.GetFileName(Path.GetDirectoryName(folder)) == ClaudeFolderName);
+    }
 
     private static IEnumerable<string> ParentFolders(string path)
     {

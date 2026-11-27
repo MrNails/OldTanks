@@ -21,7 +21,8 @@ Open work that is not a defect. Defects are in [KNOWN-ISSUES](KNOWN-ISSUES.md). 
 
 ## Planned
 
-- **Engines and the tank game** ([plan](plans/ENGINES-AND-TANK-GAME.md), draft): separate physics, render and UI engines, a shared core, and the online game on them. Not ticketed as a whole; D1-D4 and D6-D13 decided, D5 (names) open.
+- **Engines and the tank game** ([plan](plans/ENGINES-AND-TANK-GAME.md), draft): separate physics, render and UI engines, a shared core, and the online game on them. Not ticketed as a whole; D1-D4 and D6-D13 decided, D5 (names) decided in part on 2026-11-27.
+- **Simulation and physics split** ([plan](plans/SIMULATION-AND-PHYSICS-SPLIT.md), agreed with Denys on 2026-11-27, not started): `CoolEngine.Physics` with the step loop inside it, `CoolEngine.Core` (fixed 60 Hz tick, command queue, snapshot buffer), the headless `OldTanks.Simulation`, and `OldTanks.Models.WorldObject` as the GL-thread view of a simulation entity. `feature/OT-19` takes WP1-WP3 (goldens, the library, the machinery; the game unchanged), `feature/OT-20` WP4-WP5 (the sandbox switches, the old physics goes); it would close KI-003, KI-031 and KI-036. Open inside it: the sub-step count and the backlog cap, confirmed by Denys after WP1's comparison; his reading of the HUD's "Collision check per second" before WP4 (Q11).
 - **Shader tests** (the OT-6 reviewer's suggestion, 2026-11-25): a headless GLSL lint test that fails when a declaration reuses a built-in name such as `texture` (the cause of [KI-020](KNOWN-ISSUES.md#ki-020-three-shaders-fail-to-compile-and-are-used-anyway)), and an opt-in GL-backed shader test (compile and link every folder in `OldTanks/Assets/Shaders/`, check every name the C# side sets) in `tests/CoolEngine.Tests` (added by OT-7). The font and skybox shader fix itself is done on `bug/OT-6`.
 
 ## Platform and build
@@ -56,7 +57,8 @@ Controls and settings that exist but do nothing yet:
 
 - **A player and a tank.** Assign `World.Player` and make the follow camera work ([KI-001](KNOWN-ISSUES.md#ki-001-the-player-is-never-assigned)); after that, a tank model, its controls and game rules.
 - **Collision response:** use `RigidBody.Restitution` (bounce), friction between bodies, angular response; `Density` and `CenterOfMass` are stored but unused ([PHYSICS §2](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md#2-the-rigid-body)).
-- **Broad phase:** the pair test is O(n²) per sub-step; a grid or sweep-and-prune is needed before many objects.
+- **Broad phase:** the pair test is O(n²) per sub-step; a grid or sweep-and-prune is needed before many objects. A later task with a benchmark, and so is a multi-threaded step (Denys, 2026-11-27, [plan Q8](plans/SIMULATION-AND-PHYSICS-SPLIT.md#6-decisions): "Later tasks"; turned down: either in that plan).
+- **Interpolate between simulation snapshots (a finding, not decided).** Denys, 2026-11-27 ([plan Q6](plans/SIMULATION-AND-PHYSICS-SPLIT.md#6-decisions)): "Newest snapshot. Write Interpolate as finding with review later when actual issue of newest snapshot appears and I'll decide to fix". The GL thread will draw the newest tick as it is. What to watch for once the sandbox runs on the fixed tick: motion that steps or judders when the frame rate differs from 60 ticks per second, or while the two clocks drift. The fix Claude recommended blends position and orientation between the two newest snapshots, at one tick of display delay.
 - **Lighting:** normals are uploaded but no shader uses them.
 - **Materials:** the OBJ loader skips `mtllib` and `usemtl`.
 - **Levels:** `CoolEngine.Models.Level` and `CoolEngine.PhysicEngine.Core.WorldSettings` are unused sketches.

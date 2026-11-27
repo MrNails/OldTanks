@@ -17,6 +17,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Adam7** | PNG's seven-pass interlacing scheme | `CoolEngine.Imaging.Png.PngDecoder` |
 | **Asset** | A file under `OldTanks/Assets/` loaded at startup: shader, texture, skybox, model, font | [ASSET-PIPELINE](../CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | **Banned-API analyzer** | `Microsoft.CodeAnalysis.BannedApiAnalyzers` with `BannedSymbols.txt`: a use of System.Numerics' row-vector `Matrix4x4`, `Matrix3x2` or `Plane` (or a vector Transform overload taking them) or an OpenTK math type other than `Vector2`, `Vector2i` and `Color4` is error RS0030 in `Common`, `CoolEngine`, `OldTanks.UI`, `OldTanks` and the two engine test projects; declarations are not flagged | [BUILD §2](../BUILD.md#2-build) |
+| **Broad phase** | The cheap first pass of collision detection that picks the pairs worth an exact test; not built: today every pair is tried and the AABB test inside `CheckCollision` is the only filter | [BACKLOG](../BACKLOG.md#game-and-engine-features-not-built), [plan Q8](../plans/SIMULATION-AND-PHYSICS-SPLIT.md#6-decisions) |
 | **Cache key** | The name an asset is stored and fetched under | `CoolEngine.Services.GlobalCache<T>` |
 | **Central package management** | Every NuGet version set once in `Directory.Packages.props` (`ManagePackageVersionsCentrally`); project files list packages without a `Version` | [ARCHITECTURE §1](../ARCHITECTURE.md#1-solution-layout) |
 | **Closest point (sphere × box)** | The point of a box nearest the sphere centre, found by clamping the centre into the box along its axes; the exact sphere × cuboid test | `Collision.SphereCuboidCollisionCheck` |
@@ -29,6 +30,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Dispatcher** | The queue that runs work on the GL thread | `CoolEngine.Services.Threading.Dispatcher` |
 | **Drawable** | Anything the object renderer can draw: a scene, textures, a transform | `CoolEngine.Services.Interfaces.IDrawable` |
 | **Edge × edge axis** | A separating axis perpendicular to one edge of each of two polygons (their cross product); needed besides the face normals to separate boxes that meet edge to edge | `Collision.EdgeAxesCollisionCheckLoop` |
+| **Fixed tick** | A simulation step of constant length, run as often as real time requires; 60 per second (Denys, 2026-11-27), not built (today the physics thread steps by measured time) | [SIMULATION-AND-PHYSICS-SPLIT](../plans/SIMULATION-AND-PHYSICS-SPLIT.md) |
 | **Framebuffer, client and outer size** | The window's three sizes: the framebuffer (pixels GL draws into, `FramebufferSize`), the client area (the unit of the mouse position, `ClientSize`) and the outer size (`Size`: client plus the GLFW frame, used for nothing). GL uses the first, UI layout the second | `OldTanks.Windows.WindowMetrics`, [RENDERING §5](../CoolEngine/Services/Renderers/RENDERING.md#5-the-render-target-and-reversed-z) |
 | **Free camera** | The fly-through camera driven by `WASD`, `Space`, `Shift` | `CoolEngine.GraphicalEngine.Core.Camera.Move` |
 | **Fused multiply-add (FMA)** | One instruction computing `a * b + c` with a single rounding; hardware-dependent, so results differ from separate multiply and add. The own math uses none | [MATHEMATICS §3](../CoolEngine.Mathematics/MATHEMATICS.md#3-the-same-bits-promise) |
@@ -53,6 +55,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Same-bits promise (path-stable)** | The own math's D6 guarantee: members that use only + − × ÷, sqrt and exact operations give the same bits on every x64 CPU for finite inputs; trig members follow the OS math library and a NaN's sign is not covered | [MATHEMATICS §3](../CoolEngine.Mathematics/MATHEMATICS.md#3-the-same-bits-promise) |
 | **Scene** | All meshes of one loaded model | `CoolEngine.GraphicalEngine.Core.Scene` |
 | **Skybox** | A cube-map texture drawn behind everything | `CoolEngine.GraphicalEngine.Core.SkyBox` |
+| **Snapshot (simulation)** | A per-tick copy of what the GL thread needs from the simulation (transforms, flags, statistics), so that no live object is shared between threads; the GL thread draws the newest one; planned, not built | [SIMULATION-AND-PHYSICS-SPLIT §3](../plans/SIMULATION-AND-PHYSICS-SPLIT.md#3-target-shape) |
 | **Strict decoding** | A decoder that throws `InvalidDataException` on any nonconforming or damaged data instead of concealing it | [IMAGE-DECODERS §3](../CoolEngine.Imaging/IMAGE-DECODERS.md#3-the-strict-rules) |
 | **Static body** | A body that never moves (`IsStatic`); static-static pairs are not tested | `RigidBody.IsStatic` |
 | **Step mode** | Physics paused (`U`), advanced one step at a time (`I`) | `World.IsActive`, `World.Stop` |

@@ -31,5 +31,5 @@ Records that cut across areas:
 - `docs/` root: pages that span projects.
 - `docs/<Project>/<source path>/`: feature pages, mirroring the source folder they describe ([guide §6](DOCUMENTATION-GUIDE.md#6-feature-pages-mirror-the-source-tree)).
 - `docs/knowledge/`: reference material. `docs/sessions/`: the journal and its monthly archive.
-- `docs/plans/`: proposed and multi-step work. [ENGINES-AND-TANK-GAME](plans/ENGINES-AND-TANK-GAME.md) (draft): the separate physics, render and UI engines and the online tank game, with the own-library tasks, render API and browser direction.
+- `docs/plans/`: proposed and multi-step work. [ENGINES-AND-TANK-GAME](plans/ENGINES-AND-TANK-GAME.md) (draft): the separate physics, render and UI engines and the online tank game, with the own-library tasks, render API and browser direction. [SIMULATION-AND-PHYSICS-SPLIT](plans/SIMULATION-AND-PHYSICS-SPLIT.md) (agreed 2026-11-27, not started): a headless physics library, a fixed 60 Hz tick, commands in and snapshots out, with Denys's decisions and the two tasks, OT-19 and OT-20.
 - `ARCHITECTURE-DECISIONS.md`: created when first needed.
