@@ -244,7 +244,9 @@ public static class ObjectRendererOld
     /// request, at least <see cref="MinPrimitivesCapacity"/> and at most <see cref="MaxPrimitivesCapacity"/>. The draw
     /// count is the request cut to the capacity. Pure: no GL call, no state.
     /// </summary>
-    /// <param name="currentCapacity">The buffer's capacity in vertices; 0 means no buffer yet.</param>
+    /// <param name="currentCapacity">The buffer's capacity in vertices; 0 means no buffer yet. At most
+    /// <see cref="MaxPrimitivesCapacity"/>, because only this method sets the primitives buffers' capacities; a larger
+    /// value would be cut to the limit for a request above it.</param>
     /// <param name="requestedVertices">The vertices to draw; at least 1 (<see cref="DrawPrimitives"/> returns before
     /// for an empty array).</param>
     internal static (int Capacity, int DrawCount) GetPrimitivesUpload(int currentCapacity, int requestedVertices)
