@@ -68,6 +68,19 @@ public sealed class FontFace
     /// <summary>The face has an <c>fvar</c> table.</summary>
     public bool IsVariable => Data.Tables.Contains(Tags.Fvar);
 
+    /// <summary>
+    /// FreeType 2.13.2's <c>FT_Load_Glyph</c> with default flags would hand this face to its auto-hinter: a TrueType face
+    /// with <c>glyf</c> outlines that has no instructions at all (<c>maxp.maxSizeOfInstructions</c> 0, no <c>fpgm</c>, no
+    /// <c>prep</c>) and is not one of FreeType's tricky fonts (<c>FT_Load_Glyph</c> in <c>src/base/ftobjs.c</c>). This library
+    /// has no auto-hinter: such a face renders unhinted, with <see cref="HintingMode.Native"/> too (there is nothing to run).
+    /// </summary>
+    public bool WouldBeAutoHintedByFreeType =>
+        OutlineFormat == OutlineFormat.TrueType
+        && Data.Maxp.MaxSizeOfInstructions == 0
+        && Data.Tables.Get(0x6670676D).Length == 0   // fpgm
+        && Data.Tables.Get(0x70726570).Length == 0   // prep
+        && !Hinting.TrueType.TrickyFonts.IsTricky(Data);
+
     /// <summary>The variation axes; empty for a face that is not variable.</summary>
     /// <exception cref="NotSupportedException">The face is variable: the axes come with OT-4 WP5.</exception>
     public IReadOnlyList<VariationAxis> Axes =>
