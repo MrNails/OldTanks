@@ -954,9 +954,9 @@ public partial class MainWindow : GameWindow
             if (worldObj.Visible)
             {
                 var scale = worldObj.Size / 2;
-                var rotation = Matrix3.CreateRotationZ(MathHelper.DegreesToRadians(worldObj.Rotation.Z)) *
-                               (Matrix3.CreateRotationY(MathHelper.DegreesToRadians(-worldObj.Rotation.Y)) *
-                                Matrix3.CreateRotationX(MathHelper.DegreesToRadians(worldObj.Rotation.X)));
+                var rotation = Matrix3.CreateRotationZ(worldObj.Rotation.Z) *
+                               (Matrix3.CreateRotationY(-worldObj.Rotation.Y) *
+                                Matrix3.CreateRotationX(worldObj.Rotation.X));
 
                 for (int meshIdx = 0; meshIdx < worldObj.Scene.Meshes.Length; meshIdx++)
                 {
