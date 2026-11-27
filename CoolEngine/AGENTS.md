@@ -13,7 +13,7 @@ The game engine: OpenGL rendering, asset loading, rigid-body physics and collisi
 | Loaders, asset folders, cache keys | [ASSET-PIPELINE](../docs/CoolEngine/Services/Loaders/ASSET-PIPELINE.md) |
 | Image decoding (PNG, JPEG) | [IMAGE-DECODERS](../docs/CoolEngine.Imaging/IMAGE-DECODERS.md) |
 | Rigid body, collision tests, shapes, the game's step loop | [PHYSICS-AND-COLLISIONS](../docs/CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md) |
-| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-017, KI-024, KI-025, KI-030, KI-031 |
+| Known defects here | [KNOWN-ISSUES](../docs/KNOWN-ISSUES.md): KI-024, KI-025, KI-030, KI-031, KI-035 |
 
 ## Project Details
 
@@ -30,7 +30,7 @@ Representative, by folder.
 | Folder | Types |
 |--------|-------|
 | `GraphicalEngine/Core/` | `Camera`, `Shader`, `Scene`, `Mesh`, `Face`, `SkyBox`, `Buffer<T>`, `DrawObjectInfo`, `RenderTarget` (offscreen framebuffer with a float depth buffer, GL thread only, no finalizer by design); `Texture/` (`Texture`, `TextureData`, `TexturedObjectInfo`); `Font/` (`Font`, `FontInformation`); `Primitives/` (`Vertex`, `FontVertex`) |
-| `GraphicalEngine/Services/` | `GLSettings` (GL state snapshot and restore) |
+| `GraphicalEngine/Services/` | `GLSettings` (GL state snapshot and restore); `GLDeletionQueue`, `GLObjectKind` (the GL names of undisposed objects, queued from the finalizers of `Texture`, `Shader`, `Buffer<T>` and `DrawObjectInfo` and deleted by `DeletePending` on the GL thread; the host must call it every frame) |
 | `PhysicEngine/` | `PhysicsConstants`; `Core/RigidBody`, `Core/Face`; `Core/Collision/` (`Collision`, `CollisionData`) |
 | `Models/` | `Ray`, `BoundingBox`, `Level` (unused) |
 | `Services/` | `Application`, `EngineSettings`, `GlobalCache<T>`, `UI` (`UIInvoke`), `Colors`; `Misc/QuaternionHelper` (`FromAxisAngle`, OpenTK's normalizing axis-angle), `Extensions/VectorExtensions` (`ToDisplayString`, OpenTK-style vector text) |
