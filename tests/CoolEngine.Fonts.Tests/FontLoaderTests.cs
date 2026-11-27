@@ -938,7 +938,7 @@ public sealed class FontLoaderTests
 
     /// <summary>
     /// Faces sharing Arial's tables, each adding about 4.6 KB of accounted memory for 336 bytes of file: the last count that fits
-    /// 8 bytes per file byte loads, one more face throws. Without the per-face reserve both would load.
+    /// 8 bytes per file byte plus the fixed allowance loads, one more face throws. Without the per-face reserve both would load.
     /// </summary>
     [Test]
     public void Load_CollectionJustOverParsedBudget_ThrowsNotSupported()
@@ -951,7 +951,7 @@ public sealed class FontLoaderTests
         long Length(int faces) => 12 + 4L * faces + (long)faces * directoryLength + arial.Length - directoryLength;
 
         var over = 1;
-        while (single + (over - 1) * perFace <= ParsedLimit * Length(over))
+        while (single + (over - 1) * perFace <= ParsedLimit * Length(over) + CoolEngine.Fonts.Sfnt.ParsedTables.ParsedAllowance)
             over++;
 
         TestContext.Out.WriteLine($"{over - 1} faces fit, {over} faces do not.");
@@ -1487,9 +1487,10 @@ public sealed class FontLoaderTests
     public void Load_OttoFace_UsesCff2ElseCff(bool withCff2, OutlineFormat expected)
     {
         var tables = ReadTables(Arial()).Where(table => table.Tag is not ("glyf" or "loca")).ToList();
-        tables.Add(new CraftedTable("CFF ", [1, 0, 4, 1]));
+        var glyphs = U16(Table(Arial(), "maxp"), 4);
+        tables.Add(new CraftedTable("CFF ", CffModel.Minimal(glyphs, isCff2: false).Write()));
         if (withCff2)
-            tables.Add(new CraftedTable("CFF2", [2, 0, 5, 0, 0]));
+            tables.Add(new CraftedTable("CFF2", CffModel.Minimal(glyphs, isCff2: true).Write()));
 
         var face = FontLoader.Load(Build(OpenTypeCffVersion, tables)).Faces[0];
 

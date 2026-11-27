@@ -30,6 +30,9 @@ internal sealed class FaceData
     /// <summary>Null unless <see cref="OutlineFormat"/> is <see cref="Fonts.OutlineFormat.TrueType"/>.</summary>
     public required GlyfTable? Glyf { get; init; }
 
+    /// <summary>The checked <c>CFF </c> or <c>CFF2</c> table; null unless <see cref="OutlineFormat"/> is CFF or CFF2.</summary>
+    public required Cff.CffTable? Cff { get; init; }
+
     public required OutlineFormat OutlineFormat { get; init; }
 
     public int GlyphCount => Maxp.NumGlyphs;

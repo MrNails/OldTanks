@@ -91,7 +91,8 @@ namespace CoolEngine.Fonts.Sfnt;
 /// library's limits: a file over <see cref="FontLoader.MaxFileSize"/>; a file whose gzip <c>SVG </c> documents (all faces
 /// together, each distinct document once) inflate past <see cref="SvgTable.InflateBudget"/>; a file whose parsed tables (all
 /// faces together, the collection's face list first) need more than <see cref="ParsedTables.MaxParsedBytesPerFileByte"/>
-/// bytes per byte of the file; a file whose load takes more work than <see cref="ParsedTables.MaxWorkPerFileByte"/> units per
+/// bytes per byte of the file plus <see cref="ParsedTables.ParsedAllowance"/>; a file whose load takes more work than
+/// <see cref="ParsedTables.MaxWorkPerFileByte"/> units per
 /// byte of the file plus <see cref="ParsedTables.WorkAllowance"/> (Denys's "Rules + work budget", 2026-11-26: the backstop);
 /// a composite whose whole component tree loads more than 65,535 glyphs, or that nests more than 255 levels deep (the glyph
 /// loader recurses once per level).
@@ -403,6 +404,7 @@ internal static class SfntReader
         // CFF table) or is bitmap-only.
         OutlineFormat format;
         GlyfTable? glyf = null;
+        Cff.CffTable? cff = null;
         if (tables.SfntVersion == OpenTypeCffTag)
         {
             if (tables.Contains(Tags.Cff2))
@@ -411,6 +413,11 @@ internal static class SfntReader
                 format = OutlineFormat.Cff;
             else
                 throw new InvalidDataException("The font is an 'OTTO' face without a 'CFF2' or 'CFF ' table.");
+
+            // The CFF or CFF2 table is checked here, once per file: faces that share it read it with the same glyph count.
+            var cffTag = format == OutlineFormat.Cff2 ? Tags.Cff2 : Tags.Cff;
+            cff = parsed.Get(tables.GetRequiredRecord(cffTag), new TableInputs(GlyphCount: glyphCount), faceIndex,
+                () => Cff.CffTable.Parse(tables.Get(cffTag), format == OutlineFormat.Cff2, glyphCount, parsed));
         }
         else if (hasGlyf)
         {
@@ -454,6 +461,7 @@ internal static class SfntReader
             Cmap = cmap,
             Svg = svg,
             Glyf = glyf,
+            Cff = cff,
             OutlineFormat = format,
         };
     }

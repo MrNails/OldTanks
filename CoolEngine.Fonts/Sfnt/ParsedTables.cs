@@ -12,7 +12,8 @@ namespace CoolEngine.Fonts.Sfnt;
 /// Records that differ may not overlap (<see cref="SfntReader"/>'s overlap rule), so each byte of the file belongs to at most
 /// one parsed table. Two per-file budgets bound its memory: all faces' gzip <c>SVG </c> documents
 /// inflate within <see cref="SvgTable.InflateBudget"/> bytes together, and what the parsers allocate (accounted before they
-/// allocate it, retained or not) may not pass <see cref="MaxParsedBytesPerFileByte"/> times the file's length. One per-file
+/// allocate it, retained or not) may not pass <see cref="MaxParsedBytesPerFileByte"/> times the file's length plus
+/// <see cref="ParsedAllowance"/>. One per-file
 /// budget bounds its work (Denys's "Rules + work budget", 2026-11-26): what the load walks (<see cref="Charge"/>) may not pass
 /// <see cref="MaxWorkPerFileByte"/> times the file's length plus <see cref="WorkAllowance"/>. Each throws
 /// <see cref="NotSupportedException"/>. Used during one load only, on one thread.
@@ -26,10 +27,20 @@ internal sealed class ParsedTables
     /// length was 0.654 (AniMe Vision - MB_EN Regular.ttf: 6,357 bytes for a 9,728-byte file); re-measured the same day once the
     /// component lists, format-14 sets, overlap check and decoded names were accounted too: 0.784 (the same file, 7,629 bytes;
     /// then phagspa.ttf 0.676); re-measured once more after the cmap and SVG overlap checks and the name and cmap record sets
-    /// were accounted: 0.812 (the same file, 7,901 bytes; then phagspa.ttf 0.679). The multiple, 8, is about 10 times that: a
-    /// small font's fixed per-face costs weigh more, so small files keep room.
+    /// were accounted: 0.812 (the same file, 7,901 bytes; then phagspa.ttf 0.679); re-measured on 2026-11-27 once OT-4 WP2
+    /// parsed CFF tables: 0.889 (ROGFonts-Regular_0.otf, an OpenType CFF file of C:\Windows\Fonts: 8,126 bytes for 9,144).
+    /// The multiple, 8, is about 9 times that: a small font's fixed per-face costs weigh more, so small files keep room (and
+    /// <see cref="ParsedAllowance"/> keeps more).
     /// </summary>
     internal const long MaxParsedBytesPerFileByte = 8;
+
+    /// <summary>
+    /// Parsed-table memory allowed on top of <see cref="MaxParsedBytesPerFileByte"/> times the file's length, so small files
+    /// keep room for the fixed costs of their parse (a plan change in OT-4 WP2's fix round 1, by the intent of Denys's per-file
+    /// budgets that no real font is refused): small CFF fonts, CID-keyed subsets of 1-2 KB with several Font DICTs among them,
+    /// account more than 8 bytes per byte of the file for their DICTs and Font DICTs. 1 MiB, as <see cref="WorkAllowance"/>.
+    /// </summary>
+    internal const long ParsedAllowance = 1024 * 1024;
 
     /// <summary>
     /// The load work allowed per byte of the file (Denys's "Rules + work budget", 2026-11-26): a backstop for routes to
@@ -64,7 +75,7 @@ internal sealed class ParsedTables
     /// <param name="workLimit">A work limit instead of the file's (for tests).</param>
     public ParsedTables(long fileLength, bool unlimited = false, long? workLimit = null)
     {
-        m_parsedLimit = unlimited ? long.MaxValue : MaxParsedBytesPerFileByte * fileLength;
+        m_parsedLimit = unlimited ? long.MaxValue : MaxParsedBytesPerFileByte * fileLength + ParsedAllowance;
         m_workLimit = unlimited ? long.MaxValue : workLimit ?? MaxWorkPerFileByte * fileLength + WorkAllowance;
     }
 
@@ -137,7 +148,8 @@ internal sealed class ParsedTables
         ParsedBytes += bytes;
         if (ParsedBytes > m_parsedLimit)
             throw new NotSupportedException(
-                $"Parsing the font needs more than {MaxParsedBytesPerFileByte} bytes per byte of the file ({m_parsedLimit} bytes), " +
+                $"Parsing the font needs more than {MaxParsedBytesPerFileByte} bytes per byte of the file plus {ParsedAllowance} " +
+                $"({m_parsedLimit} bytes), " +
                 $"this library's limit; reached at {Describe(what, index)}.");
     }
 
