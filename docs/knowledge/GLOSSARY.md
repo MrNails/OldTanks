@@ -29,6 +29,7 @@ Terms used in the code and in these docs, with the type that implements each.
 | **Dispatcher** | The queue that runs work on the GL thread | `CoolEngine.Services.Threading.Dispatcher` |
 | **Drawable** | Anything the object renderer can draw: a scene, textures, a transform | `CoolEngine.Services.Interfaces.IDrawable` |
 | **Edge × edge axis** | A separating axis perpendicular to one edge of each of two polygons (their cross product); needed besides the face normals to separate boxes that meet edge to edge | `Collision.EdgeAxesCollisionCheckLoop` |
+| **Framebuffer, client and outer size** | The window's three sizes: the framebuffer (pixels GL draws into, `FramebufferSize`), the client area (the unit of the mouse position, `ClientSize`) and the outer size (`Size`: client plus the GLFW frame, used for nothing). GL uses the first, UI layout the second | `OldTanks.Windows.WindowMetrics`, [RENDERING §5](../CoolEngine/Services/Renderers/RENDERING.md#5-the-render-target-and-reversed-z) |
 | **Free camera** | The fly-through camera driven by `WASD`, `Space`, `Shift` | `CoolEngine.GraphicalEngine.Core.Camera.Move` |
 | **Fused multiply-add (FMA)** | One instruction computing `a * b + c` with a single rounding; hardware-dependent, so results differ from separate multiply and add. The own math uses none | [MATHEMATICS §3](../CoolEngine.Mathematics/MATHEMATICS.md#3-the-same-bits-promise) |
 | **GL thread** | The main thread, which owns the OpenGL context | [ARCHITECTURE §2](../ARCHITECTURE.md#2-threads) |

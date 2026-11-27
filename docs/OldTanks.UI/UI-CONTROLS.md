@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living |
-| Last updated | 2026-11-25 |
-| Verified against | 2026-11-25; bug/OT-10 rebased on master at 483d63f, and bug/OT-9 (the `ImGuiTextBlock` row, read from code); §1's names and §3's width against the code, `tests/OldTanks.UI.Tests` and two runs of the game (the debug window; the texture window opened, closed, reopened, collapsed and expanded; its list-box widths again after the "Textures" width); §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
+| Last updated | 2026-11-27 |
+| Verified against | 2026-11-27; bug/OT-16 rebased on master at 4b425be (§5's `ImGuiController` constructor, `WindowResized` and `ImGuiDisplayMetrics` rows against the code and `ImGuiDisplayMetricsTests`; the mentor's app check of 2026-11-27; the other sections not rechecked); 2026-11-25; bug/OT-10 rebased on master at 483d63f, and bug/OT-9 (the `ImGuiTextBlock` row, read from code); §1's names and §3's width against the code, `tests/OldTanks.UI.Tests` and two runs of the game (the debug window; the texture window opened, closed, reopened, collapsed and expanded; its list-box widths again after the "Textures" width); §3's event type and §5's input against the code; the ImGui input also ran in the smoke run (the window drew), but typing, dragging and scrolling were not tried; the rest as of 2026-11-24 |
 
 ---
 
@@ -68,9 +68,21 @@ Each wraps one ImGui widget, keeps its state between frames and raises events wi
 | Call | When the game makes it |
 |------|------------------------|
 | `Update(window, dt)` | Every update frame: ends the previous ImGui frame, feeds mouse, keyboard and typed characters, starts a new frame. Since OT-3 input goes through ImGui's event API: `AddMousePosEvent`, `AddMouseButtonEvent` (left, right, middle), `AddKeyEvent` for every OpenTK key with an `ImGuiKey` counterpart (`TranslateKey`) plus the `ModCtrl`, `ModShift`, `ModAlt` and `ModSuper` keys, and `AddInputCharacter` for typed text (ImGui.NET 1.91 removed `KeyMap` and `KeysDown`) |
-| `Render()` | Last in every render frame |
+| `Render()` | Last in every render frame that draws; while the framebuffer is empty (a minimised window) the game draws no frame at all, this call included, and only swaps buffers |
 | `PressChar`, `MouseScroll` | From the window's text-input and mouse-wheel events (`MouseScroll` calls `AddMouseWheelEvent`) |
-| `WindowResized` | On resize |
+| `WindowResized(Vector2i clientSize, Vector2i framebufferSize)` | On a window or framebuffer resize, from `OldTanks.Windows.MainWindow.ApplyWindowSize` |
+
+**Sizes (since OT-16, [KI-032](../KNOWN-ISSUES.md#ki-032-the-viewport-projections-imgui-and-render-target-use-the-windows-outer-size) closed).** The constructor and `WindowResized` take `(Vector2i clientSize, Vector2i framebufferSize)` and keep an `OldTanks.UI.Services.ImGUI.ImGuiDisplayMetrics`, a pure type (no GL, no ImGui context; `TryCreate` rejects any empty size):
+
+| Member | Value |
+|--------|-------|
+| `DisplaySize` | The client size, the unit of the mouse position |
+| `FramebufferScale` | Framebuffer size divided by client size (1 on Windows, where the two are equal) |
+| `FramebufferHeight` | The framebuffer's height, for the scissor box |
+| `CreateProjection` | The top-left orthographic projection of the draw data |
+| `GetScissorBox` | The scissor rectangle of a draw command, flipped with the framebuffer height |
+
+Before OT-16 the controller was given the outer window size (`NativeWindow.Size`) and subtracted a fixed 39-pixel frame, which did not follow the display scale or the window theme; the offset and the scale-factor field are gone. UI pixel sizes are unchanged above 100% display scale: a DPI-aware UI is in [BACKLOG](../BACKLOG.md#game-and-engine-features-not-built) (Denys, 2026-11-27).
 
 The game never disposes the controller.
 
