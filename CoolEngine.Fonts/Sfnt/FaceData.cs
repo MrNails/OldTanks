@@ -1,0 +1,57 @@
+namespace CoolEngine.Fonts.Sfnt;
+
+/// <summary>The checked tables of one face, shared by the face, its outline source and (from WP4) its hinter. Immutable.</summary>
+internal sealed class FaceData
+{
+    public required int FaceIndex { get; init; }
+
+    public required TableDirectory Tables { get; init; }
+
+    public required HeadTable Head { get; init; }
+
+    public required HheaTable Hhea { get; init; }
+
+    public required MaxpTable Maxp { get; init; }
+
+    public required HmtxTable Hmtx { get; init; }
+
+    /// <summary>Null when the face has no <c>OS/2</c> table.</summary>
+    public required Os2Table? Os2 { get; init; }
+
+    public required NameTable Name { get; init; }
+
+    public required PostTable Post { get; init; }
+
+    public required CmapTable Cmap { get; init; }
+
+    /// <summary>Null when the face has no <c>SVG </c> table.</summary>
+    public required SvgTable? Svg { get; init; }
+
+    /// <summary>Null unless <see cref="OutlineFormat"/> is <see cref="Fonts.OutlineFormat.TrueType"/>.</summary>
+    public required GlyfTable? Glyf { get; init; }
+
+    /// <summary>The checked <c>CFF </c> or <c>CFF2</c> table; null unless <see cref="OutlineFormat"/> is CFF or CFF2.</summary>
+    public required Cff.CffTable? Cff { get; init; }
+
+    public required OutlineFormat OutlineFormat { get; init; }
+
+    /// <summary>
+    /// The vertical metrics, when the face has both <c>vhea</c> and <c>vmtx</c> (FreeType's <c>vertical_info</c>); null otherwise.
+    /// Read for the hinter's vertical phantom points (OT-4 WP4).
+    /// </summary>
+    public VmtxTable? Vmtx { get; init; }
+
+    /// <summary>
+    /// The <c>hdmx</c> table of a face with TrueType outlines (without records when FreeType would not use it); null when the
+    /// face has none. Read for the hinter's advance widths (OT-4 WP4).
+    /// </summary>
+    public Hinting.TrueType.HdmxTable? Hdmx { get; init; }
+
+    /// <summary>
+    /// The variation tables, when the face has an <c>fvar</c> whose header FreeType accepts (the face is variable); null
+    /// otherwise. OT-4 WP5.
+    /// </summary>
+    public Variations.FaceVariations? Variations { get; init; }
+
+    public int GlyphCount => Maxp.NumGlyphs;
+}

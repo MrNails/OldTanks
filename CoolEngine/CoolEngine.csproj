@@ -22,7 +22,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="FreeTypeSharp" />
       <PackageReference Include="OpenTK" />
       <PackageReference Include="Serilog" />
       <PackageReference Include="Serilog.Sinks.File" />
@@ -30,6 +29,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Common\Common.csproj" />
+      <ProjectReference Include="..\CoolEngine.Fonts\CoolEngine.Fonts.csproj" />
       <ProjectReference Include="..\CoolEngine.Imaging\CoolEngine.Imaging.csproj" />
       <ProjectReference Include="..\CoolEngine.Mathematics\CoolEngine.Mathematics.csproj" />
     </ItemGroup>

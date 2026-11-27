@@ -1,8 +1,7 @@
-﻿using System.Buffers;
-using System.Runtime.InteropServices;
+using System.Buffers;
+using CoolEngine.Fonts;
 using CoolEngine.Services;
 using CoolEngine.Services.Extensions;
-using FreeTypeSharp;
 using OpenTK.Graphics.OpenGL4;
 using System.Numerics;
 using Serilog;
@@ -30,7 +29,7 @@ public readonly struct CharacterInfo
 
 
     /// <summary>
-    /// The horizontal advance e.g. the horizontal distance (in 1/64th pixels) from the origin to the origin of the next glyph
+    /// The horizontal advance e.g. the horizontal distance (in whole pixels) from the origin to the origin of the next glyph
     /// </summary>
     public int Advance { get; }
 
@@ -59,43 +58,27 @@ public class Font
 
     public static async Task<FontInformation?> CreateFont(string path, ILogger logger)
     {
-        var lib = new FreeTypeLibrary();
         var pixelHeight = 32;
-
-        var facePtr = IntPtr.Zero;
 
         try
         {
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 
-            var loadedData = await Task.Run(() =>
+            var loadedData = await Task.Run(async () =>
             {
-                var newFaceResp = NewFace(lib, path, out facePtr);
+                var atlas = await BuildAtlasAsync(path, pixelHeight, logger).ConfigureAwait(false);
 
-                if (newFaceResp != FT_Error.FT_Err_Ok)
+                if (atlas == null)
                 {
-                    logger.Warning("Error creating new face. {Error} ({ErrorCode:X})", 
-                        newFaceResp, (int)newFaceResp);
                     return (null, null);
                 }
 
-                var face = CreateFaceFacade(lib, facePtr);
-
-                var pixelSizeResp = SetPixelHeight(facePtr, (uint)pixelHeight);
-
-                if (pixelSizeResp != FT_Error.FT_Err_Ok)
-                {
-                    logger.Warning("Error setting pixel size. {Error} ({ErrorCode:X})", 
-                        pixelSizeResp, (int)pixelSizeResp);
-                    return (null, null);
-                }
-
-                var (fontLoadDatas, charsResult) = CreateFontDatas(facePtr, face, pixelHeight, logger, out var maxHeight);
-                var imgLength = (int)charsResult.Sum(p => (p.Value.Size.X + s_sidesPadding * 2) * maxHeight);
-            
-                var img = CreateFontImage(imgLength, maxHeight, fontLoadDatas, out var width);
+                var img = atlas.Pixels;
+                var width = atlas.Width;
+                var maxHeight = atlas.Height;
+                var charsResult = atlas.Characters;
                 var pixelDto = new Texture.Texture.PixelDto(PixelInternalFormat.CompressedRed, PixelFormat.Red, PixelType.UnsignedByte);
-                
+
                 var texture = UI.UIInvoke(() => Texture.Texture.CreateTexture2D(img, (width, maxHeight), ref pixelDto, TextureWrapMode.ClampToEdge));
                 texture.Name = Path.GetFileNameWithoutExtension(path);
 
@@ -117,158 +100,129 @@ public class Font
         {
             logger.Error(e, "Error loading font {FontName}", Path.GetFileNameWithoutExtension(path));
         }
-        finally
-        {
-            if (facePtr != IntPtr.Zero)
-            {
-                DoneFace(facePtr);
-                lib.Dispose();
-            }
-        }
 
         return null;
     }
 
-    // FreeTypeSharp 3 exposes the native API with pointer types. The handles stay IntPtr in the async code above,
-    // which cannot hold a pointer across an await, and become pointers only inside these helpers.
-    // The path goes in the ANSI code page because FreeType opens it with fopen.
-    private static unsafe FT_Error NewFace(FreeTypeLibrary lib, string path, out IntPtr facePtr)
+    /// <summary>
+    /// The CPU part of <see cref="CreateFont"/>, with no OpenGL call: loads the font file with <see cref="FontLoader"/>, renders
+    /// U+0020..U+007E and U+0410..U+044F of face 0 at <paramref name="pixelHeight"/> pixels (hinted, TrueType interpreter v40)
+    /// on one <see cref="ScaledFont"/>, in that order, and lays the glyph bitmaps side by side in one atlas.
+    /// </summary>
+    /// <remarks>
+    /// Every glyph has <see cref="s_sidesPadding"/> empty columns on each side, and the space has no glyph in the atlas
+    /// (<see cref="CharacterInfo.Position"/> -1) but its padding columns are counted in the width, at the end. The returned
+    /// <see cref="FontAtlas.Pixels"/> is rented from <see cref="ArrayPool{T}.Shared"/> and zeroed, so every pixel never
+    /// drawn is 0; the caller returns it to the pool it was rented from (<paramref name="pool"/>, the shared pool when null). A character whose glyph fails to load is logged and left out.
+    /// A face FreeType would have auto-hinted (<see cref="FontFace.WouldBeAutoHintedByFreeType"/>) is rendered unhinted and
+    /// logged as a warning. Returns <see langword="null"/> when the file has no face.
+    /// </remarks>
+    /// <exception cref="InvalidDataException">The file is not a valid font.</exception>
+    /// <exception cref="NotSupportedException">The file's format or a feature of it is not supported.</exception>
+    internal static async Task<FontAtlas?> BuildAtlasAsync(string path, int pixelHeight, ILogger logger, ArrayPool<byte>? pool = null)
     {
-        var pathPtr = Marshal.StringToHGlobalAnsi(path);
+        var fontName = Path.GetFileNameWithoutExtension(path);
+        var file = await FontLoader.LoadAsync(path).ConfigureAwait(false);
 
-        try
+        if (file.Faces.Count == 0)
         {
-            FT_FaceRec_* face;
-            var error = FT.FT_New_Face(lib.Native, (byte*)pathPtr, IntPtr.Zero, &face);
-            facePtr = (IntPtr)face;
-
-            return error;
+            logger.Warning("Font {FontName} has no face", fontName);
+            return null;
         }
-        finally
+
+        var face = file.Faces[0];
+
+        if (face.WouldBeAutoHintedByFreeType)
         {
-            Marshal.FreeHGlobal(pathPtr);
+            logger.Warning("Font {FontName} has no hinting instructions: FreeType would have auto-hinted it, CoolEngine.Fonts renders it unhinted",
+                fontName);
         }
-    }
 
-    private static unsafe FreeTypeFaceFacade CreateFaceFacade(FreeTypeLibrary lib, IntPtr facePtr) =>
-        new(lib, (FT_FaceRec_*)facePtr);
+        var scaledFont = face.CreateScaledFont(new ScaledFontOptions(pixelHeight)
+        {
+            Hinting = HintingMode.Native,
+            Interpreter = TrueTypeInterpreterVersion.V40
+        });
 
-    private static unsafe FT_Error SetPixelHeight(IntPtr facePtr, uint pixelHeight) =>
-        FT.FT_Set_Pixel_Sizes((FT_FaceRec_*)facePtr, 0, pixelHeight);
-
-    private static unsafe FT_Error LoadRenderedChar(IntPtr facePtr, uint charCode) =>
-        FT.FT_Load_Char((FT_FaceRec_*)facePtr, charCode, FT_LOAD.FT_LOAD_RENDER);
-
-    private static unsafe void DoneFace(IntPtr facePtr) => FT.FT_Done_Face((FT_FaceRec_*)facePtr);
-
-    private static unsafe IntPtr GlyphBuffer(FreeTypeFaceFacade face) => (IntPtr)face.GlyphBitmap.buffer;
-
-    private static (FontLoadData[], Dictionary<char, CharacterInfo>) CreateFontDatas(IntPtr facePtr, FreeTypeFaceFacade face, 
-        int pixelHeight, ILogger logger, out int maxHeight)
-    {
         var chars = new List<KeyValuePair<uint, uint>>
         {
             new KeyValuePair<uint, uint>(' ', '~'),
             new KeyValuePair<uint, uint>('А', 'я')
         };
         var charsResult = new Dictionary<char, CharacterInfo>();
-        
-        var fontLoadDatas = new FontLoadData[('~' - ' ') + ('я' - 'А') + 1];
-        var imgLength = 0;
-        maxHeight = 0;
+        var bitmaps = new List<GlyphBitmap>();
+        var maxHeight = 0;
+        var width = 0;
         var charPosition = 0;
-        var idx = 0;
 
         foreach (var charRange in chars)
         {
-            for (uint i = charRange.Key; i <= charRange.Value; i++)
+            for (var i = charRange.Key; i <= charRange.Value; i++)
             {
-                var loadCharResult = LoadRenderedChar(facePtr, i);
-                if (loadCharResult != FT_Error.FT_Err_Ok)
+                GlyphBitmap bitmap;
+                GlyphMetrics metrics;
+
+                try
                 {
-                    logger.Warning("Error loading character {Character} with error {Error} ({ErrorCode:X})", 
-                        (char)i, loadCharResult, (int)loadCharResult);
+                    // An unmapped character is glyph 0, as FT_Load_Char loads it.
+                    var glyphIndex = face.GetGlyphIndex((int)i);
+                    bitmap = scaledFont.Render(glyphIndex);
+                    metrics = scaledFont.GetMetrics(glyphIndex);
+                }
+                catch (Exception e) when (e is InvalidDataException or NotSupportedException)
+                {
+                    logger.Warning(e, "Error loading character {Character} of font {FontName}", (char)i, fontName);
                     continue;
                 }
 
+                // CharacterInfo.Advance is in whole pixels (the hinted 26.6 advance, shifted down by 6 bits).
+                var advance = metrics.Advance >> 6;
+                var size = new Vector2(bitmap.Width, bitmap.Height);
+                var bearing = new Vector2(bitmap.Left, bitmap.Top);
                 CharacterInfo character;
 
                 if (i != ' ')
                 {
-                    var data = new FontLoadData(GlyphBuffer(face), (int)face.GlyphBitmap.width,
-                        (int)face.GlyphBitmap.rows);
-                    fontLoadDatas[idx] = data;
-                    idx++;
-
-                    var tmpImg = new byte[data.Width * pixelHeight];
-
-                    for (int j = 0; j < data.Height; j++)
-                    {
-                        for (int k = 0; k < data.Width; k++)
-                        {
-                            var index = j * data.Width + k;
-                            tmpImg[index] = Marshal.ReadByte(data.FontDataPtr, index);
-                        }
-                    }
-
-                    for (int j = data.Height; j < pixelHeight; j++)
-                    for (int k = 0; k < data.Width; k++)
-                        tmpImg[j * data.Width + k] = 0;
-
-                    data.LoadedImage = tmpImg;
+                    bitmaps.Add(bitmap);
 
                     charPosition += s_sidesPadding;
-
-                    character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
-                        new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
-                        new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), charPosition);
-
-                    charPosition += data.Width + s_sidesPadding;
+                    character = new CharacterInfo(advance, size, bearing, charPosition);
+                    charPosition += bitmap.Width + s_sidesPadding;
                 }
                 else
                 {
-                    character = new CharacterInfo(face.GlyphMetricHorizontalAdvance,
-                        new Vector2(face.GlyphBitmap.width, face.GlyphBitmap.rows),
-                        new Vector2(face.GlyphBitmapLeft, face.GlyphBitmapTop), -1);
+                    character = new CharacterInfo(advance, size, bearing, -1);
                 }
 
-                if (maxHeight < face.GlyphBitmap.rows)
-                    maxHeight = (int)face.GlyphBitmap.rows;
+                if (maxHeight < bitmap.Height)
+                    maxHeight = bitmap.Height;
 
+                width += bitmap.Width + s_sidesPadding * 2;
                 charsResult.Add((char)i, character);
             }
         }
 
-        return (fontLoadDatas, charsResult);
-    }
-    
-    private static byte[] CreateFontImage(int imgLength, int maxHeight, FontLoadData[] fontLoadDatas, out int width)
-    {
-        var img = ArrayPool<byte>.Shared.Rent(imgLength);
-        width = imgLength / maxHeight;
-
-        for (int row = 0; row < maxHeight; row++)
+        if (maxHeight == 0)
         {
-            for (int k = 0, imgOffset = 0; k < fontLoadDatas.Length; k++)
-            {
-                var imgData = fontLoadDatas[k];
-
-                for (int paddingLeft = 0; paddingLeft < s_sidesPadding; paddingLeft++, imgOffset++)
-                    img[row * width + imgOffset] = 0;
-
-                if (row < imgData.Height)
-                    for (int column = 0; column < imgData.Width; column++, imgOffset++)
-                        img[row * width + imgOffset] = imgData.LoadedImage[row * imgData.Width + column];
-                else
-                    for (int column = 0; column < imgData.Width; column++, imgOffset++)
-                        img[row * width + imgOffset] = 0;
-
-                for (int paddingRight = 0; paddingRight < s_sidesPadding; paddingRight++, imgOffset++)
-                    img[row * width + imgOffset] = 0;
-            }
+            throw new InvalidDataException($"Font {fontName}: every glyph failed to load or has no bitmap (see the warnings above).");
         }
 
-        return img;
+        var img = (pool ?? ArrayPool<byte>.Shared).Rent(width * maxHeight);
+        Array.Clear(img, 0, width * maxHeight);
+
+        var x = 0;
+
+        foreach (var bitmap in bitmaps)
+        {
+            x += s_sidesPadding;
+
+            for (var row = 0; row < bitmap.Height; row++)
+                Array.Copy(bitmap.Pixels, row * bitmap.Width, img, row * width + x, bitmap.Width);
+
+            x += bitmap.Width + s_sidesPadding;
+        }
+
+        return new FontAtlas(img, width, maxHeight, charsResult);
     }
 }
 
@@ -285,7 +239,7 @@ public class Font
 //     m_readOnlyCharacters = new ReadOnlyDictionary<char, CharacterInfo>(m_characters);
 //
 //     var charSize = 1 / 16.0f;
-//     
+//
 //     foreach (var _char in localChars)
 //     {
 //         int x = _char % m_characterRowAmount;
@@ -297,7 +251,7 @@ public class Font
 //         var bottom = top - charSize;
 //
 //         var charInfo = new CharacterInfo(left, right, top, bottom, GlobalSettings.DefaultCharacterSize);
-//         
+//
 //         Console.WriteLine($"Char: {_char}; X: {x}; Y: {y}; CharInfo: {charInfo.ToString()}");
 //
 //         m_characters[_char] = charInfo;

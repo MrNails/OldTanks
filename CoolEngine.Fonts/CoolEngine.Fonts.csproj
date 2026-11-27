@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Font loading, character mapping, glyph outlines, metrics and coverage bitmaps (TrueType, OpenType, collections);
+         managed code only, no package dependencies. Added in OT-4 to replace FreeTypeSharp in the engine. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="CoolEngine.Fonts.Tests" />
+    </ItemGroup>
+
+</Project>
