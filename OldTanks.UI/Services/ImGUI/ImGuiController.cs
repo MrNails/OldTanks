@@ -50,7 +50,6 @@ void main()
 
     private readonly ILogger m_logger;
     private readonly Queue<char> m_pressedChars = new Queue<char>();
-    private readonly System.Numerics.Vector2 m_scaleFactor = System.Numerics.Vector2.One;
     
     private bool m_frameBegun;
 
@@ -64,18 +63,24 @@ void main()
     private Texture? m_fontTexture;
     private Shader m_shader;
 
-    private int m_windowWidth;
-    private int m_windowHeight;
+    private ImGuiDisplayMetrics m_display;
     
     private Matrix4 m_imGuiProjection;
 
     /// <summary>
     /// Constructs a new ImGuiController.
     /// </summary>
-    public ImGuiController(int width, int height, ILogger logger)
+    public ImGuiController(Vector2i clientSize, Vector2i framebufferSize, ILogger logger)
     {
         m_logger = logger;
-        WindowResized(width, height);
+
+        if (!ImGuiDisplayMetrics.TryCreate(clientSize, framebufferSize, out var metrics))
+        {
+            throw new ArgumentOutOfRangeException(nameof(clientSize),
+                $"The window has no drawable area: client size {clientSize}, framebuffer size {framebufferSize}.");
+        }
+
+        WindowResized(clientSize, framebufferSize);
 
         m_imGuiContext = ImGui.CreateContext();
         ImGui.SetCurrentContext(m_imGuiContext);
@@ -94,18 +99,18 @@ void main()
 
     public Rectangle WindowClip { get; set; }
     
-    public void WindowResized(int width, int height)
+    /// <summary>
+    /// Sets the display to the window's client size (the unit of the mouse position) and the framebuffer scale.
+    /// Keeps the last display when either size is empty (a minimised window). Call on the GL thread;
+    /// <see cref="Render"/> expects the viewport at the framebuffer size.
+    /// </summary>
+    public void WindowResized(Vector2i clientSize, Vector2i framebufferSize)
     {
-        m_windowWidth = width;
-        m_windowHeight = height - 39;
-        
-        m_imGuiProjection = Matrix4.CreateOrthographicOffCenter(
-            0.0f,
-            width,
-            height - 39,
-            -39f,
-            -1.0f,
-            1.0f);
+        if (!ImGuiDisplayMetrics.TryCreate(clientSize, framebufferSize, out var metrics))
+            return;
+
+        m_display = metrics;
+        m_imGuiProjection = metrics.CreateProjection();
     }
 
     public void CreateDeviceResources()
@@ -212,10 +217,8 @@ void main()
     private void SetPerFrameImGuiData(float deltaSeconds)
     {
         var io = ImGui.GetIO();
-        io.DisplaySize = new System.Numerics.Vector2(
-            m_windowWidth / m_scaleFactor.X,
-            m_windowHeight / m_scaleFactor.Y);
-        io.DisplayFramebufferScale = m_scaleFactor;
+        io.DisplaySize = m_display.DisplaySize;
+        io.DisplayFramebufferScale = m_display.FramebufferScale;
         io.DeltaTime = deltaSeconds; // DeltaTime is in seconds.
     }
 
@@ -394,10 +397,9 @@ void main()
                     Texture.Use(pcmd.TextureId.ToInt32(), TextureUnit.Texture0);
                 }
 
-                // We do _windowHeight - (int)clip.W instead of (int)clip.Y because gl has flipped Y when it comes to these coordinates
-                var clip = pcmd.ClipRect;
-                GL.Scissor((int)clip.X, m_windowHeight - (int)clip.W, (int)(clip.Z - clip.X),
-                    (int)(clip.W - clip.Y));
+                // The framebuffer height minus (int)clip.W instead of (int)clip.Y, because GL has a flipped Y for these coordinates
+                var (scissorX, scissorY, scissorWidth, scissorHeight) = m_display.GetScissorBox(pcmd.ClipRect);
+                GL.Scissor(scissorX, scissorY, scissorWidth, scissorHeight);
 
                 if ((io.BackendFlags & ImGuiBackendFlags.RendererHasVtxOffset) != 0)
                     GL.DrawElementsBaseVertex(PrimitiveType.Triangles, (int)pcmd.ElemCount,

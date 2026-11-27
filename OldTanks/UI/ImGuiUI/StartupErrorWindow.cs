@@ -28,8 +28,7 @@ public sealed class StartupErrorWindow : ImGuiWindow
         {
             ImGui.SetNextWindowPos(new Vector2(Margin, Margin), ImGuiCond.Always);
             ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
-            // Not DisplaySize: ImGuiController is given the outer window size (with the borders), which is
-            // wider than the client area.
+            // The game window's client width, which is also ImGui's DisplaySize.X.
             // Height 0: ImGui fits the height to the content.
             ImGui.SetNextWindowSize(
                 new Vector2(Math.Max(m_clientWidth() - 2 * Margin, MinWidth), 0), ImGuiCond.Always);

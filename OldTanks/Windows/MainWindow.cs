@@ -100,6 +100,11 @@ public partial class MainWindow : GameWindow
 
     private Vector3 m_rotation;
 
+    // GL thread only: the last non-empty client and framebuffer sizes.
+    private WindowMetrics m_windowMetrics;
+    // GL thread only: set by ApplyWindowSize while the framebuffer is empty (minimised, or a zero-height client area).
+    private bool m_framebufferEmpty;
+
     public MainWindow(string caption, SettingsService settingsService, LoggerService logger)
         : this(GameWindowSettings.Default,
             CreateNativeWindowSettings(GetClientSize(settingsService), caption),
@@ -188,15 +193,19 @@ public partial class MainWindow : GameWindow
 
     protected override void OnLoad()
     {
+        if (!WindowMetrics.TryCreate(ClientSize, FramebufferSize, out m_windowMetrics))
+            throw new InvalidOperationException("The window has no drawable area at load.");
+
         VSync = VSyncMode.On;
-        m_imGuiController = new ImGuiController(Size.X, Size.Y, m_loggerService.CreateLogger());
+        m_imGuiController = new ImGuiController(m_windowMetrics.ClientSize, m_windowMetrics.FramebufferSize,
+            m_loggerService.CreateLogger());
 
         Title += $". OpenGL: {GL.GetString(StringName.Version)}";
 
         ApplyGLSettings();
 
-        // The same size as the viewport OnResize sets.
-        m_renderTarget = new RenderTarget(Size.X, Size.Y);
+        // The framebuffer size, as ApplyWindowSize keeps it.
+        m_renderTarget = new RenderTarget(m_windowMetrics.FramebufferSize.X, m_windowMetrics.FramebufferSize.Y);
 
         m_gameManager.FontsLoaded += OnFontsLoaded;
         m_gameManager.ShadersLoaded += OnShadersLoaded;
@@ -247,9 +256,8 @@ public partial class MainWindow : GameWindow
                 }
             });
 
-        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
-            (float)Size.X / Size.Y, 0.1f, m_engineSettings.MaxDepthLength);
+        EngineSettings.Current.Projection = m_windowMetrics.CreatePerspective(m_world.CurrentCamera.FOV,
+            m_engineSettings.MaxDepthLength);
 
         base.OnLoad();
     }
@@ -270,17 +278,12 @@ public partial class MainWindow : GameWindow
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
-        if (Size.X == 0 || Size.Y == 0)
-            return;
-
         if (!m_imGuiWantsMouse)
         {
-            var aspect = (float)Size.X / Size.Y;
             m_world.CurrentCamera.FOV += -e.OffsetY;
 
-            EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
-                MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
-                aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
+            EngineSettings.Current.Projection = m_windowMetrics.CreatePerspective(m_world.CurrentCamera.FOV,
+                m_engineSettings.MaxDepthLength);
         }
 
         m_imGuiController.MouseScroll(e.Offset);
@@ -375,6 +378,10 @@ public partial class MainWindow : GameWindow
 
     protected override void OnRenderFrame(FrameEventArgs args)
     {
+        // Nothing is drawn while the framebuffer is empty; the next ImGuiController.Update ends the ImGui frame.
+        if (m_framebufferEmpty)
+            return;
+
         if (m_startupError != null && m_startupErrorWindow != null)
         {
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit |
@@ -507,30 +514,46 @@ public partial class MainWindow : GameWindow
     {
         base.OnResize(e);
 
-        GL.Viewport(0, 0, Size.X, Size.Y);
+        ApplyWindowSize();
+    }
 
-        EngineSettings.Current.WindowWidth = Size.X;
-        EngineSettings.Current.WindowHeight = Size.Y;
+    protected override void OnFramebufferResize(FramebufferResizeEventArgs e)
+    {
+        base.OnFramebufferResize(e);
 
-        if (Size.X == 0 || Size.Y == 0)
+        ApplyWindowSize();
+    }
+
+    private void ApplyWindowSize()
+    {
+        // Before OnLoad (the constructor's fullscreen switch raises both callbacks synchronously) and after OnUnload,
+        // nothing is sized.
+        if (m_renderTarget == null)
             return;
 
-        // After the zero-size check, which protects a minimised fullscreen window (the only case with size 0): the
-        // factory throws on an empty box, so the last projection is kept there.
-        EngineSettings.Current.ScreenProjection = Matrix4.CreateOrthographicOffCenter(0, Size.X, 0, Size.Y, -1, 1);
+        // Minimised, or a zero-height client area: keep the last sizes.
+        if (!WindowMetrics.TryCreate(ClientSize, FramebufferSize, out var metrics))
+        {
+            m_framebufferEmpty = true;
+            return;
+        }
 
-        // Follows the viewport above. A minimised decorated window reports its frame size (OpenTK's Size is the client
-        // area plus the GLFW frame, e.g. 16x39), and the target follows it; only a minimised fullscreen window has size
-        // 0, which keeps the last one.
-        m_renderTarget?.Resize(Size.X, Size.Y);
+        m_framebufferEmpty = false;
+        m_windowMetrics = metrics;
 
-        var aspect = (float)Size.X / Size.Y;
+        GL.Viewport(0, 0, metrics.FramebufferSize.X, metrics.FramebufferSize.Y);
 
-        EngineSettings.Current.Projection = Matrix4.CreatePerspectiveFieldOfView(
-            MathHelper.DegreesToRadians(m_world.CurrentCamera.FOV),
-            aspect >= 1 ? aspect : 1, 0.1f, m_engineSettings.MaxDepthLength);
+        EngineSettings.Current.WindowWidth = metrics.ClientSize.X;
+        EngineSettings.Current.WindowHeight = metrics.ClientSize.Y;
 
-        m_imGuiController.WindowResized(Size.X, Size.Y);
+        EngineSettings.Current.ScreenProjection = metrics.CreateScreenProjection();
+
+        m_renderTarget.Resize(metrics.FramebufferSize.X, metrics.FramebufferSize.Y);
+
+        EngineSettings.Current.Projection = metrics.CreatePerspective(m_world.CurrentCamera.FOV,
+            m_engineSettings.MaxDepthLength);
+
+        m_imGuiController.WindowResized(metrics.ClientSize, metrics.FramebufferSize);
 
         VSync = VSyncMode.On;
     }
@@ -875,9 +898,11 @@ public partial class MainWindow : GameWindow
     private void HandleMouseMove()
     {
         const int leftMargin = 10;
-        const int rightMargin = 27;
+        // Today's effective right margin at 100 % in a window (27 against the outer size).
+        const int rightMargin = 11;
         const int topMargin = 20;
-        const int bottomMargin = 50;
+        // Today's effective bottom margin at 100 % in a window (50 against the outer size).
+        const int bottomMargin = 11;
         const int defaultDeltaX = 3;
         const int defaultDeltaY = 2;
         
@@ -888,22 +913,25 @@ public partial class MainWindow : GameWindow
         }
         else
         {
-            var posX = Math.Min(Math.Max(MousePosition.X, leftMargin), Size.X - rightMargin);
-            var posY = Math.Min(Math.Max(MousePosition.Y, topMargin), Size.Y - bottomMargin);
+            // Physics thread: ClientSize is one GLFW call per step (KI-036).
+            var clientSize = ClientSize;
+
+            var posX = Math.Min(Math.Max(MousePosition.X, leftMargin), clientSize.X - rightMargin);
+            var posY = Math.Min(Math.Max(MousePosition.Y, topMargin), clientSize.Y - bottomMargin);
             
             var deltaX = 0f;
             var deltaY = 0f;
 
             if (posX == leftMargin)
                 deltaX = -defaultDeltaX;
-            else if (posX == Size.X - rightMargin)
+            else if (posX == clientSize.X - rightMargin)
                 deltaX = defaultDeltaX;
             else 
                 deltaX = MousePosition.X - m_lastMousePos.X;
             
             if (posY == topMargin)
                 deltaY = -defaultDeltaY;
-            else if (posY == Size.Y - bottomMargin)
+            else if (posY == clientSize.Y - bottomMargin)
                 deltaY = defaultDeltaY;
             else
                 deltaY = MousePosition.Y - m_lastMousePos.Y;
