@@ -4,7 +4,7 @@
 |--------------|--------|
 | Status       | Living |
 | Last updated | 2026-11-27 |
-| Verified against | 2026-11-27; bug/OT-16 rebased on master at 4b425be (§5's window-size paragraphs against the code and `WindowMetricsTests`; the mentor's app check of 2026-11-27: windowed, fullscreen, resize, zero-height client, minimise and restore, `Alt` + `Enter`, `FullScreen` true at start, no GL error; a display scale other than 100% not run; the other sections not rechecked); bug/OT-15 at c208744 (§3's Disposal paragraph and §5's `RenderTarget` paragraph against the code, the 18 tests, the reviewer's GL harness and the mentor's app check of 2026-11-27; the other sections' claims not rechecked); 2026-11-26; feature/OT-5 at 98ab147 (§5, §3's `RenderTarget` row, §4's `SkyBoxShader` row and the skybox upload fix against the code, review D's GL harness on the real `RenderTarget` and shaders, and the app checks of 2026-11-26; the other sections' claims not rechecked); 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); bug/OT-6 (rebased on master at 6753e46): §3's Shader row, the name-lookup paragraph (its fail-fast consequences against OT-8's exception logging) and §4's sampler note against the code and the two OT-6 runs; the other sections as of 2026-11-24 (develop at d32cbbf) |
+| Verified against | 2026-11-27; bug/OT-17 rebased on master at 88f6d1c (§1's primitives-buffers paragraph against `ObjectRendererOld` and the checks it names; the other sections not rechecked); bug/OT-16 rebased on master at 4b425be (§5's window-size paragraphs against the code and `WindowMetricsTests`; the mentor's app check of 2026-11-27: windowed, fullscreen, resize, zero-height client, minimise and restore, `Alt` + `Enter`, `FullScreen` true at start, no GL error; a display scale other than 100% not run; the other sections not rechecked); bug/OT-15 at c208744 (§3's Disposal paragraph and §5's `RenderTarget` paragraph against the code, the 18 tests, the reviewer's GL harness and the mentor's app check of 2026-11-27; the other sections' claims not rechecked); 2026-11-26; feature/OT-5 at 98ab147 (§5, §3's `RenderTarget` row, §4's `SkyBoxShader` row and the skybox upload fix against the code, review D's GL harness on the real `RenderTarget` and shaders, and the app checks of 2026-11-26; the other sections' claims not rechecked); 2026-11-25; bug/OT-7 (committed, rebased on master at d2f8b8a); §2 against the code, the new tests and two runs of the game (the colour and the retexture); bug/OT-6 (rebased on master at 6753e46): §3's Shader row, the name-lookup paragraph (its fail-fast consequences against OT-8's exception logging) and §4's sampler note against the code and the two OT-6 runs; the other sections as of 2026-11-24 (develop at d32cbbf) |
 
 ---
 
@@ -20,6 +20,18 @@ How the engine draws a frame: the four renderers in `CoolEngine/Services/Rendere
 | `CoolEngine.Services.Renderers.TextRenderer` | Static | Screen text (`DrawText2D`, the HUD) and world text (`DrawText3D`, object names and vertex labels, optionally billboarded) | `FontShader` |
 
 `CoolEngine.Services.Renderers.SkyBoxRenderer` is an empty placeholder. `ObjectRendererOld` still keeps a per-CLR-type list of drawables (`AddDrawable`, `RemoveDrawable`), and the game keeps it in sync, but the call that drew them is commented out; the world is drawn only by `ObjectRenderer<T>`.
+
+**Primitives buffers (`ObjectRendererOld.DrawPrimitives`, since OT-17, 2026-11-27):** one VAO and VBO per `PrimitiveType` (lines and points are separate), created on the first draw of that type, each with its own capacity in its `DrawObjectInfo.VerticesLength`. The pure `ObjectRendererOld.GetPrimitivesUpload` decides the capacity ([KI-033](../../../KNOWN-ISSUES.md#ki-033-the-normals-overlay-overflows-the-primitives-buffer), closed):
+
+| Rule | Value |
+|------|-------|
+| Capacity | The next power of two at or above the draw, at least 128 (`MinPrimitivesCapacity`), at most 1 048 576 (`MaxPrimitivesCapacity`, 12 MiB of `Vector3`); it never shrinks |
+| Growth | The same VBO is re-specified (`glBufferData`) and the VAO keeps pointing at that buffer object, so the VAO is created once per type |
+| A draw above the cap | Cut to its first 1 048 576 vertices, with one Warning per type (Denys, 2026-11-27) |
+| `drawAmount` larger than the array | `ArgumentOutOfRangeException` before any GL call |
+| Log lines (Information) | "Primitives buffer for {PrimitiveType} created for {Capacity} vertices." and "Primitives buffer for {PrimitiveType} grown from {OldCapacity} to {Capacity} vertices." |
+
+Checked 2026-11-27: the 11 tests in `CoolEngine.Tests.Services.Renderers.ObjectRendererOldTests` (the capacity rules and the guard; headless, no GL call); the mentor's app check (normals overlay on, toggled four times, then the collision debug view on: no `GL_INVALID` line, one "created for 128 vertices" line each for Lines and Points, exactly one "Lines grown from 128 to 16384 vertices"); the reviewer's GL harness (VAO valid across growth, Lines 128 to 16 384 to 1 048 576, no GL error, no managed allocation over 1 000 frames, one Warning at the cut).
 
 ## 2. `ObjectRenderer<T>`: batching and instancing
 
