@@ -6,6 +6,8 @@
     <Project Path="tests/CoolEngine.Imaging.Tests/CoolEngine.Imaging.Tests.csproj" />
     <Project Path="tests/CoolEngine.Mathematics.Benchmarks/CoolEngine.Mathematics.Benchmarks.csproj" />
     <Project Path="tests/CoolEngine.Mathematics.Tests/CoolEngine.Mathematics.Tests.csproj" />
+    <Project Path="tests/CoolEngine.Physics.Benchmarks/CoolEngine.Physics.Benchmarks.csproj" />
+    <Project Path="tests/CoolEngine.Physics.Tests/CoolEngine.Physics.Tests.csproj" />
     <Project Path="tests/OldTanks.Docs.Tests/OldTanks.Docs.Tests.csproj" />
     <Project Path="tests/OldTanks.Tests/OldTanks.Tests.csproj" />
     <Project Path="tests/OldTanks.UI.Tests/OldTanks.UI.Tests.csproj" />
@@ -15,6 +17,7 @@
   <Project Path="CoolEngine.Fonts/CoolEngine.Fonts.csproj" />
   <Project Path="CoolEngine.Imaging/CoolEngine.Imaging.csproj" />
   <Project Path="CoolEngine.Mathematics/CoolEngine.Mathematics.csproj" />
+  <Project Path="CoolEngine.Physics/CoolEngine.Physics.csproj" />
   <Project Path="CoolEngine/CoolEngine.csproj" />
   <Project Path="OldTanks.UI.SourceGenerators/OldTanks.UI.SourceGenerators.csproj" />
   <Project Path="OldTanks.UI/OldTanks.UI.csproj" />

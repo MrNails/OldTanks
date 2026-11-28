@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- The engine's physics library: bodies, shapes, detection, the sub-stepped step and the ray cast. Headless; references
+         only CoolEngine.Mathematics; no statics (no static field except const), no logger, no INotifyPropertyChanged. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <!-- RS0030: a symbol from ..\BannedSymbols.txt (System.Numerics' row-vector matrix APIs) is an error. -->
+        <WarningsAsErrors>$(WarningsAsErrors);RS0030</WarningsAsErrors>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="..\BannedSymbols.txt" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\CoolEngine.Mathematics\CoolEngine.Mathematics.csproj" />
+    </ItemGroup>
+
+    <!-- CoolEngine.Tests holds the detection parity tests against the old Collision (transitional until WP5). -->
+    <ItemGroup>
+        <InternalsVisibleTo Include="CoolEngine.Physics.Tests" />
+        <InternalsVisibleTo Include="CoolEngine.Physics.Benchmarks" />
+        <InternalsVisibleTo Include="CoolEngine.Tests" />
+    </ItemGroup>
+
+</Project>
