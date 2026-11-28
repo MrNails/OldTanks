@@ -93,6 +93,9 @@ internal sealed class LibraryRunner
         if (tickEvent.Force is { } force && !World.IsStatic(handle))
             World.AddForce(handle, force);
 
+        if (tickEvent.Velocity is { } velocity && !World.IsStatic(handle))
+            World.SetVelocity(handle, Drive.ClampToLimits(handle, velocity));
+
         if (tickEvent.Rotation is { } rotation)
         {
             World.SetLinear(handle, Linear(rotation, World.GetSize(handle)));

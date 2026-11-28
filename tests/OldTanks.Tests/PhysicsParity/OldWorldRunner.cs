@@ -72,6 +72,9 @@ internal sealed class OldWorldRunner
         if (tickEvent.Force is { } force)
             worldObject.RigidBody.Force += force;
 
+        if (tickEvent.Velocity is { } velocity)
+            worldObject.RigidBody.Velocity = velocity;
+
         if (tickEvent.Rotation is { } rotation)
             worldObject.Rotation = rotation;
 

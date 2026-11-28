@@ -42,7 +42,15 @@ internal sealed class StageOneDrive
         return velocity;
     }
 
-    /// <summary>One tick: <c>SubStepCount</c> sub-steps of <c>timeStep / SubStepCount</c>, the force cleared on the last.</summary>
+    /// <summary>A velocity written through today's setter: the forward clamp with this body's limits.</summary>
+    public Vector3 ClampToLimits(BodyHandle handle, Vector3 velocity)
+    {
+        var limits = GetLimits(handle);
+
+        return ClampForward(velocity, limits.MaxSpeed, limits.MaxBackSpeed, limits.Multiplier);
+    }
+
+    /// <summary>One tick:<c>SubStepCount</c> sub-steps of <c>timeStep / SubStepCount</c>, the force cleared on the last.</summary>
     public void RunTick(PhysicsWorld world, float timeStep)
     {
         var subStepCount = world.Settings.SubStepCount;

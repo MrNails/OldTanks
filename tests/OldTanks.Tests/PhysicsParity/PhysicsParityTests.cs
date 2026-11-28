@@ -258,7 +258,7 @@ public sealed class PhysicsParityTests
     }
 
     // tickTime gives each tick's time (default 1/60 s); afterTick checks a scene's preconditions on today's world.
-    private static void AssertParity(SceneDescription scene, Func<int, float>? tickTime = null,
+    internal static void AssertParity(SceneDescription scene, Func<int, float>? tickTime = null,
         Action<int, OldWorldRunner>? afterTick = null)
     {
         var old = new OldWorldRunner(scene);

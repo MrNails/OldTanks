@@ -10,10 +10,11 @@ internal sealed record BodySpec(bool IsSphere, bool IsStatic, Vector3 Position, 
 /// <summary>
 /// A change applied to both worlds before the step of <see cref="Tick"/>, to the body in slot <see cref="Body"/>
 /// (ignored for <see cref="Add"/>): a force added (static bodies skipped, as today's setter ignores it), a new rotation,
-/// static or dynamic, a removal, or a new body (which takes the slot the library gives it).
+/// static or dynamic, a removal, or a new body (which takes the slot the library gives it). <see cref="Velocity"/> is a
+/// write through today's <c>RigidBody.Velocity</c> setter (clamped forward, ignored for a static body).
 /// </summary>
 internal sealed record TickEvent(int Tick, int Body, Vector3? Force, Vector3? Rotation, bool? MakeStatic, bool Remove,
-    BodySpec? Add);
+    BodySpec? Add, Vector3? Velocity = null);
 
 /// <summary>A scene for the parity harness: bodies in slot order, events and the tick count.</summary>
 internal sealed record SceneDescription(string Name, IReadOnlyList<BodySpec> Bodies, IReadOnlyList<TickEvent> Events,
