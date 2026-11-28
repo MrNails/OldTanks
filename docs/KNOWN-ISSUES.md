@@ -393,7 +393,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | Field | Value |
 |---|---|
 | **Status** | Open |
-| **Scope** | `CoolEngine.PhysicEngine.Core.RigidBody.OnTick` (today) and `CoolEngine.Physics.PhysicsWorld.ClampTerminalSpeed` (the ported library, stage 1) |
+| **Scope** | `CoolEngine.PhysicEngine.Core.RigidBody.OnTick` (today) and `CoolEngine.Physics.PhysicsWorld.ClampTerminalSpeed` (the ported library) |
 | **Root cause** | The rule tests the absolute speed along gravity (`Math.Abs(Dot(velocity, gravityDirection)) > MaxFreeFallingSpeed`) and then replaces the velocity's components by `MaxFreeFallingSpeed × gravityDirection`, whichever way the body was moving |
 | **Current state** | A body that moves up faster than 88.26 m/s (9.80665 × 9) is turned into one that falls at that speed. The game cannot reach such a speed by itself; a debug-window edit of the velocity can. Denys decided to port it exactly and fix it later from his specification (2026-11-27, plan Q5: "Port the three quirks exactly and record each as a KI"; turned down: fix them in the move). The library and today's code agree bit for bit |
 | **Remaining check** | Denys's specification of what a body going up faster than the terminal speed should do; then change both `OnTick` (until the old code goes) and `ClampTerminalSpeed`, and re-record the golden |
@@ -404,7 +404,7 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | Field | Value |
 |---|---|
 | **Status** | Open |
-| **Scope** | `OldTanks.Models.World.CollideObjects` (today) and `CoolEngine.Physics.PhysicsWorld.ResolveContacts` (the ported library, stage 1) |
+| **Scope** | `OldTanks.Models.World.CollideObjects` (today) and `CoolEngine.Physics.PhysicsWorld.ResolveContacts` (the ported library) |
 | **Root cause** | After a contact the flag is `Dot(Normalize(centre of the first body - centre of the second), gravityDirection)` against 0, not the contact normal against gravity |
 | **Current state** | A body pressed against the side of a taller wall has its flag set when its centre is above the wall's centre although the contact normal is horizontal, and cleared when it is below it; the flag then decides whether `World.ResolveColliding` cancels the vertical velocity. Denys decided to port it exactly and fix it later from his specification (2026-11-27, plan Q5); the library and today's code agree bit for bit |
 | **Remaining check** | Denys's specification of "on ground" (for example a contact normal against gravity); then both implementations and the goldens change together |

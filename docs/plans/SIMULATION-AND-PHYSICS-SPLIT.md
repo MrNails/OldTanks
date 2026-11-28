@@ -2,9 +2,9 @@
 
 | Field        | Value  |
 |--------------|--------|
-| Status       | Active plan - WP1, WP3 and stage 1 of WP2 done on `feature/OT-20` (2026-11-28); stage 2 of WP2 and the docs open; WP4 and WP5 are OT-21, not started |
+| Status       | Active plan - WP1 to WP3 done on `feature/OT-20` (2026-11-28, local, not pushed); WP4 and WP5 are OT-21, not started |
 | Last updated | 2026-11-28 |
-| Verified against | 2026-11-28; feature/OT-20 at 9212d68 (§6a, §10 and §11 against the memory file of the OT-20 run, the three plan files and the first review of the core library, all kept by the mentor, and the code of the two new libraries); 2026-11-27; master at 8c7e72e (§2 against the code and the open KNOWN-ISSUES entries, reasoned from code, not run; not rechecked) |
+| Verified against | 2026-11-28; feature/OT-20 at 3c1b624 (§5, §6a, §8, §10 and §11 against the code of the physics library and its parity tests and the mentor's record of the second pass, the measured figures being his and the reviewer's, not rerun; before that, at 9212d68, §6a, §10 and §11 against the memory file of the OT-20 run, the three plan files and the first review of the core library, all kept by the mentor, and the code of the two new libraries); 2026-11-27; master at 8c7e72e (§2 against the code and the open KNOWN-ISSUES entries, reasoned from code, not run; not rechecked) |
 
 ---
 
@@ -74,7 +74,7 @@ Two tasks (Q1): **`feature/OT-20`** holds WP1-WP3, where nothing in the game cha
 | WP | Content | Tier | The game afterwards |
 |----|---------|------|---------------------|
 | **WP1 Goldens** (done, `feature/OT-20`, 2026-11-28) | Tests only, on today's code: the default scene stepped through `World.CollideObjects` at 1/60 s with 5 sub-steps, recording positions, velocities and `OnGround` at fixed ticks; ray hits against cubes and spheres. **Also the sub-step comparison (Q3):** the default scene and a terminal-speed drop at 1, 2, 3, 5, 8 and 10 sub-steps, reporting penetration depth, resting jitter and cost per tick; Denys confirms the count and the backlog cap before the goldens are frozen | Standard | Unchanged |
-| **WP2 Physics library** (stage 1 done, stage 2 open) | `CoolEngine.Physics` with E1-E5, a benchmark project and KI entries for the three quirks of Q5. **Stage 1 (one commit):** the step ported from `World.CollideObjects`, `RigidBody.OnTick` and `WorldObject.Move` with today's exact arithmetic (the game's matrix, local velocity); WP1's goldens must be equal bit for bit. **Stage 2 (one commit):** quaternions (E2) and world-space velocity (Q4); the measured difference from the goldens goes to Denys | High | Unchanged; nothing uses the library yet |
+| **WP2 Physics library** (done, `feature/OT-20`, both stages, 2026-11-28) | `CoolEngine.Physics` with E1-E5, a benchmark project and KI entries for the three quirks of Q5. **Stage 1 (one commit):** the step ported from `World.CollideObjects`, `RigidBody.OnTick` and `WorldObject.Move` with today's exact arithmetic (the game's matrix, local velocity); WP1's goldens must be equal bit for bit. **Stage 2 (one commit):** quaternions (E2) and world-space velocity (Q4); the measured difference from the goldens went to Denys, who set the bar (§6a) | High | Unchanged; nothing uses the library yet |
 | **WP3 Machinery** (done, `feature/OT-20`, 2026-11-28) | `CoolEngine.Core`: the fixed-tick clock (pause, single step, the backlog cap, high-resolution pacing), the command queue with sequence numbers, the snapshot buffer (E6) | High | Unchanged |
 | **WP4 The sandbox switches** (OT-21, not started) | `OldTanks.Simulation`; `World` steps through it on its own thread (Q9); `WorldObject` as the view with acknowledged edits (E7); input sampled on the GL thread, the free camera, its pick ray and the edge-turn rule of Q11 there (E8); debug-window edits, Spawn and Delete as commands; the debug view from the snapshot (E9); the pause on an exception (Q12); `m_locker` and `GlobalLock` removed | High | Same scene and controls, on the new structure |
 | **WP5 Removal** (OT-21, not started) | Delete `CoolEngine/PhysicEngine/` and the interfaces only it used; move the physics page; update the docs of the update triggers | Mechanical | Unchanged |
@@ -128,6 +128,8 @@ Denys's answers while the mentor pipeline ran WP1-WP3, each asked with a recomme
 | Windows wait | "In CoolEngine.Core (Recommended)": the Windows high-resolution tick wait | In OldTanks for now; portable only |
 | Paused frames and steps | "Accept both (Recommended)": while paused the simulation still applies commands and publishes once per 1/60 s without stepping; each step request is exactly one 1/60 s tick and requests add up; after an exception the resume key resumes and the step key steps once | No commands while paused; discuss first |
 | Commits | "One by one" (2026-11-28; asked "Commit each package on its own branch as it passes review, or all together at the end?") | All at the end |
+| Stage 2's acceptance bar | Asked on 2026-11-28 with the measured difference table: "1 mm, 190 of 200 (Recommended)". The 10 scenes with no turned body stay equal to today's code by bits; the other named scenes stay within 1 mm of today's positions on every tick; at least 190 of the 200 seeded random scenes stay within 1 mm; ground-flag differences are printed, not asserted. A bar at all because stage 2's rules equal today's in exact arithmetic, but a quaternion and a world-space velocity round differently, so bit equality is impossible for a turned body ([PHYSICS-LIBRARY §7](../CoolEngine.Physics/PHYSICS-LIBRARY.md#7-how-it-is-proved)) | 0.2 mm and 199 of 200; report only (no assertion); dropping stage 2 |
+| Units | Denys, 2026-11-28: "After this improvements, we need to standartize our units (rotations, velocity, e.t.c.) Currently, if I understand correctly, we have rotation in two units (radians and degrees in some plcaes)". To "Should the unit rules be decided before OT-21 starts, so its new code follows them?" he answered "Yes, rules first". The eight rules and their facts are in [UNITS-STANDARDIZATION](UNITS-STANDARDIZATION.md) | After OT-21 |
 
 The mentor's engineering choices, told to Denys and not objected to: `Weight` is named `Mass`; setters throw where today's code ignores silently; a freed slot is reused last-freed-first; `SphereShape` has a constructor and no static instance; the command queue is a locked double buffer of struct commands; no spin tail after the wait; a `Faulted` event raised once per run of consecutive faults; no benchmark project for `CoolEngine.Core`. The fault's pause overrides a `Resume` or a `Step` that arrives during the faulting call (a reviewer's finding; it follows Q12; told to Denys, not asked again).
 
@@ -145,7 +147,7 @@ Each is its own later task; the first three wait for Denys's specifications.
 ## 8. Acceptance
 
 - **Build:** `dotnet build OldTanks.slnx` with 0 errors and no more than 127 warnings (the baseline on `master` at `7f33680`; this line said 129 when the plan was written).
-- **Tests:** `dotnet test OldTanks.slnx`, the 4,939 of `master` at `7f33680` (this line said 857) plus every package's new tests, all passed. WP1's goldens are compared within 1e-5 relative (Denys, 2026-11-27, §6a); WP2's stage 1 equals today's code bit for bit, proved by side-by-side tests against it. Stage 2's difference is measured and goes to Denys. A difference in stage 1 stops the work; no check is loosened. **State on 2026-11-28 at `9212d68`:** 0 errors, 127 warnings, 5,212 tests passed (the mentor's combined run; [BUILD](../BUILD.md#2-build)).
+- **Tests:** `dotnet test OldTanks.slnx`, the 4,939 of `master` at `7f33680` (this line said 857) plus every package's new tests, all passed. WP1's goldens are compared within 1e-5 relative (Denys, 2026-11-27, §6a); WP2's stage 1 equals today's code bit for bit, proved by side-by-side tests against it. Stage 2 is held to Denys's bar (§6a): bits where no body is turned, 1 mm and 190 of 200 otherwise. A difference in stage 1 stopped the work; no check is loosened. **State on 2026-11-28 at `3c1b624`:** 0 errors, 127 warnings, 5,237 tests passed (the mentor's combined run; [BUILD](../BUILD.md#2-build)).
 - **App check against `master`:** the default scene settles the same; keys `0`, `N`, `U`, `I`; debug-window edits of position, rotation, size and the body fields; Spawn and Delete pressed quickly with no exception and no `Error` line; the edge-zone turn of Q11.
 - **Closed by WP4:** KI-003, KI-031, KI-036.
 - **Docs:** the pages of the [update triggers](../DOCUMENTATION-GUIDE.md#8-update-triggers): ARCHITECTURE §1-§6, a guide and a feature page per new project, the physics page, BUILD, the glossary, the root guide's maps.
@@ -173,6 +175,8 @@ Found while WP1-WP3 were planned and built; each is also in the feature pages ([
 | §5 WP2 row, "WP1's goldens must be equal bit for bit" | The exact port is proved by side-by-side tests against today's code, in one process (`tests/OldTanks.Tests/PhysicsParity`, `tests/CoolEngine.Tests` `DetectionParityTests`), not by WP1's recorded values, which are compared within tolerance (§6a) |
 | §5 WP2 row, the three quirks of Q5 | Eight quirks are recorded: KI-040 to KI-047 |
 | §8, "no more than 129 warnings" and "the 857 of today" | 127 warnings and 4,939 tests on `master` at `7f33680` |
+| §5 WP2 row, "the measured difference from the goldens goes to Denys", and the analyst's preview of 2026-11-27 (200 random scenes: 90th percentile 1.2 m, maximum 7.2 m, about 30 of 200 diverging) | The preview came from a prototype that converted a local force when it was given, which was a bug in the prototype. The real stage 2 converts it at the start of the tick with the heading that tick runs under, and its measured difference is far smaller: 199 of 200 random scenes within 1 mm, largest 0.358 m (seed 4010). Lesson: measure the real code before asking for a bar ([PHYSICS-LIBRARY §7](../CoolEngine.Physics/PHYSICS-LIBRARY.md#7-how-it-is-proved)) |
+| E2 and Q4, "the game converts its Euler angles" and "a drive step reproduces ... velocity turns with the heading" | Done in test code until `OldTanks.Simulation` exists: `OldTanks.Tests.PhysicsParity.WorldSpaceDrive` converts the angles (`ToOrientation`), the size (`ToHalfExtents`), a local velocity with the forward clamp (`ToWorldVelocity`), turns the stored velocity on a heading change (`SetHeading`) and converts a summed local force at the start of the tick (`AddLocalForce`, `RunTick`) |
 
 ## 11. State and what is open (2026-11-28)
 
@@ -180,10 +184,23 @@ Found while WP1-WP3 were planned and built; each is also in the feature pages ([
 |---------|-------|
 | WP1 goldens | Done: 38 tests in `tests/OldTanks.Tests` (`TestSupport`, `Models`, `Windows`), commit `448f85b` |
 | WP3 machinery | Done: `CoolEngine.Core` and 88 tests, four commits (`ad4d568`, `65d3441`, `f0779fb`, `85523b7`) |
-| WP2 stage 1 | Done: `CoolEngine.Physics`, 127 tests, 16 parity tests in `OldTanks.Tests`, 4 detection parity tests in `CoolEngine.Tests`, a benchmark project; commit `9212d68` |
-| WP2 stage 2 | **Open:** quaternions and world-space velocity; its measured difference goes to Denys, who decides the acceptance bar |
-| Side-by-side cases for WP1's scenes | Open (tests only) |
+| WP2 stage 1 | Done: `CoolEngine.Physics`, an exact port, a benchmark project; commit `9212d68` |
+| Side-by-side cases for WP1's scenes | Done (tests only): `GoldenSceneParityTests`, commit `fde7daa` |
+| WP2 stage 2 | Done: unit quaternion, half-extents and world-space velocity; 142 library tests, 27 parity tests in `OldTanks.Tests` (`PhysicsParity`), 3 detection parity tests in `CoolEngine.Tests`; held to Denys's bar of 1 mm and 190 of 200 (§6a); commit `3c1b624` |
 | WP4, WP5 | OT-21, not started |
 | Push and pull request | Not done; only when Denys asks |
 
-`feature/OT-20` holds six commits on `master` at `7f33680`. On 2026-11-28: 0 errors, 127 warnings, 5,212 tests (31 documentation checks, 23 UI, 88 core, 433 math, 113 engine, 247 imaging, 72 game, 127 physics, 4,078 fonts).
+`feature/OT-20` holds nine commits on `master` at `7f33680` (eight of code and tests, the head `3c1b624`, and the first documentation commit `1027782`), local, not pushed. On 2026-11-28: 0 errors, 127 warnings, 5,237 tests (31 documentation checks, 23 UI, 88 core, 433 math, 112 engine, 247 imaging, 83 game, 142 physics, 4,078 fonts; 5,212 after the first documentation pass). Push and pull request only when Denys asks.
+
+**Notes for OT-21 (WP4 and WP5)**, from the OT-20 run:
+
+| Note | Detail |
+|------|--------|
+| Events of `CoolEngine.Core` | A subscriber of `Faulted` or `TicksDropped` must not throw: it would end the process. Commands after a faulting command in one batch are lost ([CORE §9](../CoolEngine.Core/CORE.md#9-notes-for-the-next-task-ot-21)) |
+| Velocity writes | Today's `RigidBody.Velocity` setter clamps every write, the debug window's edits included, while `PhysicsWorld.SetVelocity` stores exactly: the drive must clamp edits. One conversion, `WorldSpaceDrive.ToWorldVelocity`, serves spawns and writes. If a write were left unclamped, the drive's forward clamp would correct it within the first sub-step, and only that one sub-step of damping, computed on the unclamped speed, would differ: a missing write clamp is hard to see in positions, so it has a direct test. |
+| Overflow | An overflowing velocity makes `PhysicsWorld.SetVelocity` throw in the middle of a sub-step: the simulation needs `PhysicsWorld.AbortStep` and the pause of Q12 there |
+| Position edits | The skip-if-equal rule of the position stores also applies to the game's position edits |
+| A static body that turns | A static body whose heading changes while it is static keeps its frozen world velocity unturned (the library refuses velocity writes on a static body; today's local velocity turns with the body). What happens when it becomes dynamic again needs a rule, and that rule is Denys's to give. The new library tests cover such a body's geometry only |
+| Local forces | Converted at the start of a tick with the heading the tick runs under |
+| Q11 | Denys reads the HUD's "Collision check per second" value; about 170 to 200 is expected |
+| Units | OT-21's new code follows the unit rules of [UNITS-STANDARDIZATION](UNITS-STANDARDIZATION.md); converting the old places is a task of its own after OT-21, no number yet |
