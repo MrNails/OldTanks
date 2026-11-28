@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- BenchmarkDotNet benchmarks of CoolEngine.Physics against today's step (OldTanks.Models.World) and today's detection
+         (CoolEngine.PhysicEngine.Core.Collision.Collision); the old categories and the OldTanks reference are transitional
+         until the old code goes (WP5). Run them in Release (dotnet run -c Release on this project) and pass
+         BenchmarkDotNet's filter argument with the value *. The drive, scenes and shapes are the library tests' own,
+         linked. -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\CoolEngine.Physics\CoolEngine.Physics.csproj" />
+        <!-- OldTanks.Models.World is the step baseline; OldTanks brings CoolEngine (the old detection) with it. -->
+        <ProjectReference Include="..\..\OldTanks\OldTanks.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\CoolEngine.Physics.Tests\TestSupport\TestShapes.cs" Link="TestSupport\TestShapes.cs" />
+        <Compile Include="..\CoolEngine.Physics.Tests\TestSupport\TestBodies.cs" Link="TestSupport\TestBodies.cs" />
+        <Compile Include="..\CoolEngine.Physics.Tests\TestSupport\TestDrive.cs" Link="TestSupport\TestDrive.cs" />
+        <Compile Include="..\CoolEngine.Physics.Tests\TestSupport\Scenes.cs" Link="TestSupport\Scenes.cs" />
+    </ItemGroup>
+
+</Project>

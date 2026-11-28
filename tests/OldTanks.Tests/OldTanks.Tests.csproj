@@ -35,6 +35,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\OldTanks\OldTanks.csproj" />
+        <ProjectReference Include="..\..\CoolEngine.Physics\CoolEngine.Physics.csproj" />
     </ItemGroup>
 
     <ItemGroup>

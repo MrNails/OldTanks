@@ -3,8 +3,8 @@
 | Field        | Value  |
 |--------------|--------|
 | Status       | Living - known-issues register |
-| Last updated | 2026-11-27 |
-| Verified against | 2026-11-27; feature/OT-4 rebased on master at 0f9cb48 (KI-037 to KI-039 against the library's class remarks, `tests/OldTanks.Docs.Tests` and the OT-4 plan record; reasoned from code, as checked at 05e364f; KI-039's status against `OldTanks.Docs.Tests.Checkout.FilesUnder` on `master`; after the rebase the merged text read against the OT-14 to OT-19 pages); bug/OT-18 rebased on master at 65b186e (KI-034 closed against the code, `CollisionRenderGroupTests` and a headless fake-OpenGL probe, and the mentor's app check of key `0` on the branch and on master 5e04730; the other entries not rechecked); bug/OT-17 rebased on master at 88f6d1c (KI-033 closed against the code, the 11 new `CoolEngine.Tests.Services.Renderers.ObjectRendererOldTests` and the mentor's app checks of 2026-11-27: on `master` at 5e04730 the overlay logged 1 791 `GL_INVALID_VALUE` lines in 10 s, on the branch none; the other entries not rechecked); bug/OT-16 rebased on master at 4b425be (KI-032's closure and KI-036 against the code and `WindowMetricsTests` and `ImGuiDisplayMetricsTests`, and the mentor's app check of 2026-11-27 against `master` at 5e04730: windowed 800 by 600, fullscreen, a resize to 1200 by 700, a zero-height client, minimise and restore, `Alt` + `Enter` and `FullScreen` true at start, no error, exception or GL error in the log; a display scale other than 100% and the mouse-look edge zones not run; KI-036 reasoned from the code and GLFW's documentation); bug/OT-15 rebased on master at 477b26b (KI-017 closed against the four finalizers, `GLDeletionQueue`, `OldTanks.Windows.MainWindow` and the 18 new tests; the crash before the fix observed by the analyst's harness on NVIDIA 621.24, the fix by the reviewer's GL harness and the mentor's app check of 2026-11-27; KI-035 reasoned from the code); bug/OT-14 at da7db97 (KI-002 closed against the code and `tests/OldTanks.Tests`: movement and follow camera measured within 0.00004° of the drawn forward axis by the review, `DrawNormals` equal to the transform within 2.4e-7, a regression run of the game on 2026-11-27 with exit 0 and no Error or Warning line; the visible checks in the game are open for Denys; KI-001's `A`/`D` note read from code); 2026-11-26; feature/OT-5 at 98ab147 (KI-002's note on the move; KI-032 to KI-034 reasoned from the code and the mentor's app checks and review D's triage of 2026-11-26, the debug-view numbers not re-measured here); 2026-11-25; merge-state wording brought up to date after PRs #11 to #17 (OT-13); bug/OT-13 rebased on master at 8ded8f4 (KI-016 and KI-022 closed there; KI-022's fix confirmed by a 12 s run of the game on 2026-11-25 with no `InitCollision error` line on the console or in `log.txt`, KI-016's by tests; KI-031 read from code); bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 (before its fix) observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
+| Last updated | 2026-11-28 |
+| Verified against | 2026-11-28; feature/OT-20 at 9212d68 (KI-040 to KI-047 against the library, the WP1 goldens and the analyst's probes of 2026-11-27: reasoned from code and measured through today's `World`, not seen in the running game; KI-047 has no test); 2026-11-27; feature/OT-4 rebased on master at 0f9cb48 (KI-037 to KI-039 against the library's class remarks, `tests/OldTanks.Docs.Tests` and the OT-4 plan record; reasoned from code, as checked at 05e364f; KI-039's status against `OldTanks.Docs.Tests.Checkout.FilesUnder` on `master`; after the rebase the merged text read against the OT-14 to OT-19 pages); bug/OT-18 rebased on master at 65b186e (KI-034 closed against the code, `CollisionRenderGroupTests` and a headless fake-OpenGL probe, and the mentor's app check of key `0` on the branch and on master 5e04730; the other entries not rechecked); bug/OT-17 rebased on master at 88f6d1c (KI-033 closed against the code, the 11 new `CoolEngine.Tests.Services.Renderers.ObjectRendererOldTests` and the mentor's app checks of 2026-11-27: on `master` at 5e04730 the overlay logged 1 791 `GL_INVALID_VALUE` lines in 10 s, on the branch none; the other entries not rechecked); bug/OT-16 rebased on master at 4b425be (KI-032's closure and KI-036 against the code and `WindowMetricsTests` and `ImGuiDisplayMetricsTests`, and the mentor's app check of 2026-11-27 against `master` at 5e04730: windowed 800 by 600, fullscreen, a resize to 1200 by 700, a zero-height client, minimise and restore, `Alt` + `Enter` and `FullScreen` true at start, no error, exception or GL error in the log; a display scale other than 100% and the mouse-look edge zones not run; KI-036 reasoned from the code and GLFW's documentation); bug/OT-15 rebased on master at 477b26b (KI-017 closed against the four finalizers, `GLDeletionQueue`, `OldTanks.Windows.MainWindow` and the 18 new tests; the crash before the fix observed by the analyst's harness on NVIDIA 621.24, the fix by the reviewer's GL harness and the mentor's app check of 2026-11-27; KI-035 reasoned from the code); bug/OT-14 at da7db97 (KI-002 closed against the code and `tests/OldTanks.Tests`: movement and follow camera measured within 0.00004° of the drawn forward axis by the review, `DrawNormals` equal to the transform within 2.4e-7, a regression run of the game on 2026-11-27 with exit 0 and no Error or Warning line; the visible checks in the game are open for Denys; KI-001's `A`/`D` note read from code); 2026-11-26; feature/OT-5 at 98ab147 (KI-002's note on the move; KI-032 to KI-034 reasoned from the code and the mentor's app checks and review D's triage of 2026-11-26, the debug-view numbers not re-measured here); 2026-11-25; merge-state wording brought up to date after PRs #11 to #17 (OT-13); bug/OT-13 rebased on master at 8ded8f4 (KI-016 and KI-022 closed there; KI-022's fix confirmed by a 12 s run of the game on 2026-11-25 with no `InitCollision error` line on the console or in `log.txt`, KI-016's by tests; KI-031 read from code); bug/OT-12 rebased on master at 734d8f6 (KI-006 closed against the code and `SceneTests`, KI-030 read from code); bug/OT-10 rebased on master at 483d63f (KI-010 and KI-018 closed against the code and two runs of the game, KI-026 to KI-029 read from code); bug/OT-9 on master at d749ec8 (KI-012 to KI-014 closed and observed in the game on 2026-11-25); bug/OT-8 rebased on master at 826e560 (KI-004, KI-011 and KI-015 closed there) and bug/OT-6 rebased on master at 6753e46 (KI-008 and KI-020 closed there and checked in two runs); KI-021 and KI-022 (before its fix) observed in the running game on 2026-11-25 (KI-008 and KI-020 too, before their fix), KI-005's fix confirmed by a run and KI-009's and KI-019's by tests, KI-023 to KI-025 read from code, the rest as of 2026-11-24 (reasoned from code, not observed) |
 
 ---
 
@@ -55,6 +55,14 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | [KI-037](#ki-037-svg-gzip-documents-with-bytes-between-the-deflate-end-and-the-trailer-are-not-detected) | SVG gzip documents with bytes between the deflate end and the trailer are not detected | Fonts | Open |
 | [KI-038](#ki-038-a-woff-10-zlib-stream-missing-its-end-marker-and-adler-32-is-accepted) | A WOFF 1.0 zlib stream missing its end marker and Adler-32 is accepted | Fonts | Open |
 | [KI-039](#ki-039-the-documentation-checks-scan-git-ignored-folders-that-are-not-checkouts) | The documentation checks scan git-ignored folders that are not checkouts | Docs checks | Partially fixed |
+| [KI-040](#ki-040-the-terminal-speed-clamp-flips-a-fast-upward-speed-to-falling) | The terminal-speed clamp flips a fast upward speed to falling | Physics | Open |
+| [KI-041](#ki-041-the-ground-flag-comes-from-the-direction-between-the-bodies-centres) | The ground flag comes from the direction between the bodies' centres | Physics | Open |
+| [KI-042](#ki-042-inside-one-body-the-first-face-in-list-order-wins-a-ray-test) | Inside one body the first face in list order wins a ray test | Physics | Open |
+| [KI-043](#ki-043-a-sphere-deep-inside-another-sphere-gets-a-wrong-depth) | A sphere deep inside another sphere gets a wrong depth | Physics | Open |
+| [KI-044](#ki-044-a-ray-that-starts-inside-a-cube-reports-no-hit) | A ray that starts inside a cube reports no hit | Physics | Open |
+| [KI-045](#ki-045-a-body-under-a-static-ceiling-sticks-until-gravity-uses-up-its-upward-speed) | A body under a static ceiling sticks until gravity uses up its upward speed | Physics | Open |
+| [KI-046](#ki-046-stacked-dynamic-bodies-never-settle-and-the-lower-one-ends-each-tick-off-the-ground) | Stacked dynamic bodies never settle and the lower one ends each tick off the ground | Physics | Open |
+| [KI-047](#ki-047-two-spheres-with-exactly-the-same-centre-get-nan-positions) | Two spheres with exactly the same centre get NaN positions | Physics | Open |
 
 ---
 
@@ -379,3 +387,91 @@ KI-001 to KI-019 were found by reading `develop` at `d32cbbf` on 2026-11-24 for 
 | **Current state** | A Markdown file there that cites a source line (a file name, a colon and a number) fails `Markdown_NeverCitesSourceLineNumbers` in the main checkout, though it is not part of any commit. Seen on 2026-11-26 and 2026-11-27: OT-5's `.claude/worktrees/OT-5-mentor/council-OT-5.md` failed the OT-4 test runs of 2026-11-26 and 2026-11-27. OT-19 (2026-11-27) made `Checkout.FilesUnder` skip everything under `.claude/worktrees/`, so that case no longer fails; a Markdown file in any other git-ignored folder without its own `.git` is still scanned |
 | **Remaining check** | Read only git-tracked files (`git ls-files`), or skip the rest of the git-ignored folders; then run the tests with a scratch folder holding a bad line reference |
 | **Evidence** | The OT-4 WP1 re-review and the mentor's checks of 2026-11-26 and 2026-11-27 (the failure was on a file outside the work package) |
+
+## KI-040: The terminal-speed clamp flips a fast upward speed to falling
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.PhysicEngine.Core.RigidBody.OnTick` (today) and `CoolEngine.Physics.PhysicsWorld.ClampTerminalSpeed` (the ported library) |
+| **Root cause** | The rule tests the absolute speed along gravity (`Math.Abs(Dot(velocity, gravityDirection)) > MaxFreeFallingSpeed`) and then replaces the velocity's components by `MaxFreeFallingSpeed × gravityDirection`, whichever way the body was moving |
+| **Current state** | A body that moves up faster than 88.26 m/s (9.80665 × 9) is turned into one that falls at that speed. The game cannot reach such a speed by itself; a debug-window edit of the velocity can. Denys decided to port it exactly and fix it later from his specification (2026-11-27, plan Q5: "Port the three quirks exactly and record each as a KI"; turned down: fix them in the move). The library and today's code agree bit for bit |
+| **Remaining check** | Denys's specification of what a body going up faster than the terminal speed should do; then change both `OnTick` (until the old code goes) and `ClampTerminalSpeed`, and re-record the golden |
+| **Evidence** | WP1 golden `OldTanks.Tests.Models.WorldTests.CollideObjects_UpwardSpeedAboveTerminal_FlipsToFalling` (velocity 100 up: v.y -88.25985 after tick 1, lands at tick 5); `CoolEngine.Physics.Tests.PhysicsWorldStepTests.Step_FastUpwardSpeed_FlipsToFallingAtTerminalSpeed` |
+
+## KI-041: The ground flag comes from the direction between the bodies' centres
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.Models.World.CollideObjects` (today) and `CoolEngine.Physics.PhysicsWorld.ResolveContacts` (the ported library) |
+| **Root cause** | After a contact the flag is `Dot(Normalize(centre of the first body - centre of the second), gravityDirection)` against 0, not the contact normal against gravity |
+| **Current state** | A body pressed against the side of a taller wall has its flag set when its centre is above the wall's centre although the contact normal is horizontal, and cleared when it is below it; the flag then decides whether `World.ResolveColliding` cancels the vertical velocity. Denys decided to port it exactly and fix it later from his specification (2026-11-27, plan Q5); the library and today's code agree bit for bit |
+| **Remaining check** | Denys's specification of "on ground" (for example a contact normal against gravity); then both implementations and the goldens change together |
+| **Evidence** | `CoolEngine.Physics.Tests.PhysicsWorldStepTests.Step_BodyBesideHigherWall_GroundFlagFollowsTheCentres` (two cases: a cube centre above the wall's gives true, below it false, measured through today's `World`); the default scene golden |
+
+## KI-042: Inside one body the first face in list order wins a ray test
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.PhysicEngine.Core.Collision.Collision.IntersectRay` (today) and `CoolEngine.Physics.PhysicsQueries.IntersectRay` (the ported library) |
+| **Root cause** | The polygon test goes through the faces in list order and returns the first face whose plane the ray hits inside the face's edges; it does not pick the nearest face |
+| **Current state** | For a shape whose faces overlap along the ray, the face listed first wins, not the nearer one. On the game's cube it changes no result seen from outside: on an edge or a corner the candidates give the same point (measured: exactly (0.25, 1, 1) and (1, 1, 1)). Denys decided to port it exactly and fix it later (2026-11-27, plan Q5) |
+| **Remaining check** | Denys's specification (the nearest face); a test with a shape whose faces overlap along the ray already pins today's answer |
+| **Evidence** | `CoolEngine.Physics.Tests.PhysicsQueriesTests.IntersectRay_TwoFacesOnTheRay_ReturnsTheFirstInListOrder`; WP1's `OldTanks.Tests.Models.CubeTests` edge and corner cases |
+
+## KI-043: A sphere deep inside another sphere gets a wrong depth
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `CoolEngine.PhysicEngine.Core.Collision.Collision` sphere against sphere (today) and `CoolEngine.Physics.Detection.NarrowPhase` (the ported library) |
+| **Root cause** | The depth is `r2 - abs(r1 - d)`; while the centre distance `d` is below the first radius `r1` it gives `d`, not `r1 + r2 - d` |
+| **Current state** | A sphere inside another is pushed out by its own offset, which doubles each sub-step; this is how the default scene's dynamic sphere (it starts exactly at the static sphere's centre) leaves the static one, downwards, in 3 ticks (y 4.987569, 4.5560007, 3.9954238 at 60 ticks per second and 5 sub-steps). Denys decided to port it exactly and fix it later (2026-11-27, "Port exactly, record KIs (Recommended)"; turned down: fix some in the move). [PHYSICS §4](CoolEngine/PhysicEngine/PHYSICS-AND-COLLISIONS.md#4-detection) said only "centre distance ≤ sum of radii" |
+| **Remaining check** | Denys's specification (depth `r1 + r2 - d`); then the default scene's opening ticks change and the goldens are re-recorded |
+| **Evidence** | WP1 golden `OldTanks.Tests.Models.WorldTests.CollideObjects_DefaultScene_MatchesGolden` (ticks 1 to 4); the analyst's probe of 2026-11-27 (reasoned from code and measured through today's `World`) |
+
+## KI-044: A ray that starts inside a cube reports no hit
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `Collision.IntersectRay` (today) and `PhysicsQueries.IntersectRay` (the ported library) |
+| **Root cause** | The polygon test accepts only a face the ray enters from outside, so no face lies ahead of a start inside the cube. A sphere is tested with a quadratic and reports the exit point |
+| **Current state** | The picking ray, when it starts inside a cube, picks nothing from it; inside a sphere it reports the point where the ray leaves it (the settled default scene's ray from (0, -1, 0) reports (0.49997497, -0.99500024, 0) on the dynamic sphere). Denys decided to port it exactly and fix it later (2026-11-27, "Port exactly, record KIs (Recommended)") |
+| **Remaining check** | Denys's specification of a ray from inside a body |
+| **Evidence** | `OldTanks.Tests.Models.CubeTests.IntersectRay_RayStartsInside_ReportsNoHit` and `SphereTests.IntersectRay_RayStartsInside_ReportsExitPoint`; `OldTanks.Tests.Windows.MainWindowTests` |
+
+## KI-045: A body under a static ceiling sticks until gravity uses up its upward speed
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.Models.World.CollideObjects` and `ResolveColliding` (today) and `CoolEngine.Physics.PhysicsWorld.ResolveContacts` (the ported library) |
+| **Root cause** | A contact under a ceiling does not set the ground flag, so the vertical velocity is never cancelled; the body is pushed back each sub-step and keeps its upward speed |
+| **Current state** | A jumping body pinned under a static body stays there until gravity has used up the upward speed (21 ticks in the golden scene: pinned at y -0.8 from tick 14 to tick 35, lands at tick 48). Reachable today only with a static body above a dynamic one (Spawn or an `IsStatic` edit; the jump itself is unreachable, KI-001). Denys decided to port it exactly and fix it later (2026-11-27) |
+| **Remaining check** | Denys's specification of a ceiling contact |
+| **Evidence** | `OldTanks.Tests.Models.WorldTests.CollideObjects_SpawnedStaticsAndJump_MatchesGolden` |
+
+## KI-046: Stacked dynamic bodies never settle and the lower one ends each tick off the ground
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.Models.World.CollideObjects` (today) and `CoolEngine.Physics.PhysicsWorld.ResolveContacts` (the ported library) |
+| **Root cause** | With three dynamic bodies in a stack the later pair overwrites the lower body's ground flag, and each contact push is shared between bodies that another pair pushes again |
+| **Current state** | In the golden stack (a sphere over a middle cube over a bottom cube on a floor) the middle cube creeps about 1e-8 m a tick, the sphere ends every tick with v.y -0.032688834 and the bottom cube ends every tick with the flag cleared; nothing settles. Denys decided to port it exactly and fix it later (2026-11-27) |
+| **Remaining check** | Denys's specification of resting contact between dynamic bodies (collision response is out of scope of the split plan) |
+| **Evidence** | `OldTanks.Tests.Models.WorldTests.CollideObjects_DynamicStack_MatchesGolden` |
+
+## KI-047: Two spheres with exactly the same centre get NaN positions
+
+| Field | Value |
+|---|---|
+| **Status** | Open |
+| **Scope** | `OldTanks.Models.World.CollideObjects` (today) and `CoolEngine.Physics.PhysicsWorld.ResolveContacts` (the ported library) |
+| **Root cause** | `Normalize` of the zero vector between the two centres is NaN, and the push multiplies the contact normal by the depth and the NaN direction, so both positions become NaN |
+| **Current state** | Not reached by the default scene: its two spheres start at the same centre, but gravity moves the dynamic one before the pair is tested. Reachable by placing two spheres at one point, for example with the debug window. Denys decided to port it exactly and fix it later (2026-11-27, "Port exactly, record KIs (Recommended)"). Reasoned from code; no test pins it |
+| **Remaining check** | Denys's specification of what coincident centres do; then a test |
+| **Evidence** | The analyst's reading of the step (2026-11-27); the default scene golden shows the neighbouring case that does not trigger it |
