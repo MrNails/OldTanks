@@ -2,11 +2,13 @@
 
 | Field        | Value  |
 |--------------|--------|
-| Status       | Active plan - Denys's decisions of 2026-11-27 recorded (§6); no task started; sub-step count and backlog cap confirmed after WP1 |
-| Last updated | 2026-11-27 |
-| Verified against | 2026-11-27; master at 8c7e72e; §2 against the code and the open KNOWN-ISSUES entries (reasoned from code, not run) |
+| Status       | Active plan - WP1, WP3 and stage 1 of WP2 done on `feature/OT-20` (2026-11-28); stage 2 of WP2 and the docs open; WP4 and WP5 are OT-21, not started |
+| Last updated | 2026-11-28 |
+| Verified against | 2026-11-28; feature/OT-20 at 9212d68 (§6a, §10 and §11 against the memory file of the OT-20 run, the three plan files and the first review of the core library, all kept by the mentor, and the code of the two new libraries); 2026-11-27; master at 8c7e72e (§2 against the code and the open KNOWN-ISSUES entries, reasoned from code, not run; not rechecked) |
 
 ---
+
+**Task numbers (corrected 2026-11-28):** WP1-WP3 are task **OT-20** (`feature/OT-20`) and WP4-WP5 will be **OT-21**. The plan was agreed under the numbers OT-19 and OT-20, but OT-19 went to the pull request that added this plan (and the documentation checks' fix), so Denys took "Go, as OT-20" on 2026-11-27; wherever §5, §6 and §8 below still say OT-19 or OT-20 for a work package, read OT-20 for WP1-WP3 and OT-21 for WP4-WP5.
 
 Denys asked for this plan on 2026-11-27 ("Yes, draft it"), after Claude's review of the architecture, and answered its questions the same day (§6). It is the first concrete slice of the "core and physics" phase of [ENGINES-AND-TANK-GAME §4](ENGINES-AND-TANK-GAME.md#4-proposed-shape-not-agreed). No mechanic, constant or formula is invented: where the code leaves a gap, §6 holds Denys's answer.
 
@@ -45,7 +47,7 @@ One owner for the simulation's state, so that the same simulation can run on a s
 | Presentation (`OldTanks`) | The window, input sampling, the free camera and its pick ray, renderers, debug windows; `WorldObject` becomes the GL-thread view of one entity | The GL thread | Physics internals |
 
 - **One writer:** only the simulation changes simulation state.
-- **Commands in:** player input, debug-window edits, spawn, delete, pause, single step. Each carries a sequence number and is applied at the start of the next tick.
+- **Commands in:** player input, debug-window edits, spawn, delete, pause, single step. Each carries a sequence number and is applied at the start of the next tick. **Corrected 2026-11-28:** pause and single step are requests to the tick loop, not commands in the queue ([§10](#10-corrections-to-this-pages-own-text-2026-11-28)).
 - **Snapshots out:** per tick, the tick number, the last command sequence applied, each entity's position, orientation, size, velocity and flags, and the step statistics the HUD shows. The GL thread draws the newest one as it is (Q6).
 - **No thread assumption:** the simulation never asks which thread it is on, so a server or a browser host can call it inline ([plan §6](ENGINES-AND-TANK-GAME.md#6-decisions-of-ot-3-and-the-planned-tasks), "No worker threads").
 
@@ -67,15 +69,15 @@ Proposed by Claude and accepted by Denys as amended (2026-11-27, §6). E3, E7, E
 
 ## 5. Work packages
 
-Two tasks (Q1): **`feature/OT-19`** holds WP1-WP3, where nothing in the game changes; **`feature/OT-20`** holds WP4-WP5. One commit per change, each building green. Tiers follow the [mentor pipeline](../../.claude/skills/mentor-pipeline/SKILL.md); the mentor's own plan for each package comes next.
+Two tasks (Q1): **`feature/OT-20`** holds WP1-WP3, where nothing in the game changes (agreed as OT-19; see the note at the top); **OT-21** will hold WP4-WP5. One commit per change, each building green (Denys, 2026-11-28: "One by one", §6a). Tiers follow the [mentor pipeline](../../.claude/skills/mentor-pipeline/SKILL.md); the mentor's own plan for each package comes next.
 
 | WP | Content | Tier | The game afterwards |
 |----|---------|------|---------------------|
-| **WP1 Goldens** | Tests only, on today's code: the default scene stepped through `World.CollideObjects` at 1/60 s with 5 sub-steps, recording positions, velocities and `OnGround` at fixed ticks; ray hits against cubes and spheres. **Also the sub-step comparison (Q3):** the default scene and a terminal-speed drop at 1, 2, 3, 5, 8 and 10 sub-steps, reporting penetration depth, resting jitter and cost per tick; Denys confirms the count and the backlog cap before the goldens are frozen | Standard | Unchanged |
-| **WP2 Physics library** | `CoolEngine.Physics` with E1-E5, a benchmark project and KI entries for the three quirks of Q5. **Stage 1 (one commit):** the step ported from `World.CollideObjects`, `RigidBody.OnTick` and `WorldObject.Move` with today's exact arithmetic (the game's matrix, local velocity); WP1's goldens must be equal bit for bit. **Stage 2 (one commit):** quaternions (E2) and world-space velocity (Q4); the measured difference from the goldens goes to Denys | High | Unchanged; nothing uses the library yet |
-| **WP3 Machinery** | `CoolEngine.Core`: the fixed-tick clock (pause, single step, the backlog cap, high-resolution pacing), the command queue with sequence numbers, the snapshot buffer (E6) | High | Unchanged |
-| **WP4 The sandbox switches** | `OldTanks.Simulation`; `World` steps through it on its own thread (Q9); `WorldObject` as the view with acknowledged edits (E7); input sampled on the GL thread, the free camera, its pick ray and the edge-turn rule of Q11 there (E8); debug-window edits, Spawn and Delete as commands; the debug view from the snapshot (E9); the pause on an exception (Q12); `m_locker` and `GlobalLock` removed | High | Same scene and controls, on the new structure |
-| **WP5 Removal** | Delete `CoolEngine/PhysicEngine/` and the interfaces only it used; move the physics page; update the docs of the update triggers | Mechanical | Unchanged |
+| **WP1 Goldens** (done, `feature/OT-20`, 2026-11-28) | Tests only, on today's code: the default scene stepped through `World.CollideObjects` at 1/60 s with 5 sub-steps, recording positions, velocities and `OnGround` at fixed ticks; ray hits against cubes and spheres. **Also the sub-step comparison (Q3):** the default scene and a terminal-speed drop at 1, 2, 3, 5, 8 and 10 sub-steps, reporting penetration depth, resting jitter and cost per tick; Denys confirms the count and the backlog cap before the goldens are frozen | Standard | Unchanged |
+| **WP2 Physics library** (stage 1 done, stage 2 open) | `CoolEngine.Physics` with E1-E5, a benchmark project and KI entries for the three quirks of Q5. **Stage 1 (one commit):** the step ported from `World.CollideObjects`, `RigidBody.OnTick` and `WorldObject.Move` with today's exact arithmetic (the game's matrix, local velocity); WP1's goldens must be equal bit for bit. **Stage 2 (one commit):** quaternions (E2) and world-space velocity (Q4); the measured difference from the goldens goes to Denys | High | Unchanged; nothing uses the library yet |
+| **WP3 Machinery** (done, `feature/OT-20`, 2026-11-28) | `CoolEngine.Core`: the fixed-tick clock (pause, single step, the backlog cap, high-resolution pacing), the command queue with sequence numbers, the snapshot buffer (E6) | High | Unchanged |
+| **WP4 The sandbox switches** (OT-21, not started) | `OldTanks.Simulation`; `World` steps through it on its own thread (Q9); `WorldObject` as the view with acknowledged edits (E7); input sampled on the GL thread, the free camera, its pick ray and the edge-turn rule of Q11 there (E8); debug-window edits, Spawn and Delete as commands; the debug view from the snapshot (E9); the pause on an exception (Q12); `m_locker` and `GlobalLock` removed | High | Same scene and controls, on the new structure |
+| **WP5 Removal** (OT-21, not started) | Delete `CoolEngine/PhysicEngine/` and the interfaces only it used; move the physics page; update the docs of the update triggers | Mechanical | Unchanged |
 
 **Tests the high-tier packages must name** (the skill's rule for threading and hot paths):
 
@@ -107,9 +109,27 @@ Denys, 2026-11-27, each asked with a recommendation; quotes are his words where 
 | Q9 | The desktop client runs the simulation on its own thread; the same code stays callable inline | Inline in the update frame |
 | Q10 | `Restitution`, `Density` and `CenterOfMass` are game data of the entity, `CenterOfMass` keeps its debug-window control; the library takes them when a response spec uses them | Carrying them into the library unused; dropping them |
 | Q11 | The mouse-look edge zones keep today's speed. Today they turn by 3 units horizontally and 2 vertically (times the sensitivity) per physics loop, so the speed follows the loop rate. Before WP4 Denys reads the HUD's "Collision check per second" on his machine; the rule becomes 3 and 2 times that number per second | Per rendered frame; a rate of Denys's own |
-| Q12 | After an exception the simulation loop logs it once at `Error` and pauses as key `U` does; `U` or `I` resumes | Log and continue, as today; log at `Fatal` and end the game |
+| Q12 | After an exception the simulation loop logs it once at `Error` and pauses as key `U` does; `U` or `I` resumes (**corrected by Denys's answer of 2026-11-27 recorded in §6a: the resume key resumes and the step key steps once**) | Log and continue, as today; log at `Fatal` and end the game |
 | E1-E10 | "Accept all if you don't have any idea, warning, objection". Claude's second look gave four amendments (E3, E7, E8, E9), three warnings (E1, E2, E6) and the gaps Q11 and Q12; Denys then took the amended set (§4) | The ten as first written; discussing some first |
 | WP2 | Two stages: an exact port first, then the representation changes with the measured difference | One stage compared within the golden tolerance |
+
+### 6a. Decisions of 2026-11-27 and 2026-11-28 (OT-20)
+
+Denys's answers while the mentor pipeline ran WP1-WP3, each asked with a recommendation; quotes are his words, copied from the mentor's record of the run. The "turned down" column is the option he did not take.
+
+| # | Decision | Turned down |
+|---|----------|-------------|
+| Go | The task number and the go: "Go, as OT-20 (Recommended)" | Another number; not yet |
+| Q3 (confirmed from WP1's measured table) | Sub-steps and backlog cap: "5 and 0.25 s (Recommended)". The table (measured on 2026-11-27 on this machine): 1 sub-step, 5 of 16 terminal drops fall through the floor; 2, deepest correction 0.73 m; 3, 0.47 m and never settles; 5, 0.28 m at about 16 µs a tick; 8, 0.18 m | 8 and 0.25 s; 2 and 0.25 s |
+| Quirks | The five further quirks found while reading the code (a sphere deep inside a sphere gets a wrong depth; a ray from inside a cube reports no hit; a body under a ceiling sticks; stacked dynamic bodies never settle; two spheres with the same centre get NaN): "Port exactly, record KIs (Recommended)". They are [KI-043 to KI-047](../KNOWN-ISSUES.md#ki-043-a-sphere-deep-inside-another-sphere-gets-a-wrong-depth); the three of Q5 are [KI-040 to KI-042](../KNOWN-ISSUES.md#ki-040-the-terminal-speed-clamp-flips-a-fast-upward-speed-to-falling) | Fix some in the move |
+| Drive and jump | Scenarios the game cannot produce today (KI-001): "Include them (Recommended)" | Leave them out |
+| Golden comparison | "Within tolerance (Recommended)": WP1's recorded values are compared within 1e-5 relative; the exact port is proved by WP2's side-by-side bitwise tests against today's code | Bit for bit |
+| Physics seam | "Public phase calls": the simulation calls integrate, clamp, move and resolve itself, so a caller can break the order. The mentor, on his own authority, added a run-time order check (a call in the wrong phase throws) and `AbortStep`, and told Denys | Two callbacks per sub-step (the mentor's recommendation); a per-body integrator; reading the plan first |
+| Windows wait | "In CoolEngine.Core (Recommended)": the Windows high-resolution tick wait | In OldTanks for now; portable only |
+| Paused frames and steps | "Accept both (Recommended)": while paused the simulation still applies commands and publishes once per 1/60 s without stepping; each step request is exactly one 1/60 s tick and requests add up; after an exception the resume key resumes and the step key steps once | No commands while paused; discuss first |
+| Commits | "One by one" (2026-11-28; asked "Commit each package on its own branch as it passes review, or all together at the end?") | All at the end |
+
+The mentor's engineering choices, told to Denys and not objected to: `Weight` is named `Mass`; setters throw where today's code ignores silently; a freed slot is reused last-freed-first; `SphereShape` has a constructor and no static instance; the command queue is a locked double buffer of struct commands; no spin tail after the wait; a `Faulted` event raised once per run of consecutive faults; no benchmark project for `CoolEngine.Core`. The fault's pause overrides a `Resume` or a `Step` that arrives during the faulting call (a reviewer's finding; it follows Q12; told to Denys, not asked again).
 
 ## 7. Out of scope
 
@@ -124,8 +144,8 @@ Each is its own later task; the first three wait for Denys's specifications.
 
 ## 8. Acceptance
 
-- **Build:** `dotnet build OldTanks.slnx` with 0 errors and no more than 129 warnings.
-- **Tests:** `dotnet test OldTanks.slnx`, the 857 of today plus every package's new tests, all passed. WP2's stage 1 equals WP1's goldens bit for bit; stage 2's difference is measured and goes to Denys. A difference in stage 1 stops the work; no check is loosened.
+- **Build:** `dotnet build OldTanks.slnx` with 0 errors and no more than 127 warnings (the baseline on `master` at `7f33680`; this line said 129 when the plan was written).
+- **Tests:** `dotnet test OldTanks.slnx`, the 4,939 of `master` at `7f33680` (this line said 857) plus every package's new tests, all passed. WP1's goldens are compared within 1e-5 relative (Denys, 2026-11-27, §6a); WP2's stage 1 equals today's code bit for bit, proved by side-by-side tests against it. Stage 2's difference is measured and goes to Denys. A difference in stage 1 stops the work; no check is loosened. **State on 2026-11-28 at `9212d68`:** 0 errors, 127 warnings, 5,212 tests passed (the mentor's combined run; [BUILD](../BUILD.md#2-build)).
 - **App check against `master`:** the default scene settles the same; keys `0`, `N`, `U`, `I`; debug-window edits of position, rotation, size and the body fields; Spawn and Delete pressed quickly with no exception and no `Error` line; the edge-zone turn of Q11.
 - **Closed by WP4:** KI-003, KI-031, KI-036.
 - **Docs:** the pages of the [update triggers](../DOCUMENTATION-GUIDE.md#8-update-triggers): ARCHITECTURE §1-§6, a guide and a feature page per new project, the physics page, BUILD, the glossary, the root guide's maps.
@@ -138,3 +158,32 @@ Each is its own later task; the first three wait for Denys's specifications.
 | Without interpolation, motion may step or judder when the frame rate and the tick rate differ or drift | Denys's choice (Q6); the finding is in BACKLOG for his review when it shows |
 | A debug-window edit of a moving body is overwritten by the simulation one tick later | The same contest exists today under the lock; the acknowledgement of E7 covers the wait, not the contest |
 | `feature/OT-4` is open and also edits `OldTanks.slnx` and `CoolEngine.csproj` | Rebase whichever merges second |
+
+## 10. Corrections to this page's own text (2026-11-28)
+
+Found while WP1-WP3 were planned and built; each is also in the feature pages ([CORE](../CoolEngine.Core/CORE.md), [PHYSICS-LIBRARY](../CoolEngine.Physics/PHYSICS-LIBRARY.md)).
+
+| Text above | What is true |
+|------------|--------------|
+| §3, "Commands in: ... pause, single step" | Pause and single step are requests to the tick loop (`FixedTickRunner.Pause`, `Resume`, `Step`), not commands in the queue: while paused no tick runs, so a queued resume would never be applied |
+| E6, "the clock paces with a high-resolution wait" | The clock is pure (integer timestamps in, due ticks out); pacing is an injected `ITickWaiter` |
+| Q12, "`U` or `I` resumes" | After an exception the resume key resumes and the step key steps once (§6a) |
+| E3, shapes "immutable objects shared by reference" | Done as stated: `CoolEngine.Physics.Shapes.Shape` and its two subclasses; `SphereShape` has a public constructor and no static instance |
+| E6's warning that a `Thread.Sleep` can be as coarse as 15.6 ms | Not true inside the game process (measured 2026-11-27): `OpenTK.Windowing.Desktop` 4.9.4's `GameWindow.Run` already calls `timeBeginPeriod(8)`, so today's physics loop sleeps about 5 to 6 ms on this machine (on a quiet machine it would get 8 ms). The warning holds for a process without OpenTK, such as a server. This also bears on Q11's "per physics loop" rate, which Denys reads from the HUD before WP4 |
+| §5 WP2 row, "WP1's goldens must be equal bit for bit" | The exact port is proved by side-by-side tests against today's code, in one process (`tests/OldTanks.Tests/PhysicsParity`, `tests/CoolEngine.Tests` `DetectionParityTests`), not by WP1's recorded values, which are compared within tolerance (§6a) |
+| §5 WP2 row, the three quirks of Q5 | Eight quirks are recorded: KI-040 to KI-047 |
+| §8, "no more than 129 warnings" and "the 857 of today" | 127 warnings and 4,939 tests on `master` at `7f33680` |
+
+## 11. State and what is open (2026-11-28)
+
+| Package | State |
+|---------|-------|
+| WP1 goldens | Done: 38 tests in `tests/OldTanks.Tests` (`TestSupport`, `Models`, `Windows`), commit `448f85b` |
+| WP3 machinery | Done: `CoolEngine.Core` and 88 tests, four commits (`ad4d568`, `65d3441`, `f0779fb`, `85523b7`) |
+| WP2 stage 1 | Done: `CoolEngine.Physics`, 127 tests, 16 parity tests in `OldTanks.Tests`, 4 detection parity tests in `CoolEngine.Tests`, a benchmark project; commit `9212d68` |
+| WP2 stage 2 | **Open:** quaternions and world-space velocity; its measured difference goes to Denys, who decides the acceptance bar |
+| Side-by-side cases for WP1's scenes | Open (tests only) |
+| WP4, WP5 | OT-21, not started |
+| Push and pull request | Not done; only when Denys asks |
+
+`feature/OT-20` holds six commits on `master` at `7f33680`. On 2026-11-28: 0 errors, 127 warnings, 5,212 tests (31 documentation checks, 23 UI, 88 core, 433 math, 113 engine, 247 imaging, 72 game, 127 physics, 4,078 fonts).
