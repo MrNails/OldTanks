@@ -12,10 +12,11 @@ using OldRay = CoolEngine.Models.Ray;
 using Ray = CoolEngine.Physics.Ray;
 
 /// <summary>
-/// CoolEngine.Physics' detection, ray test and geometry against today's <see cref="Collision"/> on seeded shapes and
-/// transforms (transitional until the old code goes in WP5): every result equal by bits, NaN included. Each body's
-/// transform is the stage-1 one, <c>CreateTranslation(position) * new Matrix4(linear)</c>, given to both sides, with
-/// rotations, uneven and zero scales, shear and mirror in the linear part.
+/// CoolEngine.Physics' detection and ray test against today's <see cref="Collision"/> on seeded shapes and transforms
+/// (transitional until the old code goes in WP5): every result equal by bits, NaN included. Each body's transform is
+/// <c>CreateTranslation(position) * new Matrix4(linear)</c>, with rotations, uneven and zero scales, shear and mirror
+/// in the linear part; both sides test the same world geometry, the one today's <c>UpdateCollision</c> computes (the
+/// library computes its own from a position, orientation and half-extents, which has no shear).
 /// </summary>
 [TestFixture]
 public sealed class DetectionParityTests
@@ -113,44 +114,6 @@ public sealed class DetectionParityTests
         Assert.That(mismatches, Is.Empty);
     }
 
-    [Test]
-    public void ComputeWorldGeometry_SeededTransforms_EqualsUpdateCollisionBitForBit()
-    {
-        var random = new Random(20261129);
-        var mismatches = new List<string>();
-
-        for (var i = 0; i < Count && mismatches.Count < 20; i++)
-        {
-            var body = Body.Random(random);
-            var oldData = body.Old.Collision!.CollisionData;
-
-            if (body.Shape is PolygonShape polygon)
-            {
-                var vertices = new Vector3[polygon.Vertices.Length];
-                var normals = new Vector3[polygon.FaceCount];
-                PhysicsQueries.ComputeWorldVertices(polygon, body.Position, body.Linear, vertices);
-                PhysicsQueries.ComputeWorldNormals(polygon, body.Position, body.Linear, normals);
-
-                for (var k = 0; k < vertices.Length; k++)
-                {
-                    if (!SameBits(oldData.Vertices[k], vertices[k]))
-                        mismatches.Add($"transform {i}, vertex {k}: today {oldData.Vertices[k]}, library {vertices[k]}");
-                }
-
-                for (var k = 0; k < normals.Length; k++)
-                {
-                    if (!SameBits(oldData.Faces[k].Normal, normals[k]))
-                        mismatches.Add($"transform {i}, normal {k}: today {oldData.Faces[k].Normal}, library {normals[k]}");
-                }
-            }
-
-            if (!SameBits(oldData.BoundingBox.Min, body.BoundsMin) || !SameBits(oldData.BoundingBox.Max, body.BoundsMax))
-                mismatches.Add($"transform {i}, bounds: today {oldData.BoundingBox}, library {body.BoundsMin} {body.BoundsMax}");
-        }
-
-        Assert.That(mismatches, Is.Empty);
-    }
-
     private static PolygonShape ToShape(CollisionData data)
     {
         var faces = new ShapeFace[data.Faces.Count];
@@ -166,31 +129,24 @@ public sealed class DetectionParityTests
 
     private static bool SameBits(Vector3 a, Vector3 b) => SameBits(a.X, b.X) && SameBits(a.Y, b.Y) && SameBits(a.Z, b.Z);
 
-    /// <summary>One seeded body on both sides: today's object with its Collision, and the library's geometry.</summary>
+    /// <summary>
+    /// One seeded body on both sides: today's object with its Collision, and the library's view of the same world
+    /// geometry (copied from today's <c>CollisionData</c> after <c>UpdateCollision</c>).
+    /// </summary>
     private sealed class Body
     {
-        private Body(Shape shape, CollisionTestPhysicObject old, Vector3 position, Matrix3 linear, Vector3 size)
+        private Body(Shape shape, CollisionTestPhysicObject old, Vector3 position, Vector3 size)
         {
             Shape = shape;
             Old = old;
             Position = position;
-            Linear = linear;
             Size = size;
 
-            var polygon = shape as PolygonShape;
-            Vertices = new Vector3[polygon?.Vertices.Length ?? 0];
-            Normals = new Vector3[polygon?.FaceCount ?? 0];
-            var transformation = Geometry.ComputeMatrix(position, linear);
-
-            if (polygon != null)
-            {
-                Geometry.ComputeVertices(polygon, transformation, Vertices);
-                Geometry.ComputeNormals(polygon, transformation, Normals);
-            }
-
-            Geometry.ComputeBounds(polygon, Vertices, position, size.X, out var min, out var max);
-            BoundsMin = min;
-            BoundsMax = max;
+            var data = old.Collision!.CollisionData;
+            Vertices = shape is PolygonShape ? data.Vertices.ToArray() : [];
+            Normals = shape is PolygonShape ? data.Faces.Select(face => face.Normal).ToArray() : [];
+            BoundsMin = data.BoundingBox.Min;
+            BoundsMax = data.BoundingBox.Max;
         }
 
         public Shape Shape { get; }
@@ -198,8 +154,6 @@ public sealed class DetectionParityTests
         public CollisionTestPhysicObject Old { get; }
 
         public Vector3 Position { get; }
-
-        public Matrix3 Linear { get; }
 
         public Vector3 Size { get; }
 
@@ -219,10 +173,9 @@ public sealed class DetectionParityTests
         {
             var size = new Vector3(width);
             var linear = new Matrix3(Matrix4.CreateScale(size / 2));
-            var old = CollisionTestPhysicObject.Create(s_oldShapes[3], Geometry.ComputeMatrix(position, linear),
-                position, size);
+            var old = CollisionTestPhysicObject.Create(s_oldShapes[3], Transformation(position, linear), position, size);
 
-            return new Body(s_newShapes[3], old, position, linear, size);
+            return new Body(s_newShapes[3], old, position, size);
         }
 
         /// <summary>
@@ -240,11 +193,15 @@ public sealed class DetectionParityTests
                 inner *= Rotation(random);
             var linear = new Matrix3(inner);
             var size = kind == 3 ? new Vector3(random.Next(20) == 0 ? 0 : Next(random, 0.2f, 3f)) : 2 * scale;
-            var old = CollisionTestPhysicObject.Create(s_oldShapes[kind], Geometry.ComputeMatrix(position, linear),
-                position, size);
+            var old = CollisionTestPhysicObject.Create(s_oldShapes[kind], Transformation(position, linear), position,
+                size);
 
-            return new Body(s_newShapes[kind], old, position, linear, size);
+            return new Body(s_newShapes[kind], old, position, size);
         }
+
+        // Today's WorldObject.ApplyTransformation form: the translation times the linear part.
+        private static Matrix4 Transformation(Vector3 position, Matrix3 linear) =>
+            Matrix4.CreateTranslation(position) * new Matrix4(linear);
 
         private static Matrix4 Rotation(Random random) =>
             Matrix4.CreateRotationZ(Next(random, -7, 7)) *

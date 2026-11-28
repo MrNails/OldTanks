@@ -9,7 +9,8 @@ namespace CoolEngine.Physics.Benchmarks;
 /// <summary>
 /// One tick of 1/60 s, 5 sub-steps, after 120 warm-up ticks; the worlds keep stepping between iterations (they settle).
 /// <c>Step</c>: the default scene, today's World against the library driven through the phase calls by the tests'
-/// drive (today's damping and forward clamp) and the library's plain <see cref="PhysicsWorld.Step"/>.
+/// drive (today's damping and forward clamp on the forward component of the world velocity) and the library's plain
+/// <see cref="PhysicsWorld.Step"/>.
 /// <c>Stress</c>: a 200 × 1 × 200 static floor and 999 dynamic unit cubes on a 10 × 10 × 10 grid 2 m apart with seeded
 /// headings; no old baseline (minutes per operation).
 /// </summary>
@@ -89,7 +90,8 @@ public class StepBenchmarks
             var cell = i - 1;
             var position = new Vector3(2 * (cell % 10) - 9, 2 * (cell / 100), 2 * (cell / 10 % 10) - 9);
             var heading = (float)(random.NextDouble() * 2 * Math.PI - Math.PI);
-            bodies[i] = new SceneBody(TestBodies.Cube(position, Vector3.One, new Vector3(0, heading, 0)), 2, 2, 1);
+            bodies[i] = new SceneBody(TestBodies.Cube(position, Vector3.One, new Vector3(0, heading, 0)), 2, 2, 1,
+                heading);
         }
 
         return bodies;

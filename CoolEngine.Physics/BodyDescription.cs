@@ -1,5 +1,4 @@
 using System.Numerics;
-using CoolEngine.Mathematics;
 using CoolEngine.Physics.Shapes;
 
 namespace CoolEngine.Physics;
@@ -9,21 +8,17 @@ namespace CoolEngine.Physics;
 /// representable (and rejected there).
 /// </summary>
 /// <remarks>
-/// Stage 1 (transitional): the body is given today's way. <see cref="Linear"/> is the game's rotation × scale
-/// (<c>new Matrix3(CreateRotationZ(roll) * (CreateRotationY(-pitch) * (CreateRotationX(yaw) * CreateScale(size / 2))))</c>
-/// with the Matrix4 factories), <see cref="Size"/> today's <c>WorldObject.Size</c> (a sphere's width is
-/// <c>Size.X</c>), and <see cref="VelocityFrame"/> the frame that turns the stored velocity into world space
-/// (<c>Matrix3.CreateRotationY(heading).Transposed()</c>). Velocity and force are in that frame.
+/// <see cref="Orientation"/> is a unit quaternion and <see cref="HalfExtents"/> half the body's size along its own axes
+/// (a sphere's three are equal, its radius). Velocity and force are in world space.
 /// </remarks>
 public readonly struct BodyDescription
 {
-    public BodyDescription(Shape shape, Vector3 position, Matrix3 linear, Vector3 size, Matrix3 velocityFrame)
+    public BodyDescription(Shape shape, Vector3 position, Quaternion orientation, Vector3 halfExtents)
     {
         Shape = shape;
         Position = position;
-        Linear = linear;
-        Size = size;
-        VelocityFrame = velocityFrame;
+        Orientation = orientation;
+        HalfExtents = halfExtents;
         Mass = 1;
     }
 
@@ -31,16 +26,14 @@ public readonly struct BodyDescription
 
     public Vector3 Position { get; }
 
-    public Matrix3 Linear { get; }
+    public Quaternion Orientation { get; }
 
-    public Vector3 Size { get; }
+    public Vector3 HalfExtents { get; }
 
-    public Matrix3 VelocityFrame { get; }
-
-    /// <summary>Zero by default.</summary>
+    /// <summary>World space; zero by default.</summary>
     public Vector3 Velocity { get; init; }
 
-    /// <summary>Zero by default.</summary>
+    /// <summary>World space; zero by default.</summary>
     public Vector3 Force { get; init; }
 
     /// <summary>1 by default (today's <c>RigidBody.Weight</c>); used only as <c>Force / Mass</c>.</summary>

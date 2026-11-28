@@ -12,7 +12,8 @@ namespace CoolEngine.Physics.Benchmarks;
 /// The detection and geometry of today's Collision (the baseline of each category) against the library's on the same
 /// 1,024 seeded inputs, geometry precomputed for the pair tests. <c>CubeCube</c>: a third separated, a third face
 /// contact, a third edge to edge. <c>SphereCube</c>: sphere centres around a cube. <c>Geometry</c>: the world vertices,
-/// normals and bounds of a cube for 1,024 transforms, the matrix built on both sides.
+/// normals and bounds of a cube for 1,024 poses: today's matrix built and applied against the library's rotation from
+/// the quaternion and half-extents.
 /// </summary>
 [MemoryDiagnoser]
 [CategoriesColumn]
@@ -35,7 +36,7 @@ public class DetectionBenchmarks
         var newCube = ToShape(oldCube);
         var newSphere = new SphereShape();
         var random = new Random(2026);
-        var size = new Vector3(2);
+        var unit = Vector3.One;
 
         m_cubeFirsts = new Body[Count];
         m_cubeSeconds = new Body[Count];
@@ -46,10 +47,10 @@ public class DetectionBenchmarks
         for (var i = 0; i < Count; i++)
         {
             var rotationA = Rotation(random);
-            m_cubeFirsts[i] = new Body(oldCube, newCube, Vector3.Zero, new Matrix3(rotationA), size);
+            m_cubeFirsts[i] = new Body(oldCube, newCube, Vector3.Zero, rotationA, unit);
 
             Vector3 positionB;
-            Matrix4 rotationB;
+            Vector3 rotationB;
             switch (i % 3)
             {
                 case 0:
@@ -60,31 +61,30 @@ public class DetectionBenchmarks
                     break;
                 case 1:
                     // Face contact: B's face rests slightly inside A's top face, turned about Y.
-                    m_cubeFirsts[i] = new Body(oldCube, newCube, Vector3.Zero, Matrix3.Identity, size);
+                    m_cubeFirsts[i] = new Body(oldCube, newCube, Vector3.Zero, Vector3.Zero, unit);
                     positionB = new Vector3(Next(random, -0.5f, 0.5f), Next(random, 1.9f, 1.99f), Next(random, -0.5f, 0.5f));
-                    rotationB = Matrix4.CreateRotationY(Next(random, -3.14f, 3.14f));
+                    rotationB = new Vector3(0, -Next(random, -3.14f, 3.14f), 0);
                     break;
                 default:
                     // Edge to edge: A turned 45° about Z, B about X, a gap of −0.1 … 0.1 along Y.
-                    m_cubeFirsts[i] = new Body(oldCube, newCube, Vector3.Zero,
-                        new Matrix3(Matrix4.CreateRotationZ(MathHelper.PiOver4)), size);
+                    m_cubeFirsts[i] = new Body(oldCube, newCube, Vector3.Zero, new Vector3(0, 0, MathHelper.PiOver4),
+                        unit);
                     positionB = new Vector3(0, 2 * MathF.Sqrt(2f) + Next(random, -0.1f, 0.1f), 0);
-                    rotationB = Matrix4.CreateRotationX(MathHelper.PiOver4);
+                    rotationB = new Vector3(MathHelper.PiOver4, 0, 0);
                     break;
             }
 
-            m_cubeSeconds[i] = new Body(oldCube, newCube, positionB, new Matrix3(rotationB), size);
+            m_cubeSeconds[i] = new Body(oldCube, newCube, positionB, rotationB, unit);
 
-            m_sphereCubes[i] = new Body(oldCube, newCube, Vector3.Zero,
-                new Matrix3(Rotation(random) * Matrix4.CreateScale(Next(random, 0.5f, 1.5f), Next(random, 0.5f, 1.5f),
-                    Next(random, 0.5f, 1.5f))), size);
+            m_sphereCubes[i] = new Body(oldCube, newCube, Vector3.Zero, Rotation(random),
+                new Vector3(Next(random, 0.5f, 1.5f), Next(random, 0.5f, 1.5f), Next(random, 0.5f, 1.5f)));
             var centre = new Vector3(Next(random, -2.2f, 2.2f), Next(random, -2.2f, 2.2f), Next(random, -2.2f, 2.2f));
-            m_spheres[i] = new Body(oldSphere, newSphere, centre, new Matrix3(Matrix4.Identity), new Vector3(1));
+            m_spheres[i] = new Body(oldSphere, newSphere, centre, Vector3.Zero, new Vector3(0.5f));
 
-            m_geometryBodies[i] = new Body(oldCube, newCube,
-                new Vector3(Next(random, -50, 50), Next(random, -50, 50), Next(random, -50, 50)),
-                new Matrix3(Rotation(random) * Matrix4.CreateScale(Next(random, 0.3f, 3), Next(random, 0.3f, 3),
-                    Next(random, 0.3f, 3))), size);
+            var position = new Vector3(Next(random, -50, 50), Next(random, -50, 50), Next(random, -50, 50));
+            var rotation = Rotation(random);
+            m_geometryBodies[i] = new Body(oldCube, newCube, position, rotation,
+                new Vector3(Next(random, 0.3f, 3), Next(random, 0.3f, 3), Next(random, 0.3f, 3)));
         }
     }
 
@@ -156,7 +156,7 @@ public class DetectionBenchmarks
         for (var i = 0; i < Count; i++)
         {
             var body = m_geometryBodies[i];
-            body.Old.Transformation = Geometry.ComputeMatrix(body.Position, body.Linear);
+            body.Old.Transformation = Matrix4.CreateTranslation(body.Position) * new Matrix4(body.Linear);
             body.Old.Collision!.UpdateCollision();
             var data = body.Old.Collision.CollisionData;
             checksum = Checksum.Add(checksum, false, data.Vertices[0], data.BoundingBox.Min.X);
@@ -191,26 +191,43 @@ public class DetectionBenchmarks
         return new PolygonShape(data.Vertices, faces);
     }
 
-    private static Matrix4 Rotation(Random random) =>
-        Matrix4.CreateRotationZ(Next(random, -3.14f, 3.14f)) *
-        (Matrix4.CreateRotationY(Next(random, -3.14f, 3.14f)) * Matrix4.CreateRotationX(Next(random, -3.14f, 3.14f)));
+    // Euler angles (X yaw, Y pitch, Z roll) of today's rotation Z (a) × rotation Y (b) × rotation X (c), the angles drawn
+    // in that order: rotation Y takes −pitch.
+    private static Vector3 Rotation(Random random)
+    {
+        var roll = Next(random, -3.14f, 3.14f);
+        var rotationY = Next(random, -3.14f, 3.14f);
+        var yaw = Next(random, -3.14f, 3.14f);
+
+        return new Vector3(yaw, -rotationY, roll);
+    }
 
     private static float Next(Random random, float low, float high) => (float)(low + random.NextDouble() * (high - low));
 
-    /// <summary>One body on both sides, with the stage-1 transform <c>CreateTranslation(position) * new Matrix4(linear)</c>.</summary>
+    /// <summary>
+    /// One body on both sides from Euler angles and half-extents: today's side with the stage-1 transform
+    /// <c>CreateTranslation(position) * new Matrix4(rotation Z × rotation Y (−pitch) × rotation X × scale)</c>, the
+    /// library's from the game's quaternion (<c>qZ(roll) × (qY(−pitch) × qX(yaw))</c>) and the half-extents.
+    /// </summary>
     private sealed class Body
     {
         private readonly Shape m_shape;
         private Vector3 m_boundsMin;
         private Vector3 m_boundsMax;
 
-        public Body(CollisionData oldShape, Shape shape, Vector3 position, Matrix3 linear, Vector3 size)
+        public Body(CollisionData oldShape, Shape shape, Vector3 position, Vector3 rotation, Vector3 halfExtents)
         {
             m_shape = shape;
             Position = position;
-            Linear = linear;
-            Size = size;
-            Old = OldBody.Create(oldShape, Geometry.ComputeMatrix(position, linear), position, size);
+            Orientation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, rotation.Z) *
+                          (Quaternion.CreateFromAxisAngle(Vector3.UnitY, -rotation.Y) *
+                           Quaternion.CreateFromAxisAngle(Vector3.UnitX, rotation.X));
+            HalfExtents = halfExtents;
+            Linear = new Matrix3(Matrix4.CreateRotationZ(rotation.Z) *
+                                 (Matrix4.CreateRotationY(-rotation.Y) *
+                                  (Matrix4.CreateRotationX(rotation.X) * Matrix4.CreateScale(halfExtents))));
+            Old = OldBody.Create(oldShape, Matrix4.CreateTranslation(position) * new Matrix4(Linear), position,
+                2 * halfExtents);
 
             var polygon = shape as PolygonShape;
             Vertices = new Vector3[polygon?.Vertices.Length ?? 0];
@@ -222,9 +239,12 @@ public class DetectionBenchmarks
 
         public Vector3 Position { get; }
 
-        public Matrix3 Linear { get; }
+        public Quaternion Orientation { get; }
 
-        public Vector3 Size { get; }
+        public Vector3 HalfExtents { get; }
+
+        /// <summary>Today's rotation × scale, for the old side.</summary>
+        public Matrix3 Linear { get; }
 
         public Vector3[] Vertices { get; }
 
@@ -234,20 +254,23 @@ public class DetectionBenchmarks
 
         public Vector3 BoundsMax => m_boundsMax;
 
+        // The library's geometry step for one body, as PhysicsWorld's own (the rotation from the quaternion each time).
         public void Update()
         {
             var polygon = m_shape as PolygonShape;
             if (polygon != null)
             {
-                var transformation = Geometry.ComputeMatrix(Position, Linear);
-                Geometry.ComputeVertices(polygon, transformation, Vertices);
-                Geometry.ComputeNormals(polygon, transformation, Normals);
+                var rotation = Matrix3.CreateFromQuaternion(Orientation);
+                Geometry.ComputeVertices(polygon, Position, rotation, HalfExtents, Vertices);
+                Geometry.ComputeNormals(polygon, rotation, HalfExtents, Normals);
             }
 
-            Geometry.ComputeBounds(polygon, Vertices, Position, Size.X, out m_boundsMin, out m_boundsMax);
+            Geometry.ComputeBounds(polygon, Vertices, Position, Geometry.SphereWidth(HalfExtents), out m_boundsMin,
+                out m_boundsMax);
         }
 
         public BodyGeometry View() =>
-            new BodyGeometry(m_shape as PolygonShape, Vertices, Normals, Position, Size.X, m_boundsMin, m_boundsMax);
+            new BodyGeometry(m_shape as PolygonShape, Vertices, Normals, Position, Geometry.SphereWidth(HalfExtents),
+                m_boundsMin, m_boundsMax);
     }
 }

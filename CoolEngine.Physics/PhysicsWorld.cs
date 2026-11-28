@@ -35,12 +35,16 @@ namespace CoolEngine.Physics;
 /// other mutator only in <see cref="StepPhase.Idle"/>.
 /// </para>
 /// <para>
-/// Stage 1 (transitional): a body's pose is a position, today's linear part (rotation × scale) and size, and its
-/// velocity and force are in its velocity frame (today's local frame), as in <see cref="BodyDescription"/>.
+/// <b>Bodies:</b> a body's pose is a position, a unit-quaternion orientation and half-extents; its velocity and force
+/// are in world space. The world knows no forward axis, speed limit or damping: those are the game's rules, run
+/// between the phase calls.
 /// </para>
 /// </remarks>
 public sealed class PhysicsWorld
 {
+    // |‖q‖² − 1| above this rejects an orientation as not unit.
+    private const float UnitQuaternionTolerance = 1e-5f;
+
     private PhysicsSettings m_settings;
     private StepPhase m_phase;
 
@@ -52,9 +56,8 @@ public sealed class PhysicsWorld
     private Vector3[] m_positions;
     private Vector3[] m_velocities;
     private Vector3[] m_forces;
-    private Matrix3[] m_linears;
-    private Matrix3[] m_velocityFrames;
-    private Vector3[] m_sizes;
+    private Quaternion[] m_orientations;
+    private Vector3[] m_halfExtents;
     private float[] m_masses;
     private bool[] m_isStatic;
     private bool[] m_onGround;
@@ -85,9 +88,8 @@ public sealed class PhysicsWorld
         m_positions = new Vector3[m_capacity];
         m_velocities = new Vector3[m_capacity];
         m_forces = new Vector3[m_capacity];
-        m_linears = new Matrix3[m_capacity];
-        m_velocityFrames = new Matrix3[m_capacity];
-        m_sizes = new Vector3[m_capacity];
+        m_orientations = new Quaternion[m_capacity];
+        m_halfExtents = new Vector3[m_capacity];
         m_masses = new float[m_capacity];
         m_isStatic = new bool[m_capacity];
         m_onGround = new bool[m_capacity];
@@ -132,8 +134,9 @@ public sealed class PhysicsWorld
     /// its world geometry. Allocates only when growing or when the slot's geometry caches are smaller than the shape.
     /// </summary>
     /// <exception cref="ArgumentException">
-    /// (<c>ParamName "description"</c>) The shape is null, a component of the position, linear part, size, velocity
-    /// frame, velocity or force is not finite, or the mass is not finite or not positive.
+    /// (<c>ParamName "description"</c>) The shape is null; a component of the position, orientation, half-extents,
+    /// velocity or force is not finite; the orientation is not a unit quaternion (<c>|‖q‖² − 1| &gt; 1e-5</c>); the
+    /// mass is not finite or not positive; or the shape is a sphere and its three half-extents are not equal.
     /// </exception>
     /// <exception cref="InvalidOperationException">Called outside <see cref="StepPhase.Idle"/>.</exception>
     public BodyHandle Add(in BodyDescription description)
@@ -157,9 +160,8 @@ public sealed class PhysicsWorld
 
         m_shapes[slot] = description.Shape;
         m_positions[slot] = description.Position;
-        m_linears[slot] = description.Linear;
-        m_sizes[slot] = description.Size;
-        m_velocityFrames[slot] = description.VelocityFrame;
+        m_orientations[slot] = description.Orientation;
+        m_halfExtents[slot] = description.HalfExtents;
         m_velocities[slot] = description.Velocity;
         m_forces[slot] = description.Force;
         m_masses[slot] = description.Mass;
@@ -288,59 +290,55 @@ public sealed class PhysicsWorld
         UpdateGeometry(slot);
     }
 
-    /// <summary>Stage 1 (transitional): today's rotation × scale.</summary>
-    public Matrix3 GetLinear(BodyHandle handle) => m_linears[Slot(handle)];
-
-    /// <summary>Stage 1 (transitional): sets today's rotation × scale and recomputes the world geometry at once.</summary>
-    /// <exception cref="ArgumentOutOfRangeException">An element is not finite.</exception>
-    /// <exception cref="InvalidOperationException">Called outside <see cref="StepPhase.Idle"/>.</exception>
-    public void SetLinear(BodyHandle handle, Matrix3 linear)
-    {
-        RequireIdle(nameof(SetLinear));
-        var slot = Slot(handle);
-        RequireFinite(linear, nameof(linear));
-
-        m_linears[slot] = linear;
-        UpdateGeometry(slot);
-    }
-
-    /// <summary>Stage 1 (transitional): today's size; a sphere's width is its X.</summary>
-    public Vector3 GetSize(BodyHandle handle) => m_sizes[Slot(handle)];
+    /// <summary>The orientation, a unit quaternion.</summary>
+    public Quaternion GetOrientation(BodyHandle handle) => m_orientations[Slot(handle)];
 
     /// <summary>
-    /// Stage 1 (transitional): sets today's size and recomputes the world geometry at once. Zero and negative
-    /// components are allowed, as today (negative mirrors; zero gives NaN normals).
+    /// Turns the body and recomputes its world geometry at once, stored exactly as given (not normalized). The velocity
+    /// is not turned: a game that keeps a velocity relative to the heading turns it itself.
     /// </summary>
-    /// <exception cref="ArgumentOutOfRangeException">A component is not finite.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A component is not finite, or the quaternion is not unit (<c>|‖q‖² − 1| &gt; 1e-5</c>).
+    /// </exception>
     /// <exception cref="InvalidOperationException">Called outside <see cref="StepPhase.Idle"/>.</exception>
-    public void SetSize(BodyHandle handle, Vector3 size)
+    public void SetOrientation(BodyHandle handle, Quaternion orientation)
     {
-        RequireIdle(nameof(SetSize));
+        RequireIdle(nameof(SetOrientation));
         var slot = Slot(handle);
-        RequireFinite(size, nameof(size));
+        RequireUnit(orientation, nameof(orientation));
 
-        m_sizes[slot] = size;
+        m_orientations[slot] = orientation;
         UpdateGeometry(slot);
     }
 
-    /// <summary>Stage 1 (transitional): the frame that turns the stored velocity into world space when positions move.</summary>
-    public Matrix3 GetVelocityFrame(BodyHandle handle) => m_velocityFrames[Slot(handle)];
+    /// <summary>Half the body's size along its own axes; a sphere's three are equal, its radius.</summary>
+    public Vector3 GetHalfExtents(BodyHandle handle) => m_halfExtents[Slot(handle)];
 
-    /// <summary>Stage 1 (transitional): sets the velocity frame (<c>Matrix3.CreateRotationY(heading).Transposed()</c>).</summary>
-    /// <exception cref="ArgumentOutOfRangeException">An element is not finite.</exception>
+    /// <summary>
+    /// Sets the half-extents and recomputes the world geometry at once. Zero and negative components are allowed, as
+    /// today's sizes are (negative mirrors; zero gives NaN normals for the faces it collapses).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A component is not finite, or the body is a sphere and the three components are not equal.
+    /// </exception>
     /// <exception cref="InvalidOperationException">Called outside <see cref="StepPhase.Idle"/>.</exception>
-    public void SetVelocityFrame(BodyHandle handle, Matrix3 velocityFrame)
+    public void SetHalfExtents(BodyHandle handle, Vector3 halfExtents)
     {
-        RequireIdle(nameof(SetVelocityFrame));
+        RequireIdle(nameof(SetHalfExtents));
         var slot = Slot(handle);
-        RequireFinite(velocityFrame, nameof(velocityFrame));
+        RequireFinite(halfExtents, nameof(halfExtents));
 
-        m_velocityFrames[slot] = velocityFrame;
+        if (m_shapes[slot] is SphereShape && !AreEqual(halfExtents))
+            throw new ArgumentOutOfRangeException(nameof(halfExtents), halfExtents,
+                "A sphere's three half-extents must be equal.");
+
+        m_halfExtents[slot] = halfExtents;
+        UpdateGeometry(slot);
     }
 
     /// <summary>
-    /// The velocity in the body's velocity frame. A static body keeps the velocity it had when it was made static, and
-    /// that value enters the contact rule's relative velocity (today's behaviour).
+    /// The velocity in world space. A static body keeps the velocity it had when it was made static, and that value
+    /// enters the contact rule's relative velocity (today's behaviour).
     /// </summary>
     public Vector3 GetVelocity(BodyHandle handle) => m_velocities[Slot(handle)];
 
@@ -356,7 +354,7 @@ public sealed class PhysicsWorld
         m_velocities[slot] = velocity;
     }
 
-    /// <summary>The force in the body's velocity frame; cleared by <see cref="ClearForces"/> (the last sub-step of a step).</summary>
+    /// <summary>The force in world space; cleared by <see cref="ClearForces"/> (the last sub-step of a step).</summary>
     public Vector3 GetForce(BodyHandle handle) => m_forces[Slot(handle)];
 
     /// <summary>Sets the force. Allowed until the positions are integrated.</summary>
@@ -423,8 +421,8 @@ public sealed class PhysicsWorld
     {
         var slot = Slot(handle);
 
-        return new BodyState(handle, m_positions[slot], m_linears[slot], m_sizes[slot], m_velocityFrames[slot],
-            m_velocities[slot], m_forces[slot], m_masses[slot], m_isStatic[slot], m_onGround[slot]);
+        return new BodyState(handle, m_positions[slot], m_orientations[slot], m_halfExtents[slot], m_velocities[slot],
+            m_forces[slot], m_masses[slot], m_isStatic[slot], m_onGround[slot]);
     }
 
     /// <summary>The cached world vertices (empty for a sphere); valid until the next mutation or sub-step.</summary>
@@ -534,7 +532,7 @@ public sealed class PhysicsWorld
     }
 
     /// <summary>
-    /// Moves every dynamic body by <c>(velocityFrame × velocity) × subStepTime</c>, clears its ground flag and rebuilds
+    /// Moves every dynamic body by <c>velocity × subStepTime</c>, clears its ground flag and rebuilds
     /// its world geometry. Needs <see cref="StepPhase.TerminalSpeedClamped"/>; leaves
     /// <see cref="StepPhase.PositionsIntegrated"/>.
     /// </summary>
@@ -550,7 +548,7 @@ public sealed class PhysicsWorld
             if (!m_alive[slot] || m_isStatic[slot])
                 continue;
 
-            StorePosition(slot, m_positions[slot] + m_velocityFrames[slot] * m_velocities[slot] * subStepTime);
+            StorePosition(slot, m_positions[slot] + m_velocities[slot] * subStepTime);
             m_onGround[slot] = false;
             UpdateGeometry(slot);
         }
@@ -619,7 +617,8 @@ public sealed class PhysicsWorld
                 isHit = PhysicsQueries.IntersectRayWithPolygon(polygon, WorldVertices(slot), WorldNormals(slot), ray,
                     out point);
             else
-                isHit = PhysicsQueries.IntersectRay(m_positions[slot], m_sizes[slot].X / 2, ray, out point);
+                isHit = PhysicsQueries.IntersectRay(m_positions[slot], Geometry.SphereWidth(m_halfExtents[slot]) / 2,
+                    ray, out point);
 
             nearest.Consider(slot, isHit, point);
         }
@@ -692,7 +691,7 @@ public sealed class PhysicsWorld
 
     private BodyGeometry View(int slot) =>
         new BodyGeometry(m_shapes[slot] as PolygonShape, WorldVertices(slot), WorldNormals(slot), m_positions[slot],
-            m_sizes[slot].X, m_boundsMin[slot], m_boundsMax[slot]);
+            Geometry.SphereWidth(m_halfExtents[slot]), m_boundsMin[slot], m_boundsMax[slot]);
 
     private ReadOnlySpan<Vector3> WorldVertices(int slot) =>
         m_shapes[slot] is PolygonShape polygon
@@ -704,18 +703,19 @@ public sealed class PhysicsWorld
             ? m_worldNormals[slot].AsSpan(0, polygon.FaceCount)
             : ReadOnlySpan<Vector3>.Empty;
 
-    // Today's WorldObject.ApplyTransformation and Collision.UpdateCollision for one body.
+    // One body's world geometry and bounds from its position, orientation and half-extents.
     private void UpdateGeometry(int slot)
     {
         var position = m_positions[slot];
-        var sphereWidth = m_sizes[slot].X;
+        var halfExtents = m_halfExtents[slot];
+        var sphereWidth = Geometry.SphereWidth(halfExtents);
 
         if (m_shapes[slot] is PolygonShape polygon)
         {
             var vertices = m_worldVertices[slot].AsSpan(0, polygon.Vertices.Length);
-            var transformation = Geometry.ComputeMatrix(position, m_linears[slot]);
-            Geometry.ComputeVertices(polygon, transformation, vertices);
-            Geometry.ComputeNormals(polygon, transformation, m_worldNormals[slot].AsSpan(0, polygon.FaceCount));
+            var rotation = Matrix3.CreateFromQuaternion(m_orientations[slot]);
+            Geometry.ComputeVertices(polygon, position, rotation, halfExtents, vertices);
+            Geometry.ComputeNormals(polygon, rotation, halfExtents, m_worldNormals[slot].AsSpan(0, polygon.FaceCount));
             Geometry.ComputeBounds(polygon, vertices, position, sphereWidth, out m_boundsMin[slot],
                 out m_boundsMax[slot]);
         }
@@ -733,9 +733,8 @@ public sealed class PhysicsWorld
         Array.Resize(ref m_positions, capacity);
         Array.Resize(ref m_velocities, capacity);
         Array.Resize(ref m_forces, capacity);
-        Array.Resize(ref m_linears, capacity);
-        Array.Resize(ref m_velocityFrames, capacity);
-        Array.Resize(ref m_sizes, capacity);
+        Array.Resize(ref m_orientations, capacity);
+        Array.Resize(ref m_halfExtents, capacity);
         Array.Resize(ref m_masses, capacity);
         Array.Resize(ref m_isStatic, capacity);
         Array.Resize(ref m_onGround, capacity);
@@ -776,13 +775,19 @@ public sealed class PhysicsWorld
         if (description.Shape is null)
             throw new ArgumentException("The shape is null.", name);
 
-        if (!IsFinite(description.Position) || !IsFinite(description.Linear) || !IsFinite(description.Size) ||
-            !IsFinite(description.VelocityFrame) || !IsFinite(description.Velocity) || !IsFinite(description.Force))
-            throw new ArgumentException("A component of the position, linear part, size, velocity frame, velocity or " +
-                                        "force is not finite.", name);
+        if (!IsFinite(description.Position) || !IsFinite(description.Orientation) ||
+            !IsFinite(description.HalfExtents) || !IsFinite(description.Velocity) || !IsFinite(description.Force))
+            throw new ArgumentException("A component of the position, orientation, half-extents, velocity or force is " +
+                                        "not finite.", name);
+
+        if (!IsUnit(description.Orientation))
+            throw new ArgumentException("The orientation is not a unit quaternion.", name);
 
         if (!float.IsFinite(description.Mass) || description.Mass <= 0)
             throw new ArgumentException("The mass must be finite and positive.", name);
+
+        if (description.Shape is SphereShape && !AreEqual(description.HalfExtents))
+            throw new ArgumentException("A sphere's three half-extents must be equal.", name);
     }
 
     private void RequireIdle(string call) => RequirePhase(StepPhase.Idle, call);
@@ -821,17 +826,28 @@ public sealed class PhysicsWorld
             throw new ArgumentOutOfRangeException(name, value, "Every component must be finite.");
     }
 
-    private static void RequireFinite(Matrix3 value, string name)
+    private static void RequireUnit(Quaternion value, string name)
     {
         if (!IsFinite(value))
-            throw new ArgumentOutOfRangeException(name, value, "Every element must be finite.");
+            throw new ArgumentOutOfRangeException(name, value, "Every component must be finite.");
+
+        if (!IsUnit(value))
+            throw new ArgumentOutOfRangeException(name, value, "The quaternion must be unit: |‖q‖² − 1| ≤ 1e-5.");
     }
 
     private static bool IsFinite(Vector3 value) =>
         float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
 
-    private static bool IsFinite(Matrix3 value) =>
-        IsFinite(value.Column0) && IsFinite(value.Column1) && IsFinite(value.Column2);
+    private static bool IsFinite(Quaternion value) =>
+        float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z) && float.IsFinite(value.W);
+
+    // For a finite quaternion.
+    private static bool IsUnit(Quaternion value) =>
+        MathF.Abs(value.LengthSquared() - 1) <= UnitQuaternionTolerance;
+
+    // A sphere's half-extents: IEEE equality, so +0 equals −0.
+    private static bool AreEqual(Vector3 halfExtents) =>
+        halfExtents.X == halfExtents.Y && halfExtents.X == halfExtents.Z;
 
     #endregion
 }

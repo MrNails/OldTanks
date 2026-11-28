@@ -120,6 +120,99 @@ internal static class Scenes
     ], 400);
 
     /// <summary>
+    /// −0 coordinates survive only where today's WorldObject.Position setter skips an equal value (+0 equals −0): a tick
+    /// of 0 s moves nothing, so the cube keeps X = −0, and the two overlapping spheres meet on the Y axis with X and Z of
+    /// −0 against +0, whose signs reach the contact normal and the pushed positions. Run with
+    /// <see cref="NegativeZeroTickTime"/>: the tick of 0 s comes again among normal ticks.
+    /// </summary>
+    public static SceneDescription NegativeZeroAndZeroTimeStep() => new SceneDescription(
+        "negative zero and a zero time step",
+    [
+        new BodySpec(false, true, new Vector3(0, -2, 0), Vector3.Zero, new Vector3(20, 1, 20), Vector3.Zero, 1, 0, 0, 0),
+        new BodySpec(false, false, new Vector3(-0f, 5, 3), Vector3.Zero, Vector3.One, Vector3.Zero, 1, 2, 2, 1),
+        new BodySpec(true, false, new Vector3(-0f, 0.5f, -0f), Vector3.Zero, Vector3.One, Vector3.Zero, 1, 2, 2, 1),
+        new BodySpec(true, false, new Vector3(0, 1.3f, 0), Vector3.Zero, Vector3.One, Vector3.Zero, 1, 2, 2, 1),
+        new BodySpec(false, false, new Vector3(4, -1, -0f), Vector3.Zero, Vector3.One, new Vector3(1, 0, 0), 1, 2, 2, 1),
+    ], [], 240);
+
+    /// <summary><see cref="NegativeZeroAndZeroTimeStep"/>'s tick times: 0 s at ticks 0, 1, 100 and 101, else 1/60 s.</summary>
+    public static float NegativeZeroTickTime(int tick) => tick is 0 or 1 or 100 or 101 ? 0f : 1f / 60f;
+
+    /// <summary>
+    /// Today's RigidBody defaults (limits 0, 0, 0) and a backward force: the forward clamp sets X to −MaxBackSpeed = −0,
+    /// and the contact's full-vector cancel against a floor with a stale velocity X of −1 turns it into +0.
+    /// </summary>
+    public static SceneDescription ZeroLimitsBackwardForce()
+    {
+        var floor = new BodySpec(false, true, new Vector3(0, -2, 0), Vector3.Zero, new Vector3(20, 1, 20),
+            new Vector3(-1, 0, 0), 1, 2, 2, 1);
+        var cube = new BodySpec(false, false, new Vector3(0.25f, -0.9f, 0.5f), new Vector3(0, 0.4f, 0), Vector3.One,
+            Vector3.Zero, 1, 0, 0, 0);
+        var events = new List<TickEvent>();
+        for (var tick = 30; tick < 90; tick++)
+            events.Add(new TickEvent(tick, 1, new Vector3(-15, 0, 0), null, null, false, null));
+
+        return new SceneDescription("zero limits and a backward force", [floor, cube], events, 120);
+    }
+
+    /// <summary>
+    /// A cube resting on the floor is pushed, then made static while its ground flag is set, and a dynamic sphere lands
+    /// on it: the static cube's stale flag and velocity take part in the contact but its velocity never changes.
+    /// </summary>
+    public static SceneDescription BodyHitWhileStatic() => new SceneDescription("body hit while static",
+    [
+        new BodySpec(false, true, new Vector3(0, -2, 0), Vector3.Zero, new Vector3(20, 1, 20), Vector3.Zero, 1, 0, 0, 0),
+        new BodySpec(false, false, new Vector3(0, -1, 0), new Vector3(0, 0.3f, 0), Vector3.One, Vector3.Zero, 1, 2, 2, 1),
+        new BodySpec(true, false, new Vector3(0.2f, 4, 0.1f), Vector3.Zero, Vector3.One, Vector3.Zero, 1, 2, 2, 1),
+    ],
+    [
+        new TickEvent(28, 1, new Vector3(15, 0, 0), null, null, false, null),
+        new TickEvent(29, 1, new Vector3(15, 0, 0), null, null, false, null),
+        new TickEvent(30, 1, null, null, true, false, null),
+    ], 200);
+
+    /// <summary>
+    /// A cube resting on the floor pushed by forces that arrive before the same tick as a heading change: force then
+    /// heading at ticks 10 and 40, heading then force at tick 70; today's force is local, so it acts along the new
+    /// heading whatever the order.
+    /// </summary>
+    public static SceneDescription ForceAndHeadingChangeBeforeTheSameTick() => new SceneDescription(
+        "force and heading change before the same tick",
+    [
+        s_floor,
+        new BodySpec(false, false, new Vector3(0, -1, 0), new Vector3(0, 0.3f, 0), Vector3.One, Vector3.Zero, 1, 2, 2, 1),
+    ],
+    [
+        Force(10, 1, new Vector3(15, 0, 0)),
+        Rotate(10, 1, new Vector3(0, 1.8f, 0)),
+        Force(11, 1, new Vector3(15, 0, 0)),
+        Force(40, 1, new Vector3(15, 0, 3)),
+        Rotate(40, 1, new Vector3(0, -0.7f, 0)),
+        Rotate(70, 1, new Vector3(0, 2.5f, 0)),
+        Force(70, 1, new Vector3(-15, 0, 0)),
+    ], 120);
+
+    /// <summary>
+    /// A cube resting on the floor turned to a heading of 30° at tick 10, then given velocities through today's setter in
+    /// local terms: (5, 0, 1) at tick 20, whose forward part is above MaxSpeed × MaxSpeedMultiplier, and (−5, 0, 1) at
+    /// tick 90, below −MaxBackSpeed. Today's setter clamps the local X (to 3, then to −2) and the step moves the body
+    /// along the heading. The limits are asymmetric on purpose (MaxSpeed 1, MaxBackSpeed 2, MaxSpeedMultiplier 3): with
+    /// equal speeds and a multiplier of 1, swapping MaxSpeed and MaxBackSpeed or dropping the multiplier in the drive's
+    /// conversion would give the same clamp and go unnoticed.
+    /// </summary>
+    public static SceneDescription VelocityWrittenAfterAHeadingChange() => new SceneDescription(
+        "velocity written after a heading change",
+    [
+        s_floor,
+        new BodySpec(false, false, new Vector3(0, -1, 0), Vector3.Zero, Vector3.One, Vector3.Zero, 1, 1, 2, 3),
+    ],
+    [
+        Rotate(10, 1, new Vector3(0, MathHelper.DegreesToRadians(30), 0)),
+        new TickEvent(20, 1, null, null, null, false, null, new Vector3(5, 0, 1)),
+        new TickEvent(90, 1, null, null, null, false, null, new Vector3(-5, 0, 1)),
+    ], 160);
+
+    /// <summary>
     /// The WP2 probe's random scene from <paramref name="seed"/>: a static floor and 2-11 bodies (a quarter spheres, a
     /// fifth static), forces on a third of the ticks and a rotation change on a 25th, over 300 ticks.
     /// </summary>

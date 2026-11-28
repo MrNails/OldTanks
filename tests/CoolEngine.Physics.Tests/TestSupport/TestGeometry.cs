@@ -7,7 +7,8 @@ namespace CoolEngine.Physics.Tests.TestSupport;
 
 /// <summary>
 /// One body as the detection sees it, built from a shape and any transformation (shear and mirror included) with the
-/// stage-1 formulas of <see cref="Geometry"/>, so the detection tests do not depend on how a world stores a body.
+/// stage-1 formulas (today's <c>Collision.UpdateCollision</c>, copied here since the library takes a position,
+/// orientation and half-extents instead), so the detection tests do not depend on how a world stores a body.
 /// </summary>
 internal sealed class TestGeometry
 {
@@ -65,8 +66,8 @@ internal sealed class TestGeometry
         var polygon = Shape as PolygonShape;
         if (polygon != null)
         {
-            Geometry.ComputeVertices(polygon, transformation, m_vertices);
-            Geometry.ComputeNormals(polygon, transformation, m_normals);
+            StageOneVertices(polygon, transformation, m_vertices);
+            StageOneNormals(polygon, transformation, m_normals);
         }
 
         Geometry.ComputeBounds(polygon, m_vertices, position, size.X, out m_boundsMin, out m_boundsMax);
@@ -74,4 +75,35 @@ internal sealed class TestGeometry
 
     public BodyGeometry View() =>
         new BodyGeometry(Shape as PolygonShape, m_vertices, m_normals, Position, Size.X, m_boundsMin, m_boundsMax);
+
+    /// <summary>Stage 1's vertices (today's): each model vertex through <c>TransformPosition</c>, in shape order.</summary>
+    public static void StageOneVertices(PolygonShape shape, in Matrix4 transformation, Span<Vector3> destination)
+    {
+        var vertices = shape.Vertices;
+
+        for (int i = 0; i < vertices.Length; i++)
+            destination[i] = transformation.TransformPosition(vertices[i]);
+    }
+
+    /// <summary>
+    /// Stage 1's normals (today's): the cofactors of the transformation's 3 × 3, negated for a mirror, normalized.
+    /// </summary>
+    public static void StageOneNormals(PolygonShape shape, in Matrix4 transformation, Span<Vector3> destination)
+    {
+        var linear = new Matrix3(transformation);
+        var row0 = linear.Column0;
+        var row1 = linear.Column1;
+        var row2 = linear.Column2;
+        var cofactor0 = Vector3.Cross(row1, row2);
+        var cofactor1 = Vector3.Cross(row2, row0);
+        var cofactor2 = Vector3.Cross(row0, row1);
+        var sign = Vector3.Dot(row0, cofactor0) < 0 ? -1f : 1f;
+        var normals = shape.Normals;
+
+        for (int i = 0; i < normals.Length; i++)
+        {
+            var normal = normals[i];
+            destination[i] = Vector3.Normalize(sign * (normal.X * cofactor0 + normal.Y * cofactor1 + normal.Z * cofactor2));
+        }
+    }
 }

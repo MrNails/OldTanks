@@ -1,5 +1,4 @@
 using System.Numerics;
-using CoolEngine.Mathematics;
 using CoolEngine.Physics.Shapes;
 using CoolEngine.Physics.Tests.TestSupport;
 
@@ -222,25 +221,26 @@ public sealed class PhysicsWorldStepTests
 
         var shapes = new List<Shape>();
         var positions = new List<Vector3>();
-        var linears = new List<Matrix3>();
-        var sizes = new List<Vector3>();
+        var orientations = new List<Quaternion>();
+        var halfExtents = new List<Vector3>();
         foreach (var handle in world)
         {
             var state = world.GetState(handle);
             shapes.Add(world.GetShape(handle));
             positions.Add(state.Position);
-            linears.Add(state.Linear);
-            sizes.Add(state.Size);
+            orientations.Add(state.Orientation);
+            halfExtents.Add(state.HalfExtents);
         }
 
         var shapeArray = shapes.ToArray();
         var positionArray = positions.ToArray();
-        var linearArray = linears.ToArray();
-        var sizeArray = sizes.ToArray();
+        var orientationArray = orientations.ToArray();
+        var halfExtentArray = halfExtents.ToArray();
         var cube = TestBodies.CubeShape;
         var vertices = new Vector3[8];
         var normals = new Vector3[6];
-        var cubeLinear = TestBodies.Linear(new Vector3(0.3f, 0.5f, 0.7f), new Vector3(2, 1, 3));
+        var cubeOrientation = TestBodies.Orientation(new Vector3(0.3f, 0.5f, 0.7f));
+        var cubeHalfExtents = new Vector3(1, 0.5f, 1.5f);
         var cubePosition = new Vector3(1, 2, 3);
         var rays = new Ray[16];
         var random = new Random(10);
@@ -260,17 +260,17 @@ public sealed class PhysicsWorldStepTests
             allocated[block] = GC.GetAllocatedBytesForCurrentThread() - before;
         }
 
-        Assert.That(allocated.Min(), Is.EqualTo(0), $"bytes per block: {string.Join(", ", allocated)}");
+        Assert.That(allocated, Is.All.EqualTo(0), $"bytes per block: {string.Join(", ", allocated)}");
 
         void RunAll()
         {
             foreach (var ray in rays)
             {
                 world.RayCast(ray, out _);
-                PhysicsQueries.RayCastNearest(shapeArray, positionArray, linearArray, sizeArray, ray, vertices, normals,
-                    out _, out _);
-                PhysicsQueries.ComputeWorldVertices(cube, cubePosition, cubeLinear, vertices);
-                PhysicsQueries.ComputeWorldNormals(cube, cubePosition, cubeLinear, normals);
+                PhysicsQueries.RayCastNearest(shapeArray, positionArray, orientationArray, halfExtentArray, ray,
+                    vertices, normals, out _, out _);
+                PhysicsQueries.ComputeWorldVertices(cube, cubePosition, cubeOrientation, cubeHalfExtents, vertices);
+                PhysicsQueries.ComputeWorldNormals(cube, cubeOrientation, cubeHalfExtents, normals);
                 PhysicsQueries.IntersectRay(cube, vertices, normals, ray, out _);
                 PhysicsQueries.IntersectRay(cubePosition, 1.5f, ray, out _);
             }
@@ -299,16 +299,16 @@ public sealed class PhysicsWorldStepTests
         var handles = new List<BodyHandle>();
         var shapes = new List<Shape>();
         var positions = new List<Vector3>();
-        var linears = new List<Matrix3>();
-        var sizes = new List<Vector3>();
+        var orientations = new List<Quaternion>();
+        var halfExtents = new List<Vector3>();
         foreach (var handle in world)
         {
             var state = world.GetState(handle);
             handles.Add(handle);
             shapes.Add(world.GetShape(handle));
             positions.Add(state.Position);
-            linears.Add(state.Linear);
-            sizes.Add(state.Size);
+            orientations.Add(state.Orientation);
+            halfExtents.Add(state.HalfExtents);
         }
 
         var random = new Random(80);
@@ -320,8 +320,8 @@ public sealed class PhysicsWorldStepTests
             var ray = new Ray(start, start + direction * 100);
 
             var worldHit = world.RayCast(ray, out var hit);
-            var queryHit = PhysicsQueries.RayCastNearest(shapes.ToArray(), positions.ToArray(), linears.ToArray(),
-                sizes.ToArray(), ray, new Vector3[8], new Vector3[6], out var index, out var point);
+            var queryHit = PhysicsQueries.RayCastNearest(shapes.ToArray(), positions.ToArray(), orientations.ToArray(),
+                halfExtents.ToArray(), ray, new Vector3[8], new Vector3[6], out var index, out var point);
 
             if (worldHit != queryHit)
                 mismatches.Add($"ray {i}: world {worldHit}, query {queryHit}");
@@ -397,9 +397,8 @@ public sealed class PhysicsWorldStepTests
     [TestCase("SetPosition")]
     [TestCase("SetMass")]
     [TestCase("SetStatic")]
-    [TestCase("SetLinear")]
-    [TestCase("SetSize")]
-    [TestCase("SetVelocityFrame")]
+    [TestCase("SetOrientation")]
+    [TestCase("SetHalfExtents")]
     public void StructuralChange_OutsideIdle_ThrowsInvalidOperationException(string call)
     {
         var world = OneBodyWorld(out var handle);
@@ -412,9 +411,8 @@ public sealed class PhysicsWorldStepTests
             "SetPosition" => () => world.SetPosition(handle, new Vector3(1, 2, 3)),
             "SetMass" => () => world.SetMass(handle, 7),
             "SetStatic" => () => world.SetStatic(handle, true),
-            "SetLinear" => () => world.SetLinear(handle, Matrix3.Identity),
-            "SetSize" => () => world.SetSize(handle, new Vector3(3)),
-            _ => () => world.SetVelocityFrame(handle, Matrix3.CreateRotationY(1).Transposed()),
+            "SetOrientation" => () => world.SetOrientation(handle, TestBodies.Orientation(new Vector3(0, 1, 0))),
+            _ => () => world.SetHalfExtents(handle, new Vector3(3)),
         };
 
         Assert.Multiple(() =>
@@ -441,8 +439,7 @@ public sealed class PhysicsWorldStepTests
         world.IntegratePositions(SubStepTime);
         world.ResolveContacts();
 
-        AssertSameBits(world.GetPosition(handle), start + world.GetVelocityFrame(handle) * velocity * SubStepTime,
-            "position");
+        AssertSameBits(world.GetPosition(handle), start + velocity * SubStepTime, "position");
     }
 
     [Test]

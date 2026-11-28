@@ -10,9 +10,14 @@ namespace OldTanks.Tests.PhysicsParity;
 
 /// <summary>
 /// The scenes of the simulation goldens (<c>WorldTests</c>) run side by side through today's <see cref="World"/> and
-/// <c>CoolEngine.Physics</c>, equal by bits on every tick. Each scene is described here once, by value; a drift against
-/// <see cref="SimulationScenes"/> is caught by <see cref="Scenes_MirrorTheGoldenScenes"/>. A golden test's tick N
-/// (1-based, inputs applied before it) is tick N − 1 here (0-based).
+/// <c>CoolEngine.Physics</c> with <see cref="WorldSpaceDrive"/>. The scenes stage 2 still reproduces by bits, as measured,
+/// keep bitwise tests (<c>EqualsWorldBitForBit</c>): every heading in them is 0, and where a cube is turned (45° about X
+/// in the default scene) its geometry differs from today's in the last bit, but no contact outcome changes. The others
+/// stay within <see cref="SceneComparison.PositionBound"/> of today's positions on every tick (the owner's bar of
+/// 2026-11-28; ground-flag differences printed, not asserted), and <see cref="Stage2DifferenceTests"/> reports the sizes.
+/// Each scene is described here once, by value; a drift against <see cref="SimulationScenes"/> is caught by
+/// <see cref="Scenes_MirrorTheGoldenScenes"/>. A golden test's tick N (1-based, inputs applied before it) is tick N − 1
+/// here (0-based).
 /// </summary>
 [TestFixture]
 public sealed class GoldenSceneParityTests
@@ -42,28 +47,29 @@ public sealed class GoldenSceneParityTests
     }
 
     [Test]
-    public void Step_DefaultScene_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(DefaultScene());
+    public void Step_DefaultScene_EqualsWorldBitForBit() => SceneComparison.AssertBitEqual(DefaultScene());
 
     [Test]
-    public void Step_TerminalDropCube_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(TerminalDrop(false));
+    public void Step_TerminalDropCube_EqualsWorldBitForBit() => SceneComparison.AssertBitEqual(TerminalDrop(false));
 
     [Test]
-    public void Step_TerminalDropSphere_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(TerminalDrop(true));
+    public void Step_TerminalDropSphere_EqualsWorldBitForBit() => SceneComparison.AssertBitEqual(TerminalDrop(true));
 
     [Test]
-    public void Step_UpwardSpeedAboveTerminal_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(UpwardFlip());
+    public void Step_UpwardSpeedAboveTerminal_EqualsWorldBitForBit() => SceneComparison.AssertBitEqual(UpwardFlip());
 
     [Test]
-    public void Step_CubeOnStaticSphere_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(CubeOnStaticSphere());
+    public void Step_CubeOnStaticSphere_StaysWithinOneMillimetreOfWorld() =>
+        SceneComparison.AssertWithinPositionBound(CubeOnStaticSphere());
 
     [Test]
-    public void Step_DynamicStack_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(Stack());
+    public void Step_DynamicStack_EqualsWorldBitForBit() => SceneComparison.AssertBitEqual(Stack());
 
     [Test]
     public void Step_SpawnedStaticsAndJump_EqualsWorldBitForBit()
     {
         // WorldTests asserts the cube rests on its platform before the jump (before tick 11, so after tick 9 here).
-        PhysicsParityTests.AssertParity(SpawnedStatics(), afterTick: (tick, old) =>
+        SceneComparison.AssertBitEqual(SpawnedStatics(), afterTick: (tick, old) =>
         {
             if (tick == 9)
                 Assert.That(old.BySlot[0]!.RigidBody.OnGround, Is.True, "precondition: the cube rests on its platform");
@@ -71,13 +77,14 @@ public sealed class GoldenSceneParityTests
     }
 
     [Test]
-    public void Step_DriveForwardReverseCoast_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(Drive());
+    public void Step_DriveForwardReverseCoast_StaysWithinOneMillimetreOfWorld() =>
+        SceneComparison.AssertWithinPositionBound(Drive());
 
     [Test]
     public void Step_RestingCubeGivenUpwardVelocity_EqualsWorldBitForBit()
     {
         // WorldTests asserts the cube rests on the floor before the write (before tick 30, so after tick 28 here).
-        PhysicsParityTests.AssertParity(RestingHop(), afterTick: (tick, old) =>
+        SceneComparison.AssertBitEqual(RestingHop(), afterTick: (tick, old) =>
         {
             if (tick == 28)
                 Assert.That(old.BySlot[1]!.RigidBody.OnGround, Is.True, "precondition: the cube rests on the floor");
@@ -85,7 +92,7 @@ public sealed class GoldenSceneParityTests
     }
 
     [Test]
-    public void Step_OverlappingStatics_EqualsWorldBitForBit() => PhysicsParityTests.AssertParity(OverlappingStatics());
+    public void Step_OverlappingStatics_EqualsWorldBitForBit() => SceneComparison.AssertBitEqual(OverlappingStatics());
 
     [Test]
     public void Scenes_MirrorTheGoldenScenes()
@@ -145,7 +152,7 @@ public sealed class GoldenSceneParityTests
 
     private static BodySpec Floor() => Static(false, new Vector3(0, -2, 0), Vector3.Zero, new Vector3(20, 1, 20));
 
-    private static SceneDescription DefaultScene() => new SceneDescription("golden default scene",
+    internal static SceneDescription DefaultScene() => new SceneDescription("golden default scene",
     [
         Static(false, new Vector3(0, 0, -10), Vector3.Zero, new Vector3(10, 2, 5)),
         Static(false, new Vector3(9, 0, 0), Vector3.Zero, new Vector3(1, 3, 20)),
@@ -156,20 +163,20 @@ public sealed class GoldenSceneParityTests
     ], [], 600);
 
     // CreateTerminalDropScene(sphere, 3): Floor 1 and a body of size 1 at y = 3 with the velocity (0, -MaxFreeFallingSpeed, 0).
-    private static SceneDescription TerminalDrop(bool sphere) => new SceneDescription(
+    internal static SceneDescription TerminalDrop(bool sphere) => new SceneDescription(
         sphere ? "golden terminal drop, sphere" : "golden terminal drop, cube",
     [
         Floor(),
         Dynamic(sphere, new Vector3(0, 3, 0), Vector3.Zero, s_one, new Vector3(0, -PhysicsConstants.MaxFreeFallingSpeed, 0)),
     ], [], 120);
 
-    private static SceneDescription UpwardFlip() => new SceneDescription("golden upward flip",
+    internal static SceneDescription UpwardFlip() => new SceneDescription("golden upward flip",
     [
         Floor(),
         Dynamic(false, new Vector3(0, 5, 0), Vector3.Zero, s_one, new Vector3(0, 100, 0)),
     ], [], 120);
 
-    private static SceneDescription CubeOnStaticSphere() => new SceneDescription("golden cube on static sphere",
+    internal static SceneDescription CubeOnStaticSphere() => new SceneDescription("golden cube on static sphere",
     [
         Static(false, new Vector3(0, 0, -10), Vector3.Zero, new Vector3(10, 2, 5)),
         Static(false, new Vector3(9, 0, 0), Vector3.Zero, new Vector3(1, 3, 20)),
@@ -179,7 +186,7 @@ public sealed class GoldenSceneParityTests
         Dynamic(true, new Vector3(0, 5, 0), Vector3.Zero, s_one, Vector3.Zero),
     ], [], 600);
 
-    private static SceneDescription Stack() => new SceneDescription("golden dynamic stack",
+    internal static SceneDescription Stack() => new SceneDescription("golden dynamic stack",
     [
         Floor(),
         Dynamic(true, new Vector3(0, 1.2f, 0), Vector3.Zero, s_one, Vector3.Zero),
@@ -191,7 +198,7 @@ public sealed class GoldenSceneParityTests
     // today's setter, so its velocity stays zero. The jump is ApplyJump's force GravityDirection * -250 = (-0, 250, -0)
     // before tick 11 (tick 10 here); its OnGround = false changes nothing, as World.CollideObjects resets the flag of every
     // dynamic body before anything reads it.
-    private static SceneDescription SpawnedStatics() => new SceneDescription("golden spawned statics and jump",
+    internal static SceneDescription SpawnedStatics() => new SceneDescription("golden spawned statics and jump",
     [
         Dynamic(false, new Vector3(0, -0.9f, 0), Vector3.Zero, s_one, Vector3.Zero),
         Dynamic(true, new Vector3(3, -0.9f, 0), Vector3.Zero, s_one, Vector3.Zero),
@@ -204,7 +211,7 @@ public sealed class GoldenSceneParityTests
     ], 120);
 
     // ApplyDrive: MovementDirectionUnit (1, 0, 0) * 15 * sign, before ticks 1 to 120 (forward) and 121 to 300 (reverse).
-    private static SceneDescription Drive()
+    internal static SceneDescription Drive()
     {
         var events = new List<TickEvent>();
 
@@ -222,7 +229,7 @@ public sealed class GoldenSceneParityTests
     }
 
     // The debug window's velocity write (0, 3, 0) before tick 30 (tick 29 here).
-    private static SceneDescription RestingHop() => new SceneDescription("golden resting cube given upward velocity",
+    internal static SceneDescription RestingHop() => new SceneDescription("golden resting cube given upward velocity",
     [
         Floor(),
         Dynamic(false, new Vector3(0, -0.9f, 0), Vector3.Zero, s_one, Vector3.Zero),
@@ -231,7 +238,7 @@ public sealed class GoldenSceneParityTests
         new TickEvent(29, 1, null, null, null, false, null, new Vector3(0, 3, 0)),
     ], 120);
 
-    private static SceneDescription OverlappingStatics() => new SceneDescription("golden overlapping statics",
+    internal static SceneDescription OverlappingStatics() => new SceneDescription("golden overlapping statics",
     [
         Static(false, Vector3.Zero, Vector3.Zero, s_one),
         Static(false, new Vector3(0.5f, 0, 0), Vector3.Zero, s_one),

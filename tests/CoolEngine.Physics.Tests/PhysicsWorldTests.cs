@@ -34,12 +34,46 @@ public sealed class PhysicsWorldTests
         var valid = TestBodies.Cube(Vector3.Zero, Vector3.One);
         var description = defect switch
         {
-            "null shape" => new BodyDescription(null!, valid.Position, valid.Linear, valid.Size, valid.VelocityFrame),
-            "NaN position" => new BodyDescription(valid.Shape, new Vector3(float.NaN, 0, 0), valid.Linear, valid.Size,
-                valid.VelocityFrame),
+            "null shape" => new BodyDescription(null!, valid.Position, valid.Orientation, valid.HalfExtents),
+            "NaN position" => new BodyDescription(valid.Shape, new Vector3(float.NaN, 0, 0), valid.Orientation,
+                valid.HalfExtents),
             "mass 0" => valid with { Mass = 0 },
             _ => valid with { Mass = float.NaN },
         };
+
+        var exception = Assert.Throws<ArgumentException>(() => world.Add(description));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.ParamName, Is.EqualTo("description"));
+            Assert.That(world.Count, Is.EqualTo(0));
+            Assert.That(world.SlotCount, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void Add_SphereWithUnequalHalfExtents_ThrowsArgumentException()
+    {
+        var world = TestBodies.World();
+        var description = new BodyDescription(TestBodies.SphereShape, Vector3.Zero, Quaternion.Identity,
+            new Vector3(0.5f, 0.5f, 0.6f));
+
+        var exception = Assert.Throws<ArgumentException>(() => world.Add(description));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.ParamName, Is.EqualTo("description"));
+            Assert.That(world.Count, Is.EqualTo(0));
+            Assert.That(world.SlotCount, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void Add_NonUnitOrientation_ThrowsArgumentException()
+    {
+        var world = TestBodies.World();
+        var description = new BodyDescription(TestBodies.CubeShape, Vector3.Zero, new Quaternion(0, 0, 0, 2),
+            new Vector3(0.5f));
 
         var exception = Assert.Throws<ArgumentException>(() => world.Add(description));
 
@@ -164,9 +198,8 @@ public sealed class PhysicsWorldTests
                 Assert.That(state.Handle, Is.EqualTo(handles[i]), $"body {i} handle");
                 Assert.That(world.GetShape(handles[i]), Is.SameAs(expected.Shape), $"body {i} shape");
                 Assert.That(state.Position, Is.EqualTo(expected.Position), $"body {i} position");
-                Assert.That(state.Linear, Is.EqualTo(expected.Linear), $"body {i} linear");
-                Assert.That(state.Size, Is.EqualTo(expected.Size), $"body {i} size");
-                Assert.That(state.VelocityFrame, Is.EqualTo(expected.VelocityFrame), $"body {i} velocity frame");
+                Assert.That(state.Orientation, Is.EqualTo(expected.Orientation), $"body {i} orientation");
+                Assert.That(state.HalfExtents, Is.EqualTo(expected.HalfExtents), $"body {i} half-extents");
                 Assert.That(state.Velocity, Is.EqualTo(expected.Velocity), $"body {i} velocity");
                 Assert.That(state.Force, Is.EqualTo(expected.Force), $"body {i} force");
                 Assert.That(state.Mass, Is.EqualTo(expected.Mass), $"body {i} mass");
@@ -231,9 +264,9 @@ public sealed class PhysicsWorldTests
         var size = new Vector3(2, 1, 3);
         var expectedVertices = new Vector3[8];
         var expectedNormals = new Vector3[6];
-        PhysicsQueries.ComputeWorldVertices(TestBodies.CubeShape, position, TestBodies.Linear(default, size),
+        PhysicsQueries.ComputeWorldVertices(TestBodies.CubeShape, position, TestBodies.Orientation(default), size / 2,
             expectedVertices);
-        PhysicsQueries.ComputeWorldNormals(TestBodies.CubeShape, position, TestBodies.Linear(default, size),
+        PhysicsQueries.ComputeWorldNormals(TestBodies.CubeShape, TestBodies.Orientation(default), size / 2,
             expectedNormals);
 
         var cube = world.Add(TestBodies.Cube(position, size));
@@ -257,8 +290,9 @@ public sealed class PhysicsWorldTests
         var position = new Vector3(1, 2, 3);
         var expectedVertices = new Vector3[4];
         var expectedNormals = new Vector3[4];
-        PhysicsQueries.ComputeWorldVertices(shape, position, TestBodies.Linear(default, Vector3.One), expectedVertices);
-        PhysicsQueries.ComputeWorldNormals(shape, position, TestBodies.Linear(default, Vector3.One), expectedNormals);
+        PhysicsQueries.ComputeWorldVertices(shape, position, TestBodies.Orientation(default), Vector3.One / 2,
+            expectedVertices);
+        PhysicsQueries.ComputeWorldNormals(shape, TestBodies.Orientation(default), Vector3.One / 2, expectedNormals);
 
         var tetrahedron = world.Add(TestBodies.Polygon(shape, position, Vector3.One));
 
@@ -365,6 +399,64 @@ public sealed class PhysicsWorldTests
         });
     }
 
+    [TestCase(0f, 0f, 0f, 0f)]
+    [TestCase(0f, 0f, 0f, 2f)]
+    public void SetOrientation_NotUnit_ThrowsArgumentOutOfRangeException(float x, float y, float z, float w)
+    {
+        var world = TestBodies.World();
+        var handle = world.Add(TestBodies.Cube(Vector3.Zero, Vector3.One, new Vector3(0.1f, 0.2f, 0.3f)));
+        var orientation = world.GetOrientation(handle);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => world.SetOrientation(handle, new Quaternion(x, y, z, w)));
+            Assert.That(world.GetOrientation(handle), Is.EqualTo(orientation));
+        });
+    }
+
+    [TestCase(float.NaN, 0f, 0f, 1f)]
+    [TestCase(0f, 0f, 0f, float.PositiveInfinity)]
+    public void SetOrientation_NotFinite_ThrowsArgumentOutOfRangeException(float x, float y, float z, float w)
+    {
+        var world = TestBodies.World();
+        var handle = world.Add(TestBodies.Cube(Vector3.Zero, Vector3.One, new Vector3(0.1f, 0.2f, 0.3f)));
+        var orientation = world.GetOrientation(handle);
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => world.SetOrientation(handle, new Quaternion(x, y, z, w)));
+            Assert.That(world.GetOrientation(handle), Is.EqualTo(orientation));
+        });
+    }
+
+    [Test]
+    public void SetHalfExtents_NotFinite_ThrowsArgumentOutOfRangeException()
+    {
+        var world = TestBodies.World();
+        var handle = world.Add(TestBodies.Cube(Vector3.Zero, new Vector3(2, 4, 6)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                world.SetHalfExtents(handle, new Vector3(1, float.NaN, 3)));
+            Assert.That(world.GetHalfExtents(handle), Is.EqualTo(new Vector3(1, 2, 3)));
+        });
+    }
+
+    [Test]
+    public void SetHalfExtents_SphereWithUnequalValues_ThrowsArgumentOutOfRangeException()
+    {
+        var world = TestBodies.World();
+        var handle = world.Add(TestBodies.Sphere(Vector3.Zero, 1));
+
+        Assert.Multiple(() =>
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                world.SetHalfExtents(handle, new Vector3(0.5f, 0.5f, 0.7f)));
+            Assert.That(world.GetHalfExtents(handle), Is.EqualTo(new Vector3(0.5f)));
+        });
+    }
+
     [Test]
     public void SetPosition_Moved_GeometryAndRayCastUseTheNewPosition()
     {
@@ -388,6 +480,66 @@ public sealed class PhysicsWorldTests
             Assert.That(hit, Is.True, "ray hit");
             Assert.That(rayHit.Body, Is.EqualTo(handle), "hit body");
             Assert.That(rayHit.Point.X, Is.EqualTo(9f).Within(1e-5f), "hit X");
+        });
+    }
+
+    // A static body never passes IntegratePositions, so only the setter can rebuild its geometry.
+    [Test]
+    public void SetOrientation_StaticBodyTurned_GeometryAndRayCastUseTheNewOrientation()
+    {
+        var world = TestBodies.World();
+        var position = new Vector3(10, 0, 0);
+        var halfExtents = new Vector3(1, 1, 4);
+        var handle = world.Add(TestBodies.Cube(position, 2 * halfExtents, isStatic: true));
+        // A quarter turn about Y: the long axis (Z, half-extent 4) turns onto X.
+        var orientation = TestBodies.Orientation(new Vector3(0, MathF.PI / 2, 0));
+        var expectedVertices = new Vector3[8];
+        var expectedNormals = new Vector3[6];
+        PhysicsQueries.ComputeWorldVertices(TestBodies.CubeShape, position, orientation, halfExtents, expectedVertices);
+        PhysicsQueries.ComputeWorldNormals(TestBodies.CubeShape, orientation, halfExtents, expectedNormals);
+        var hitBefore = world.RayCast(new Ray(Vector3.Zero, new Vector3(100, 0, 0)), out var rayHitBefore);
+
+        world.SetOrientation(handle, orientation);
+        var hit = world.RayCast(new Ray(Vector3.Zero, new Vector3(100, 0, 0)), out var rayHit);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hitBefore && rayHitBefore.Point.X is > 8.99f and < 9.01f, Is.True,
+                $"precondition: the ray hits the unturned face at X = 9 ({rayHitBefore.Point})");
+            Assert.That(world.GetWorldVertices(handle).ToArray(), Is.EqualTo(expectedVertices), "vertices");
+            Assert.That(world.GetWorldNormals(handle).ToArray(), Is.EqualTo(expectedNormals), "normals");
+            Assert.That(hit, Is.True, "ray hit");
+            Assert.That(rayHit.Body, Is.EqualTo(handle), "hit body");
+            Assert.That(rayHit.Point.X, Is.EqualTo(6f).Within(1e-4f), "hit X");
+        });
+    }
+
+    [Test]
+    public void SetHalfExtents_StaticBodyResized_GeometryAndRayCastUseTheNewSize()
+    {
+        var world = TestBodies.World();
+        var position = new Vector3(10, 0, 0);
+        var handle = world.Add(TestBodies.Cube(position, new Vector3(2), isStatic: true));
+        var orientation = world.GetOrientation(handle);
+        var halfExtents = new Vector3(3, 1, 1);
+        var expectedVertices = new Vector3[8];
+        var expectedNormals = new Vector3[6];
+        PhysicsQueries.ComputeWorldVertices(TestBodies.CubeShape, position, orientation, halfExtents, expectedVertices);
+        PhysicsQueries.ComputeWorldNormals(TestBodies.CubeShape, orientation, halfExtents, expectedNormals);
+        var hitBefore = world.RayCast(new Ray(Vector3.Zero, new Vector3(100, 0, 0)), out var rayHitBefore);
+
+        world.SetHalfExtents(handle, halfExtents);
+        var hit = world.RayCast(new Ray(Vector3.Zero, new Vector3(100, 0, 0)), out var rayHit);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hitBefore && rayHitBefore.Point.X is > 8.99f and < 9.01f, Is.True,
+                $"precondition: the ray hits the face at X = 9 before ({rayHitBefore.Point})");
+            Assert.That(world.GetWorldVertices(handle).ToArray(), Is.EqualTo(expectedVertices), "vertices");
+            Assert.That(world.GetWorldNormals(handle).ToArray(), Is.EqualTo(expectedNormals), "normals");
+            Assert.That(hit, Is.True, "ray hit");
+            Assert.That(rayHit.Body, Is.EqualTo(handle), "hit body");
+            Assert.That(rayHit.Point.X, Is.EqualTo(7f).Within(1e-5f), "hit X");
         });
     }
 

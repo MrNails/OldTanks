@@ -11,36 +11,37 @@ namespace CoolEngine.Physics;
 /// ray on the GL thread). Safe on any thread; no allocation; the caller owns every buffer.
 /// </summary>
 /// <remarks>
-/// Stage 1 (transitional): a pose is a position and today's linear part (rotation × scale), and a sphere's width is
-/// its size's X, as in <see cref="BodyDescription"/>.
+/// A pose is a position, an orientation (a unit quaternion, not checked or normalized here) and half-extents; a
+/// sphere's radius is its X half-extent.
 /// </remarks>
 public static class PhysicsQueries
 {
     /// <summary>
-    /// The shape's vertices in world space, through <c>Matrix4.CreateTranslation(position) * new Matrix4(linear)</c>,
-    /// in shape order, into the first <c>shape.Vertices.Length</c> elements of <paramref name="destination"/>.
+    /// The shape's vertices in world space, <c>position + R × (halfExtents ⊙ vertex)</c> with <c>R</c> the rotation of
+    /// <paramref name="orientation"/>, in shape order, into the first <c>shape.Vertices.Length</c> elements of
+    /// <paramref name="destination"/>.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="shape"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="destination"/> is shorter than the vertex count.</exception>
-    public static void ComputeWorldVertices(PolygonShape shape, Vector3 position, Matrix3 linear,
-        Span<Vector3> destination)
+    public static void ComputeWorldVertices(PolygonShape shape, Vector3 position, Quaternion orientation,
+        Vector3 halfExtents, Span<Vector3> destination)
     {
         ArgumentNullException.ThrowIfNull(shape);
 
         if (destination.Length < shape.Vertices.Length)
             throw new ArgumentException("The destination is shorter than the shape's vertex count.", nameof(destination));
 
-        Geometry.ComputeVertices(shape, Geometry.ComputeMatrix(position, linear), destination);
+        Geometry.ComputeVertices(shape, position, Matrix3.CreateFromQuaternion(orientation), halfExtents, destination);
     }
 
     /// <summary>
-    /// The shape's face normals in world space (inverse-transpose of the same matrix's 3 × 3, as cofactors, negated
-    /// for a mirror, normalized), in face order, into the first <c>shape.FaceCount</c> elements of
-    /// <paramref name="destination"/>. A zero size gives NaN normals for the faces it collapses.
+    /// The shape's face normals in world space (the cofactors of rotation × scale, negated for a mirror, normalized),
+    /// in face order, into the first <c>shape.FaceCount</c> elements of <paramref name="destination"/>. A zero
+    /// half-extent gives NaN normals for the faces it collapses.
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="shape"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="destination"/> is shorter than the face count.</exception>
-    public static void ComputeWorldNormals(PolygonShape shape, Vector3 position, Matrix3 linear,
+    public static void ComputeWorldNormals(PolygonShape shape, Quaternion orientation, Vector3 halfExtents,
         Span<Vector3> destination)
     {
         ArgumentNullException.ThrowIfNull(shape);
@@ -48,7 +49,7 @@ public static class PhysicsQueries
         if (destination.Length < shape.FaceCount)
             throw new ArgumentException("The destination is shorter than the shape's face count.", nameof(destination));
 
-        Geometry.ComputeNormals(shape, Geometry.ComputeMatrix(position, linear), destination);
+        Geometry.ComputeNormals(shape, Matrix3.CreateFromQuaternion(orientation), halfExtents, destination);
     }
 
     /// <summary>
@@ -113,11 +114,13 @@ public static class PhysicsQueries
     /// vertex or face count.
     /// </exception>
     public static bool RayCastNearest(ReadOnlySpan<Shape> shapes, ReadOnlySpan<Vector3> positions,
-        ReadOnlySpan<Matrix3> linears, ReadOnlySpan<Vector3> sizes, in Ray ray, Span<Vector3> vertexScratch,
-        Span<Vector3> normalScratch, out int index, out Vector3 point)
+        ReadOnlySpan<Quaternion> orientations, ReadOnlySpan<Vector3> halfExtents, in Ray ray,
+        Span<Vector3> vertexScratch, Span<Vector3> normalScratch, out int index, out Vector3 point)
     {
-        if (positions.Length != shapes.Length || linears.Length != shapes.Length || sizes.Length != shapes.Length)
-            throw new ArgumentException("The shapes, positions, linear parts and sizes differ in length.", nameof(shapes));
+        if (positions.Length != shapes.Length || orientations.Length != shapes.Length ||
+            halfExtents.Length != shapes.Length)
+            throw new ArgumentException("The shapes, positions, orientations and half-extents differ in length.",
+                nameof(shapes));
 
         for (var i = 0; i < shapes.Length; i++)
         {
@@ -147,14 +150,14 @@ public static class PhysicsQueries
             {
                 var vertices = vertexScratch[..polygon.Vertices.Length];
                 var normals = normalScratch[..polygon.FaceCount];
-                var transformation = Geometry.ComputeMatrix(positions[i], linears[i]);
-                Geometry.ComputeVertices(polygon, transformation, vertices);
-                Geometry.ComputeNormals(polygon, transformation, normals);
+                var rotation = Matrix3.CreateFromQuaternion(orientations[i]);
+                Geometry.ComputeVertices(polygon, positions[i], rotation, halfExtents[i], vertices);
+                Geometry.ComputeNormals(polygon, rotation, halfExtents[i], normals);
                 hit = IntersectRayWithPolygon(polygon, vertices, normals, ray, out hitPoint);
             }
             else
             {
-                hit = IntersectRay(positions[i], sizes[i].X / 2, ray, out hitPoint);
+                hit = IntersectRay(positions[i], Geometry.SphereWidth(halfExtents[i]) / 2, ray, out hitPoint);
             }
 
             nearest.Consider(i, hit, hitPoint);

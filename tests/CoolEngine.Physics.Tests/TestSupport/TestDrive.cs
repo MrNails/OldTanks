@@ -1,31 +1,36 @@
+using System.Numerics;
+
 namespace CoolEngine.Physics.Tests.TestSupport;
 
 /// <summary>
-/// Today's game rules around the library's phase calls, for one world: the forward damping and snap
-/// (<c>RigidBody.OnTick</c>) before the acceleration and the forward clamp (the <c>RigidBody.Velocity</c> setter) after
-/// it, on the velocity's X in the body's velocity frame; static bodies skipped. The same shape as the parity tests'
-/// StageOneDrive; also used by the benchmarks (linked).
+/// Today's game rules around the library's phase calls, for one world, on the forward component of the world velocity
+/// (the forward axis <c>f</c> is Column0 of <see cref="TestBodies.Frame"/> for the body's heading): the forward damping
+/// and snap (<c>RigidBody.OnTick</c>) before the acceleration and the forward clamp (the <c>RigidBody.Velocity</c>
+/// setter) after it; static bodies skipped. The same rules as the parity tests' WorldSpaceDrive, without heading
+/// changes and local forces; also used by the benchmarks (linked).
 /// </summary>
 internal sealed class TestDrive
 {
-    private Limits[] m_limits = new Limits[16];
+    private static readonly Vector3 s_defaultForward = TestBodies.Frame(0).Column0;
+
+    private Body[] m_bodies = new Body[16];
 
     /// <summary>
-    /// Sets one body's forward limits. Throws <see cref="ArgumentException"/> unless
+    /// Sets one body's forward limits and heading. Throws <see cref="ArgumentException"/> unless
     /// <c>maxSpeed × multiplier ≥ −maxBackSpeed</c>: outside that domain today's setter, which clamps up to three times
     /// per sub-step, is not idempotent and the drive's single clamp would differ.
     /// </summary>
-    public void SetLimits(BodyHandle handle, float maxSpeed, float maxBackSpeed, float multiplier)
+    public void SetLimits(BodyHandle handle, float maxSpeed, float maxBackSpeed, float multiplier, float heading = 0)
     {
         if (!(maxSpeed * multiplier >= -maxBackSpeed))
             throw new ArgumentException(
                 $"The limits {maxSpeed} × {multiplier} < −{maxBackSpeed} are outside the domain the drive reproduces exactly.",
                 nameof(maxSpeed));
 
-        if (handle.Slot >= m_limits.Length)
-            Array.Resize(ref m_limits, Math.Max(m_limits.Length * 2, handle.Slot + 1));
+        if (handle.Slot >= m_bodies.Length)
+            Array.Resize(ref m_bodies, Math.Max(m_bodies.Length * 2, handle.Slot + 1));
 
-        m_limits[handle.Slot] = new Limits(handle, maxSpeed, maxBackSpeed, multiplier);
+        m_bodies[handle.Slot] = new Body(handle, maxSpeed, maxBackSpeed, multiplier, TestBodies.Frame(heading).Column0);
     }
 
     /// <summary>One tick: <see cref="RunSubStep"/> <c>SubStepCount</c> times with <c>timeStep / SubStepCount</c>.</summary>
@@ -45,13 +50,15 @@ internal sealed class TestDrive
             if (world.IsStatic(handle))
                 continue;
 
+            var forward = GetBody(handle).Forward;
             var velocity = world.GetVelocity(handle);
-            velocity.X -= velocity.X * 0.6f * subStepTime;
+            var speed = Vector3.Dot(velocity, forward);
+            var damped = speed - speed * 0.6f * subStepTime;
 
-            if (velocity.X is > -0.01f and < 0.01f)
-                velocity.X = 0;
+            if (damped is > -0.01f and < 0.01f)
+                damped = 0;
 
-            world.SetVelocity(handle, velocity);
+            world.SetVelocity(handle, velocity + (damped - speed) * forward);
         }
 
         world.IntegrateVelocities(subStepTime);
@@ -61,15 +68,14 @@ internal sealed class TestDrive
             if (world.IsStatic(handle))
                 continue;
 
-            var limits = GetLimits(handle);
+            var body = GetBody(handle);
             var velocity = world.GetVelocity(handle);
+            var speed = Vector3.Dot(velocity, body.Forward);
+            var clamped = speed > body.MaxSpeed * body.Multiplier
+                ? body.MaxSpeed * body.Multiplier
+                : speed < -body.MaxBackSpeed ? -body.MaxBackSpeed : speed;
 
-            if (velocity.X > limits.MaxSpeed * limits.Multiplier)
-                velocity.X = limits.MaxSpeed * limits.Multiplier;
-            else if (velocity.X < -limits.MaxBackSpeed)
-                velocity.X = -limits.MaxBackSpeed;
-
-            world.SetVelocity(handle, velocity);
+            world.SetVelocity(handle, velocity + (clamped - speed) * body.Forward);
         }
 
         world.ClampTerminalSpeed();
@@ -81,9 +87,12 @@ internal sealed class TestDrive
         world.ResolveContacts();
     }
 
-    // A body without limits has today's RigidBody defaults: 0, 0 and 0.
-    private Limits GetLimits(BodyHandle handle) =>
-        handle.Slot < m_limits.Length && m_limits[handle.Slot].Handle == handle ? m_limits[handle.Slot] : default;
+    // A body without limits has today's RigidBody defaults (0, 0 and 0) and heading 0.
+    private Body GetBody(BodyHandle handle) =>
+        handle.Slot < m_bodies.Length && m_bodies[handle.Slot].Handle == handle
+            ? m_bodies[handle.Slot]
+            : new Body(handle, 0, 0, 0, s_defaultForward);
 
-    private readonly record struct Limits(BodyHandle Handle, float MaxSpeed, float MaxBackSpeed, float Multiplier);
+    private readonly record struct Body(BodyHandle Handle, float MaxSpeed, float MaxBackSpeed, float Multiplier,
+        Vector3 Forward);
 }

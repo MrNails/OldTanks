@@ -5,55 +5,48 @@ using CoolEngine.Physics.Shapes;
 namespace CoolEngine.Physics.Detection;
 
 /// <summary>
-/// A body's world geometry from its transform: ports of today's <c>Collision.UpdateCollision</c> and
-/// <c>CollisionData.UpdateBoundingBox</c> with the same arithmetic. Pure; any thread; no allocation.
+/// A body's world geometry from its position, rotation and half-extents, and its bounds as today's
+/// <c>CollisionData.UpdateBoundingBox</c> computes them. Pure; any thread; no allocation.
 /// </summary>
 internal static class Geometry
 {
     /// <summary>
-    /// Stage 1 (transitional): <c>Matrix4.CreateTranslation(position) * new Matrix4(linear)</c>, bit for bit today's
-    /// <c>WorldObject.ApplyTransformation</c> when <paramref name="linear"/> is its rotation × scale built with the
-    /// Matrix4 factories (the product, unlike a direct assembly of the columns, turns a −0 translation into +0 as
-    /// today's does).
+    /// Each model vertex in world space, in shape order: <c>position + rotation × (halfExtents ⊙ vertex)</c>, the
+    /// half-extents multiplied component by component (for the cube's ±1 corners exactly ±halfExtents).
     /// </summary>
-    internal static Matrix4 ComputeMatrix(Vector3 position, Matrix3 linear) =>
-        Matrix4.CreateTranslation(position) * new Matrix4(linear);
-
-    /// <summary>Each model vertex through <paramref name="transformation"/> (<c>TransformPosition</c>), in shape order.</summary>
-    internal static void ComputeVertices(PolygonShape shape, in Matrix4 transformation, Span<Vector3> destination)
+    internal static void ComputeVertices(PolygonShape shape, Vector3 position, in Matrix3 rotation,
+        Vector3 halfExtents, Span<Vector3> destination)
     {
         var vertices = shape.Vertices;
 
         for (int i = 0; i < vertices.Length; i++)
-            destination[i] = transformation.TransformPosition(vertices[i]);
+            destination[i] = position + rotation * (halfExtents * vertices[i]);
     }
 
     /// <summary>
-    /// Each model face normal through the inverse-transpose of the transformation's 3 × 3, computed as its cofactors
-    /// (no division, no exception for a singular matrix), negated for a mirror, then normalized: today's formula.
-    /// A zero size gives NaN for the faces it collapses.
+    /// Each model face normal in world space, in face order: <c>Normalize(sign × (rotation × (normal ⊙ c)))</c> with
+    /// <c>c = (h.Y·h.Z, h.X·h.Z, h.X·h.Y)</c> and <c>sign = −1</c> when <c>h.X·h.Y·h.Z</c> is negative (a mirror), else 1:
+    /// the cofactors of rotation × scale, so equal in exact arithmetic to today's inverse-transpose. No division, no
+    /// exception for a zero half-extent, which gives NaN for the faces it collapses, as today.
     /// </summary>
-    internal static void ComputeNormals(PolygonShape shape, in Matrix4 transformation, Span<Vector3> destination)
+    internal static void ComputeNormals(PolygonShape shape, in Matrix3 rotation, Vector3 halfExtents,
+        Span<Vector3> destination)
     {
-        // row0..row2 are the images of the X, Y, Z axes: the 3 × 3's Column0..Column2, taken from the full matrix as
-        // today (not from the stage-1 linear part, which can differ from it in a −0).
-        var linear = new Matrix3(transformation);
-        var row0 = linear.Column0;
-        var row1 = linear.Column1;
-        var row2 = linear.Column2;
-        var cofactor0 = Vector3.Cross(row1, row2);
-        var cofactor1 = Vector3.Cross(row2, row0);
-        var cofactor2 = Vector3.Cross(row0, row1);
+        var cofactorScale = new Vector3(halfExtents.Y * halfExtents.Z, halfExtents.X * halfExtents.Z,
+            halfExtents.X * halfExtents.Y);
         // A negative determinant (a mirror) would turn every normal inward.
-        var sign = Vector3.Dot(row0, cofactor0) < 0 ? -1f : 1f;
+        var sign = halfExtents.X * halfExtents.Y * halfExtents.Z < 0 ? -1f : 1f;
         var normals = shape.Normals;
 
         for (int i = 0; i < normals.Length; i++)
-        {
-            var normal = normals[i];
-            destination[i] = Vector3.Normalize(sign * (normal.X * cofactor0 + normal.Y * cofactor1 + normal.Z * cofactor2));
-        }
+            destination[i] = Vector3.Normalize(sign * (rotation * (normals[i] * cofactorScale)));
     }
+
+    /// <summary>
+    /// A sphere's width: twice its X half-extent (exact), so every sphere expression keeps today's form with
+    /// <c>Width</c>.
+    /// </summary>
+    internal static float SphereWidth(Vector3 halfExtents) => 2 * halfExtents.X;
 
     /// <summary>
     /// The axis-aligned bounds: of the world vertices for a polygon (<paramref name="polygon"/> not null), else of the

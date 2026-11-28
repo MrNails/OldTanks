@@ -3,8 +3,12 @@ using CoolEngine.Mathematics;
 
 namespace CoolEngine.Physics.Tests.TestSupport;
 
-/// <summary>One body of a scene with today's forward limits (MaxSpeed, MaxBackSpeed, MaxSpeedMultiplier).</summary>
-internal sealed record SceneBody(BodyDescription Description, float MaxSpeed, float MaxBackSpeed, float Multiplier);
+/// <summary>
+/// One body of a scene with today's forward limits (MaxSpeed, MaxBackSpeed, MaxSpeedMultiplier) and its heading
+/// (today's Rotation.Y), which the drive needs for the forward axis.
+/// </summary>
+internal sealed record SceneBody(BodyDescription Description, float MaxSpeed, float MaxBackSpeed, float Multiplier,
+    float Heading = 0);
 
 /// <summary>Scenes for the library alone: the game's default scene and seeded N-body scenes.</summary>
 internal static class Scenes
@@ -45,20 +49,28 @@ internal static class Scenes
                 Next(random, -5, 5), Next(random, -3, 3));
             var mass = Next(random, 0.5f, 5f);
 
-            var description = isSphere
-                ? TestBodies.Sphere(position, Next(random, 0.3f, 2f), isStatic, velocity, mass)
-                : TestBodies.Cube(position,
-                    new Vector3(Next(random, 0.3f, 3f), Next(random, 0.3f, 3f), Next(random, 0.3f, 3f)),
-                    new Vector3(Next(random, -3.2f, 3.2f), Next(random, -3.2f, 3.2f), Next(random, -3.2f, 3.2f)),
-                    isStatic, velocity, mass);
+            BodyDescription description;
+            var heading = 0f;
+            if (isSphere)
+            {
+                description = TestBodies.Sphere(position, Next(random, 0.3f, 2f), isStatic, velocity, mass);
+            }
+            else
+            {
+                var size = new Vector3(Next(random, 0.3f, 3f), Next(random, 0.3f, 3f), Next(random, 0.3f, 3f));
+                var rotation = new Vector3(Next(random, -3.2f, 3.2f), Next(random, -3.2f, 3.2f),
+                    Next(random, -3.2f, 3.2f));
+                description = TestBodies.Cube(position, size, rotation, isStatic, velocity, mass);
+                heading = rotation.Y;
+            }
 
-            bodies[i] = new SceneBody(description, maxSpeed, maxBackSpeed, multiplier);
+            bodies[i] = new SceneBody(description, maxSpeed, maxBackSpeed, multiplier, heading);
         }
 
         return bodies;
     }
 
-    /// <summary>Adds every body to <paramref name="world"/> in order and gives the drive its limits.</summary>
+    /// <summary>Adds every body to <paramref name="world"/> in order and gives the drive its limits and heading.</summary>
     public static BodyHandle[] Build(PhysicsWorld world, TestDrive drive, SceneBody[] bodies)
     {
         var handles = new BodyHandle[bodies.Length];
@@ -66,7 +78,8 @@ internal static class Scenes
         for (var i = 0; i < bodies.Length; i++)
         {
             handles[i] = world.Add(bodies[i].Description);
-            drive.SetLimits(handles[i], bodies[i].MaxSpeed, bodies[i].MaxBackSpeed, bodies[i].Multiplier);
+            drive.SetLimits(handles[i], bodies[i].MaxSpeed, bodies[i].MaxBackSpeed, bodies[i].Multiplier,
+                bodies[i].Heading);
         }
 
         return handles;

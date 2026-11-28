@@ -6,8 +6,8 @@ namespace CoolEngine.Physics.Detection;
 /// <summary>
 /// What one body shows the detection: for a polygon its shape and its world vertices and face normals (empty for a
 /// sphere); the body's <see cref="Position"/> (the sphere centre and the polygon normal's orientation, as today's
-/// <c>PhysicObject.Position</c>, not the matrix translation, which differs in −0); <see cref="SphereWidth"/> (stage 1
-/// <c>Size.X</c>, today's <c>Width</c>); and the axis-aligned bounds.
+/// <c>PhysicObject.Position</c>); <see cref="SphereWidth"/> (twice the X half-extent, today's <c>Width</c>); and the
+/// axis-aligned bounds.
 /// </summary>
 internal readonly ref struct BodyGeometry
 {

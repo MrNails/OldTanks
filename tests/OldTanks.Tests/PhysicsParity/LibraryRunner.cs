@@ -1,5 +1,4 @@
 using System.Numerics;
-using CoolEngine.Mathematics;
 using CoolEngine.PhysicEngine;
 using CoolEngine.PhysicEngine.Core.Collision;
 using CoolEngine.Physics;
@@ -8,9 +7,10 @@ using CoolEngine.Physics.Shapes;
 namespace OldTanks.Tests.PhysicsParity;
 
 /// <summary>
-/// A <see cref="PhysicsWorld"/> built from the same <see cref="SceneDescription"/> as <see cref="OldWorldRunner"/>:
-/// today's settings, today's cube shape converted once, the stage-1 linear part and velocity frame from each body's
-/// rotation and size, and velocities clamped as today's setter clamps them when the object is made.
+/// A <see cref="PhysicsWorld"/> built from the same <see cref="SceneDescription"/> as <see cref="OldWorldRunner"/> and
+/// driven by <see cref="WorldSpaceDrive"/>: today's settings, today's cube shape converted once, each body's orientation
+/// and half-extents from its rotation and size by the game's conversion, and its velocity, given in today's local terms,
+/// clamped as today's setter clamps it and turned into world space with the heading.
 /// </summary>
 internal sealed class LibraryRunner
 {
@@ -29,7 +29,7 @@ internal sealed class LibraryRunner
 
     public PhysicsWorld World { get; }
 
-    public StageOneDrive Drive { get; } = new StageOneDrive();
+    public WorldSpaceDrive Drive { get; } = new WorldSpaceDrive();
 
     public IReadOnlyList<BodyHandle?> BySlot => m_bySlot;
 
@@ -48,33 +48,22 @@ internal sealed class LibraryRunner
         return new PolygonShape(data.Vertices, faces);
     }
 
-    /// <summary>
-    /// <c>WorldObject.ApplyTransformation</c>'s rotation × scale with the Matrix4 factories: rotation Z (roll) ×
-    /// rotation Y (−pitch) × rotation X (yaw) × scale (width / 2, height / 2, length / 2).
-    /// </summary>
-    public static Matrix3 Linear(Vector3 rotation, Vector3 size) =>
-        new Matrix3(Matrix4.CreateRotationZ(rotation.Z) *
-                    (Matrix4.CreateRotationY(-rotation.Y) *
-                     (Matrix4.CreateRotationX(rotation.X) * Matrix4.CreateScale(size.X / 2, size.Y / 2, size.Z / 2))));
-
-    /// <summary><c>WorldObject.Move</c>'s frame: <c>Matrix3.CreateRotationY(Rotation.Y).Transposed()</c>.</summary>
-    public static Matrix3 VelocityFrame(Vector3 rotation) => Matrix3.CreateRotationY(rotation.Y).Transposed();
-
     public BodyHandle Add(BodySpec spec)
     {
         // Today's Sphere keeps width, height and length equal to the width.
         var size = spec.IsSphere ? new Vector3(spec.Size.X) : spec.Size;
+        var velocity = WorldSpaceDrive.ToWorldVelocity(spec.Velocity, spec.MaxSpeed, spec.MaxBackSpeed,
+            spec.MaxSpeedMultiplier, spec.Rotation.Y);
         var description = new BodyDescription(spec.IsSphere ? m_sphereShape : m_cubeShape, spec.Position,
-            Linear(spec.Rotation, size), size, VelocityFrame(spec.Rotation))
+            WorldSpaceDrive.ToOrientation(spec.Rotation), WorldSpaceDrive.ToHalfExtents(size))
         {
-            Velocity = StageOneDrive.ClampForward(spec.Velocity, spec.MaxSpeed, spec.MaxBackSpeed,
-                spec.MaxSpeedMultiplier),
+            Velocity = velocity,
             Mass = spec.Weight,
             IsStatic = spec.IsStatic
         };
 
         var handle = World.Add(description);
-        Drive.SetLimits(handle, spec.MaxSpeed, spec.MaxBackSpeed, spec.MaxSpeedMultiplier);
+        Drive.Register(handle, spec.MaxSpeed, spec.MaxBackSpeed, spec.MaxSpeedMultiplier, spec.Rotation.Y);
 
         while (m_bySlot.Count <= handle.Slot)
             m_bySlot.Add(null);
@@ -90,16 +79,16 @@ internal sealed class LibraryRunner
 
         var handle = m_bySlot[tickEvent.Body]!.Value;
 
-        if (tickEvent.Force is { } force && !World.IsStatic(handle))
-            World.AddForce(handle, force);
+        if (tickEvent.Force is { } force)
+            Drive.AddLocalForce(World, handle, force);
 
-        if (tickEvent.Velocity is { } velocity && !World.IsStatic(handle))
-            World.SetVelocity(handle, Drive.ClampToLimits(handle, velocity));
+        if (tickEvent.Velocity is { } velocity)
+            Drive.SetLocalVelocity(World, handle, velocity);
 
         if (tickEvent.Rotation is { } rotation)
         {
-            World.SetLinear(handle, Linear(rotation, World.GetSize(handle)));
-            World.SetVelocityFrame(handle, VelocityFrame(rotation));
+            World.SetOrientation(handle, WorldSpaceDrive.ToOrientation(rotation));
+            Drive.SetHeading(World, handle, rotation.Y);
         }
 
         if (tickEvent.MakeStatic is { } isStatic)

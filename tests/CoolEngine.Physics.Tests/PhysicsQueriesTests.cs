@@ -1,5 +1,4 @@
 using System.Numerics;
-using CoolEngine.Mathematics;
 using CoolEngine.Physics.Shapes;
 using CoolEngine.Physics.Tests.TestSupport;
 
@@ -41,7 +40,7 @@ public sealed class PhysicsQueriesTests
     {
         var shape = TestShapes.Cube();
         var normals = new Vector3[shape.FaceCount];
-        PhysicsQueries.ComputeWorldNormals(shape, Vector3.Zero, Matrix3.Identity, normals);
+        PhysicsQueries.ComputeWorldNormals(shape, Quaternion.Identity, Vector3.One, normals);
         var ray = new Ray(new Vector3(-10, 5, 0), new Vector3(10, 5, 0));
 
         var hit = PhysicsQueries.IntersectRay(shape, shape.Vertices, normals, ray, out _);
@@ -81,12 +80,12 @@ public sealed class PhysicsQueriesTests
         var size = new Vector3(2);
         Shape[] shapes = [TestBodies.CubeShape, TestBodies.CubeShape];
         Vector3[] positions = [new Vector3(10, 0, 0), new Vector3(4, 0, 0)];
-        Matrix3[] linears = [TestBodies.Linear(Vector3.Zero, size), TestBodies.Linear(Vector3.Zero, size)];
-        Vector3[] sizes = [size, size];
+        Quaternion[] orientations = [Quaternion.Identity, Quaternion.Identity];
+        Vector3[] halfExtents = [size / 2, size / 2];
         var ray = new Ray(Vector3.Zero, new Vector3(100, 0, 0));
 
-        var hit = PhysicsQueries.RayCastNearest(shapes, positions, linears, sizes, ray, new Vector3[8], new Vector3[6],
-            out var index, out var point);
+        var hit = PhysicsQueries.RayCastNearest(shapes, positions, orientations, halfExtents, ray, new Vector3[8],
+            new Vector3[6], out var index, out var point);
 
         Assert.Multiple(() =>
         {
@@ -96,18 +95,35 @@ public sealed class PhysicsQueriesTests
         });
     }
 
+    [TestCase("positions")]
+    [TestCase("orientations")]
+    [TestCase("half-extents")]
+    public void RayCastNearest_SpansOfDifferentLengths_ThrowsArgumentException(string shorterSpan)
+    {
+        Shape[] shapes = [TestBodies.CubeShape, TestBodies.CubeShape];
+        var positions = new Vector3[shorterSpan == "positions" ? 1 : 2];
+        var orientations = new Quaternion[shorterSpan == "orientations" ? 1 : 2];
+        Array.Fill(orientations, Quaternion.Identity);
+        var halfExtents = new Vector3[shorterSpan == "half-extents" ? 1 : 2];
+        Array.Fill(halfExtents, Vector3.One);
+        var ray = new Ray(Vector3.Zero, new Vector3(100, 0, 0));
+
+        Assert.Throws<ArgumentException>(() => PhysicsQueries.RayCastNearest(shapes, positions, orientations,
+            halfExtents, ray, new Vector3[8], new Vector3[6], out _, out _));
+    }
+
     [Test]
     public void RayCastNearest_EqualDistances_ReturnsTheLowerIndex()
     {
         var size = new Vector3(2);
         Shape[] shapes = [TestBodies.CubeShape, TestBodies.CubeShape];
         Vector3[] positions = [new Vector3(4, 0, 0), new Vector3(4, 0, 0)];
-        Matrix3[] linears = [TestBodies.Linear(Vector3.Zero, size), TestBodies.Linear(Vector3.Zero, size)];
-        Vector3[] sizes = [size, size];
+        Quaternion[] orientations = [Quaternion.Identity, Quaternion.Identity];
+        Vector3[] halfExtents = [size / 2, size / 2];
         var ray = new Ray(Vector3.Zero, new Vector3(100, 0, 0));
 
-        var hit = PhysicsQueries.RayCastNearest(shapes, positions, linears, sizes, ray, new Vector3[8], new Vector3[6],
-            out var index, out _);
+        var hit = PhysicsQueries.RayCastNearest(shapes, positions, orientations, halfExtents, ray, new Vector3[8],
+            new Vector3[6], out var index, out _);
 
         Assert.Multiple(() =>
         {
